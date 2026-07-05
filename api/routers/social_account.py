@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from api.schemas.social_account import SocialAccountCreate, SocialAccountResponse
 
 router = APIRouter(prefix="/social-accounts", tags=["Social Accounts"])
@@ -24,9 +24,13 @@ def connect_social_account(account: SocialAccountCreate):
     mock_accounts.append(new_account)
     return new_account
 
+from fastapi import HTTPException
+
 @router.delete("/{account_id}")
 def disconnect_social_account(account_id: int):
     global mock_accounts
+    account_exists = any(a["id"] == account_id for a in mock_accounts)
+    if not account_exists:
+        raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
     mock_accounts = [a for a in mock_accounts if a["id"] != account_id]
     return {"message": f"Account {account_id} disconnected"}
-    
