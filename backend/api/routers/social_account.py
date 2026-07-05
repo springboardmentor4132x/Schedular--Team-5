@@ -34,3 +34,11 @@ def disconnect_social_account(account_id: int):
         raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
     mock_accounts = [a for a in mock_accounts if a["id"] != account_id]
     return {"message": f"Account {account_id} disconnected"}
+
+@router.get("/{account_id}", response_model=SocialAccountResponse)
+def get_social_account(account_id: int):
+    for account in mock_accounts:
+        if account["id"] == account_id:
+            return account
+    raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
+    
