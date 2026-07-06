@@ -8,7 +8,10 @@ from services.user_service import (
 )
 
 from schemas.user_schema import UserCreate
-from auth.auth import get_current_user
+from auth.auth import (
+    get_current_user,
+    require_role
+)
 
 router = APIRouter(
     prefix="/users",
@@ -43,8 +46,25 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.get("/me")
-def get_me(current_user: str = Depends(get_current_user)):
+def get_me(current_user=Depends(get_current_user)):
     return {
         "message": "Access granted",
-        "username": current_user
+        "username": current_user["username"],
+        "role": current_user["role"]
+    }
+
+
+@router.get("/admin")
+def admin_route(current_user=Depends(require_role("admin"))):
+    return {
+        "message": "Welcome Admin",
+        "user": current_user
+    }
+
+
+@router.get("/creator")
+def creator_route(current_user=Depends(require_role("creator"))):
+    return {
+        "message": "Welcome Creator",
+        "user": current_user
     }

@@ -37,14 +37,23 @@ def create_access_token(data: dict):
 
     to_encode.update({"exp": expire})
 
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(
+        to_encode,
+        SECRET_KEY,
+        algorithm=ALGORITHM
+    )
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
 
         username = payload.get("sub")
+        role = payload.get("role")
 
         if username is None:
             raise HTTPException(
@@ -52,10 +61,26 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
                 detail="Invalid token"
             )
 
-        return username
+        return {
+            "username": username,
+            "role": role
+        }
 
     except JWTError:
         raise HTTPException(
             status_code=401,
             detail="Invalid token"
         )
+
+
+def require_role(required_role: str):
+    def role_checker(current_user=Depends(get_current_user)):
+        if current_user["role"] != required_role:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied"
+            )
+
+        return current_user
+
+    return role_checker
