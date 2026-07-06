@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 
 from services.user_service import (
     get_users,
@@ -8,16 +8,12 @@ from services.user_service import (
 )
 
 from schemas.user_schema import UserCreate
+from auth.auth import get_current_user
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"]
 )
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
 
 
 @router.get("/")
@@ -31,8 +27,11 @@ def create_user(user: UserCreate):
 
 
 @router.post("/login")
-def login(user: LoginRequest):
-    result = login_user(user.username, user.password)
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    result = login_user(
+        form_data.username,
+        form_data.password
+    )
 
     if "access_token" not in result:
         raise HTTPException(
@@ -41,3 +40,11 @@ def login(user: LoginRequest):
         )
 
     return result
+
+
+@router.get("/me")
+def get_me(current_user: str = Depends(get_current_user)):
+    return {
+        "message": "Access granted",
+        "username": current_user
+    }
