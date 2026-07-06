@@ -19,7 +19,5 @@ class SocialAccountCreate(SocialAccountBase):
 class SocialAccountResponse(SocialAccountBase):
     id: int
     status: str
-
-    class Config:
-        from_attributes = True
-        
+    
+model_config = {"from_attributes": True}
