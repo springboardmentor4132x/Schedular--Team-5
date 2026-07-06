@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from api.exceptions.social_account import SocialAccountNotFoundException
 
 mock_accounts = [
     {"id": 1, "platform": "instagram", "account_name": "demo_account", "status": "connected"},
@@ -22,13 +22,13 @@ def get_account(account_id: int):
     for account in mock_accounts:
         if account["id"] == account_id:
             return account
-    raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
+    raise SocialAccountNotFoundException(account_id)
 
 def delete_account(account_id: int):
     global mock_accounts
     account_exists = any(a["id"] == account_id for a in mock_accounts)
     if not account_exists:
-        raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
+        raise SocialAccountNotFoundException(account_id)
     mock_accounts = [a for a in mock_accounts if a["id"] != account_id]
     return {"message": f"Account {account_id} disconnected"}
     
