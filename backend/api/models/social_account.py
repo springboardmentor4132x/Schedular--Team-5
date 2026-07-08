@@ -1,11 +1,17 @@
 
 from api.database.base import Base
+from api.roles.social_account import Platform
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, func, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, func, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 class SocialAccount(Base):
+
     __tablename__ = "socialaccounts"
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "platform", "account_id", name="uq_user_platform_account"),
+    )
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -14,12 +20,14 @@ class SocialAccount(Base):
     )
 
     user_id: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
     )
 
-    platform: Mapped[str] = mapped_column(
-        String(9),
+    platform: Mapped[Platform] = mapped_column(
+        SAEnum(Platform, name="social_platform", native_enum=False, length=20,
+               values_callable=lambda enum_cls: [e.value for e in enum_cls]),
         nullable=False
     )
 
@@ -71,3 +79,8 @@ class SocialAccount(Base):
         server_default=func.now(),
         onupdate=func.now()
     )
+
+    user: Mapped["User"] = relationship(back_populates="social_accounts")
+
+    def __repr__(self) -> str:
+        return f"<SocialAccount id={self.id} platform={self.platform} account={self.account_name!r}>"

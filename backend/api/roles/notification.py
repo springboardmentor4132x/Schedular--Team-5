@@ -1,7 +1,8 @@
 
 from enum import Enum
 
-class Notification(str, Enum):
+class NotificationType(str, Enum):
+    
     INFO = "info"
     SUCCESS = "success"
     WARNING = "warning"

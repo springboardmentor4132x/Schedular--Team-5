@@ -1,7 +1,8 @@
 
 from enum import Enum
 
-class Status(str, Enum):
+class Platform(str, Enum):
+    
     FACEBOOK = "facebook"
     INSTAGRAM = "instagram"
     LINKEDIN = "linkedin"

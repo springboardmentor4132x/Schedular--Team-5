@@ -1,7 +1,9 @@
 
 from enum import Enum
 
-class Status(str, Enum):
-    ADMIN = "admin"
-    INDIVIDUAL = "individual"
-    ORGANIZATION = "organization"
+class Role(str, Enum):
+
+    CONTENT_CREATOR = "content_creator"
+    MARKETING_TEAM = "marketing_team"
+    BUSINESS_USER = "business_user"
+    ADMINISTRATOR = "administrator"

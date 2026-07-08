@@ -3,7 +3,7 @@ from enum import Enum
 
 class Status(str, Enum):
     
-    DRAFT = "draft"
-    ACTIVE = "active"
-    COMPLETED = "completed"
+    PENDING = "pending"
+    EXECUTED = "executed"
+    FAILED = "failed"
     CANCELLED = "cancelled"
