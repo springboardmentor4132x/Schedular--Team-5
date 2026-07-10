@@ -1,4 +1,5 @@
-
+from api.routers.user import router as user_router
+from api.routers.social_account import router as social_account_router
 from api.core import constants
 from api.database.init_db import init_db
 from contextlib import asynccontextmanager
@@ -18,6 +19,9 @@ app = FastAPI(
     version=constants.PROJECT_VERSION,
     lifespan=lifespan
 )
+
+app.include_router(user_router)
+app.include_router(social_account_router)
 
 @app.get('/', response_model=None, tags=["Root Route"])
 def read_root() -> Dict:
