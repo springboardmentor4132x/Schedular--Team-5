@@ -85,3 +85,16 @@ def change_password(username: str, current_password: str, new_password: str):
         return {"message": "Password changed successfully"}
     finally:
         db.close()
+
+def delete_user(user_id: int):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise UserNotFoundException()
+        db.delete(user)
+        db.commit()
+        return {"message": f"User {user_id} deleted successfully"}
+    finally:
+        db.close()
+

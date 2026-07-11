@@ -73,9 +73,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         )
 
 
-def require_role(required_role: str):
+def require_role(*allowed_roles: str):
     def role_checker(current_user=Depends(get_current_user)):
-        if current_user["role"] != required_role:
+        if current_user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=403,
                 detail="Access denied"
