@@ -1,6 +1,8 @@
 from pydantic import BaseModel, field_validator
+from datetime import datetime
 
 SUPPORTED_PLATFORMS = ["instagram", "facebook", "linkedin", "twitter", "youtube", "pinterest"]
+
 
 class SocialAccountBase(BaseModel):
     platform: str
@@ -13,11 +15,17 @@ class SocialAccountBase(BaseModel):
             raise ValueError(f"platform must be one of {SUPPORTED_PLATFORMS}")
         return value.lower()
 
+
 class SocialAccountCreate(SocialAccountBase):
     pass
 
+
 class SocialAccountResponse(SocialAccountBase):
     id: int
-    status: str
-    
-model_config = {"from_attributes": True}
+    account_id: str
+    is_connected: bool
+    token_expiry: datetime | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
