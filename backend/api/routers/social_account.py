@@ -38,3 +38,8 @@ def get_social_account(account_id: int, current_user=Depends(get_current_user)):
 def disconnect_social_account(account_id: int, current_user=Depends(get_current_user)):
     user_id = _get_user_id(current_user)
     return service.delete_account(user_id, account_id)
+
+@router.post("/{account_id}/sync")
+def sync_social_account(account_id: int, current_user=Depends(get_current_user)):
+    user_id = _get_user_id(current_user)
+    return service.sync_account(user_id, account_id)
