@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 
 from api.schemas.social_account import SocialAccountCreate, SocialAccountResponse
 from api.services import social_account as service
 from api.auth.auth import get_current_user
 from api.services.user import get_users
-from api.integrations import facebook
+from api.integrations import facebook, instagram
 
 router = APIRouter(prefix="/social-accounts", tags=["Social Accounts"])
 
@@ -74,6 +74,48 @@ async def facebook_callback(code: str, state: str):
         platform="facebook",
         account_name="Facebook Page",
         token_data=token_data
+    )
+
+    return account
+
+
+@router.get("/instagram/login")
+def instagram_login(current_user=Depends(get_current_user)):
+    """
+    Redirects the user to Instagram's (Meta) real login/consent screen,
+    passing the user's id through the state parameter.
+    """
+    user_id = _get_user_id(current_user)
+    url = instagram.get_login_url(state=str(user_id))
+    return RedirectResponse(url)
+
+
+@router.get("/instagram/callback")
+async def instagram_callback(code: str, state: str):
+    """
+    Meta redirects here after the user approves Instagram permissions.
+    'state' contains the user_id we passed during login.
+    """
+    user_id = int(state)
+    token_data = await instagram.exchange_code_for_token(code)
+    user_access_token = token_data["access_token"]
+
+    try:
+        ig_account = await instagram.get_instagram_business_account(user_access_token)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{e} This is expected while the app is in Meta Development Mode without App Review."
+        )
+
+    account = service.create_account_from_oauth(
+        user_id=user_id,
+        platform="instagram",
+        account_name=ig_account["instagram_username"] or ig_account["page_name"],
+        token_data={
+            "access_token": ig_account["page_access_token"],
+            "expires_in": token_data.get("expires_in"),
+        },
     )
 
     return account
