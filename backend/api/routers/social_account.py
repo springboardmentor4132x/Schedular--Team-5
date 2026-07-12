@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import RedirectResponse
+
 from api.schemas.social_account import SocialAccountCreate, SocialAccountResponse
 from api.services import social_account as service
 from api.auth.auth import get_current_user
 from api.services.user import get_users
-from fastapi.responses import RedirectResponse
 from api.integrations import facebook
 
 router = APIRouter(prefix="/social-accounts", tags=["Social Accounts"])
@@ -41,24 +42,38 @@ def disconnect_social_account(account_id: int, current_user=Depends(get_current_
     user_id = _get_user_id(current_user)
     return service.delete_account(user_id, account_id)
 
+
 @router.post("/{account_id}/sync")
 def sync_social_account(account_id: int, current_user=Depends(get_current_user)):
     user_id = _get_user_id(current_user)
     return service.sync_account(user_id, account_id)
+
+
 @router.get("/facebook/login")
-def facebook_login():
+def facebook_login(current_user=Depends(get_current_user)):
     """
-    Redirects the user to Facebook's real login/consent screen.
+    Redirects the user to Facebook's real login/consent screen,
+    passing the user's id through the state parameter.
     """
-    url = facebook.get_login_url()
+    user_id = _get_user_id(current_user)
+    url = facebook.get_login_url(state=str(user_id))
     return RedirectResponse(url)
 
 
 @router.get("/facebook/callback")
-async def facebook_callback(code: str):
+async def facebook_callback(code: str, state: str):
     """
     Facebook redirects here after the user approves permissions.
-    Exchanges the authorization code for a real access token.
+    'state' contains the user_id we passed during login.
     """
+    user_id = int(state)
     token_data = await facebook.exchange_code_for_token(code)
-    return token_data
+
+    account = service.create_account_from_oauth(
+        user_id=user_id,
+        platform="facebook",
+        account_name="Facebook Page",
+        token_data=token_data
+    )
+
+    return account

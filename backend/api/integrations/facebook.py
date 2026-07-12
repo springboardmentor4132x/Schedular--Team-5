@@ -46,9 +46,10 @@ FACEBOOK_OAUTH_URL = "https://www.facebook.com/v19.0/dialog/oauth"
 FACEBOOK_TOKEN_URL = "https://graph.facebook.com/v19.0/oauth/access_token"
 
 
-def get_login_url() -> str:
+def get_login_url(state: str) -> str:
     """
     Builds the URL that sends the user to Facebook's real login/consent screen.
+    The state parameter carries the user's identity through the redirect.
     """
     scopes = ",".join(PLATFORM_SCOPES)
     return (
@@ -57,8 +58,8 @@ def get_login_url() -> str:
         f"&redirect_uri={FACEBOOK_REDIRECT_URI}"
         f"&scope={scopes}"
         f"&response_type=code"
+        f"&state={state}"
     )
-
 
 async def exchange_code_for_token(code: str) -> dict:
     """

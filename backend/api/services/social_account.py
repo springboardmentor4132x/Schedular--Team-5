@@ -48,6 +48,38 @@ def create_account(user_id: int, platform: str, account_name: str):
     finally:
         db.close()
 
+def create_account_from_oauth(user_id: int, platform: str, account_name: str, token_data: dict):
+    """
+    Saves a real social account using an actual OAuth access token
+    (instead of the mock/simulated flow in create_account()).
+    """
+    db = SessionLocal()
+    try:
+        access_token = token_data.get("access_token")
+        expires_in = token_data.get("expires_in")
+
+        token_expiry = None
+        if expires_in:
+            token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+        new_account = SocialAccount(
+            user_id=user_id,
+            platform=platform,
+            account_name=account_name,
+            account_id=secrets.token_hex(8),  # placeholder until we fetch the real Page ID
+            access_token=access_token,
+            token_expiry=token_expiry,
+            is_connected=True,
+            permissions=DEFAULT_PERMISSIONS.get(platform, [])
+        )
+
+        db.add(new_account)
+        db.commit()
+        db.refresh(new_account)
+        return new_account
+    finally:
+        db.close()        
+
 
 def get_account(user_id: int, account_id: int):
     db = SessionLocal()
@@ -108,3 +140,4 @@ def sync_account(user_id: int, account_id: int):
         return {"account": account, "sync_result": sync_result}
     finally:
         db.close()
+        
