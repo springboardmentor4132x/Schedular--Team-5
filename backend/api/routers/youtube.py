@@ -12,7 +12,7 @@ google_sso = GoogleSSO(
     client_secret=settings.YOUTUBE_CLIENT_SECRET,
     redirect_uri=settings.YOUTUBE_CALLBACK_URL,
     scope=["openid", "email", "profile", "https://www.googleapis.com/auth/youtube.force-ssl"],
-    allow_insecure_http=True  # ONLY use True for local development
+    allow_insecure_http=True
 )
 
 @router.get("/login")
@@ -24,7 +24,6 @@ async def auth_init():
 async def auth_callback(request: Request):
     with google_sso:
         try:
-            # Intercept authorization response codes and parse out user profiles
             user = await google_sso.verify_and_process(request)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
