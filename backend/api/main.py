@@ -4,6 +4,7 @@ from api.routers.twitter import router as twitter_router
 
 from api.core import constants
 from api.database.init_db import init_db
+from api.routers import youtube
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -23,11 +24,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.include_router(user_router)
-app.include_router(social_account_router)
-app.include_router(twitter_router)
-
-
 @app.get("/", response_model=None, tags=["Root Route"])
 def read_root() -> Dict:
     return {
@@ -37,7 +33,12 @@ def read_root() -> Dict:
 
 @app.get("/health", response_model=None, tags=["Health Check Route"])
 def health_check() -> Dict:
-    return {
-        "status": "healthy",
-        "version": constants.PROJECT_VERSION
-    }
+    return {"status": "healthy", "version": constants.PROJECT_VERSION}
+
+app.include_router(
+    router=youtube.router
+)
+
+app.include_router(user_router)
+app.include_router(social_account_router)
+app.include_router(twitter_router)
