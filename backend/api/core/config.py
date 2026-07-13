@@ -1,4 +1,3 @@
-
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -11,12 +10,14 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str
 
+    X_CLIENT_ID: str
+    X_CLIENT_SECRET: str
+    X_CALLBACK_URL: str
+
+    PINTEREST_CLIENT_ID: str | None = None
+    PINTEREST_CLIENT_SECRET: str | None = None
+    PINTEREST_REDIRECT_URI: str | None = None
+
     model_config = SettingsConfigDict(case_sensitive=True)
 
 settings = Settings()
-
-# print(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-# print(settings.ALGORITHM)
-# print(settings.DATABASE_URL)
-# print(settings.DEBUG)
-# print(settings.SECRET_KEY)
