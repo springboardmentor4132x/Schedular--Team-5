@@ -1,4 +1,3 @@
-
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,9 +9,18 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DEBUG: bool = False
     SECRET_KEY: str
+      
     YOUTUBE_CALLBACK_URL: str
     YOUTUBE_CLIENT_ID: str
     YOUTUBE_CLIENT_SECRET: str
+
+    X_CLIENT_ID: str
+    X_CLIENT_SECRET: str
+    X_CALLBACK_URL: str
+      
+    PINTEREST_CLIENT_ID: str = None
+    PINTEREST_CLIENT_SECRET: str = None
+    PINTEREST_REDIRECT_URI: str = None
 
     model_config = SettingsConfigDict(case_sensitive=True)
 
