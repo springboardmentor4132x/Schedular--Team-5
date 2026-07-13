@@ -2,7 +2,7 @@
 from api.database.base import Base
 from api.roles.social_account import Platform
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, func, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, ForeignKey, func, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 class SocialAccount(Base):
@@ -65,6 +65,12 @@ class SocialAccount(Base):
         Boolean,
         nullable=False,
         default=True
+    )
+
+    permissions: Mapped[list[str] | None] = mapped_column(
+        JSON,
+        nullable=True,
+        default=list
     )
 
     created_at: Mapped[datetime] = mapped_column(

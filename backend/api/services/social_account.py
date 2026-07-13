@@ -1,3 +1,4 @@
+from api.integrations import facebook, instagram
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +14,14 @@ def list_accounts(user_id: int):
     finally:
         db.close()
 
+DEFAULT_PERMISSIONS = {
+    "facebook": ["pages_show_list", "pages_manage_posts", "pages_read_engagement"],
+    "instagram": ["instagram_basic", "instagram_content_publish"],
+    "linkedin": ["w_member_social"],
+    "twitter": ["tweet.read", "tweet.write"],
+    "youtube": ["youtube.upload"],
+    "pinterest": ["boards:read", "pins:write"],
+}
 
 def create_account(user_id: int, platform: str, account_name: str):
     db = SessionLocal()
@@ -28,14 +37,48 @@ def create_account(user_id: int, platform: str, account_name: str):
             account_id=mock_account_id,
             access_token=mock_access_token,
             token_expiry=datetime.now(timezone.utc) + timedelta(hours=1),
-            is_connected=True
+            is_connected=True,
+            permissions=DEFAULT_PERMISSIONS.get(platform, [])
         )
+        
         db.add(new_account)
         db.commit()
         db.refresh(new_account)
         return new_account
     finally:
         db.close()
+
+def create_account_from_oauth(user_id: int, platform: str, account_name: str, token_data: dict):
+    """
+    Saves a real social account using an actual OAuth access token
+    (instead of the mock/simulated flow in create_account()).
+    """
+    db = SessionLocal()
+    try:
+        access_token = token_data.get("access_token")
+        expires_in = token_data.get("expires_in")
+
+        token_expiry = None
+        if expires_in:
+            token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+        new_account = SocialAccount(
+            user_id=user_id,
+            platform=platform,
+            account_name=account_name,
+            account_id=secrets.token_hex(8),  # placeholder until we fetch the real Page ID
+            access_token=access_token,
+            token_expiry=token_expiry,
+            is_connected=True,
+            permissions=DEFAULT_PERMISSIONS.get(platform, [])
+        )
+
+        db.add(new_account)
+        db.commit()
+        db.refresh(new_account)
+        return new_account
+    finally:
+        db.close()        
 
 
 def get_account(user_id: int, account_id: int):
@@ -66,3 +109,35 @@ def delete_account(user_id: int, account_id: int):
         return {"message": f"Account {account_id} disconnected"}
     finally:
         db.close()
+
+PLATFORM_MODULES = {
+    "facebook": facebook,
+    "instagram": instagram,
+}
+
+
+def sync_account(user_id: int, account_id: int):
+    db = SessionLocal()
+    try:
+        account = db.query(SocialAccount).filter(
+            SocialAccount.id == account_id,
+            SocialAccount.user_id == user_id
+        ).first()
+        if not account:
+            raise SocialAccountNotFoundException(account_id)
+
+        platform_key = account.platform.value if hasattr(account.platform, "value") else account.platform
+        module = PLATFORM_MODULES.get(platform_key)
+
+        if module:
+            sync_result = module.sync(account.id)
+        else:
+            sync_result = {"account_id": account.id, "synced": False}
+
+        account.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(account)
+        return {"account": account, "sync_result": sync_result}
+    finally:
+        db.close()
+        

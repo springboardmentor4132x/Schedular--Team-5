@@ -25,6 +25,7 @@ class SocialAccountResponse(SocialAccountBase):
     account_id: str
     is_connected: bool
     token_expiry: datetime | None = None
+    permissions: list[str] | None = None
     created_at: datetime
 
     class Config:
