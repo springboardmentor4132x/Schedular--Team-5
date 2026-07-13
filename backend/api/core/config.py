@@ -10,13 +10,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DEBUG: bool = False
     SECRET_KEY: str
+    YOUTUBE_CALLBACK_URL: str
+    YOUTUBE_CLIENT_ID: str
+    YOUTUBE_CLIENT_SECRET: str
 
     model_config = SettingsConfigDict(case_sensitive=True)
 
 settings = Settings()
-
-# print(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-# print(settings.ALGORITHM)
-# print(settings.DATABASE_URL)
-# print(settings.DEBUG)
-# print(settings.SECRET_KEY)

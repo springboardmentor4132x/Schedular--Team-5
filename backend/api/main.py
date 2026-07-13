@@ -1,6 +1,7 @@
 
 from api.core import constants
 from api.database.init_db import init_db
+from api.routers import youtube
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from typing import Dict
@@ -26,3 +27,7 @@ def read_root() -> Dict:
 @app.get('/health', response_model=None, tags=["Health Check Route"])
 def health_check() -> Dict:
     return {"status": "healthy", "version": constants.PROJECT_VERSION}
+
+app.include_router(
+    router=youtube.router
+)
