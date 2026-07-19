@@ -1,4 +1,3 @@
-
 from api.database.base import Base
 from api.roles.post import MediaType, Status
 from datetime import datetime
@@ -48,6 +47,13 @@ class Post(Base):
         nullable=True
     )
 
+    
+    timezone: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        default="UTC"
+    )
+
     published_time: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True
@@ -78,6 +84,11 @@ class Post(Base):
     campaign: Mapped["Campaign | None"] = relationship(back_populates="posts")
 
     schedules: Mapped[list["Schedule"]] = relationship(
+        back_populates="post", cascade="all, delete-orphan"
+    )
+
+   
+    post_social_accounts: Mapped[list["PostSocialAccount"]] = relationship(
         back_populates="post", cascade="all, delete-orphan"
     )
 

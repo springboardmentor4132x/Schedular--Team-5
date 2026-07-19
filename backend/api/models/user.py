@@ -1,4 +1,3 @@
-
 from api.database.base import Base
 from api.roles.user import Role
 from datetime import datetime
@@ -90,6 +89,20 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
 
+   
+    assigned_team: Mapped["BusinessAssignment | None"] = relationship(
+        foreign_keys="BusinessAssignment.business_user_id",
+        back_populates="business_user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+
+    assigned_clients: Mapped[List["BusinessAssignment"]] = relationship(
+        foreign_keys="BusinessAssignment.marketing_team_id",
+        back_populates="marketing_team",
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username!r} role={self.role}>"
-    

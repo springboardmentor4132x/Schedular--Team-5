@@ -1,4 +1,3 @@
-
 from api.database.base import Base
 from api.roles.social_account import Platform
 from datetime import datetime

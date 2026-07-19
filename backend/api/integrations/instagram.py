@@ -5,11 +5,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-# FIXED: these now match the permissions actually approved under
-# "API setup with Facebook login" in the Meta dashboard (matches the PDF's
-# Instagram permission list, pages 8-9). The old "instagram_business_*"
-# scopes belonged to the "API setup with Instagram login" product, which
-# is why the OAuth dialog was rejecting/dropping them.
+
 PLATFORM_SCOPES = [
     "instagram_basic",
     "instagram_content_publish",
@@ -23,10 +19,7 @@ PLATFORM_SCOPES = [
 FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID")
 FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
 
-# NOTE: this must be added as a Valid OAuth Redirect URI under
-# Facebook Login -> Settings in the Meta dashboard, same as the Facebook
-# callback. If it's not added there yet, OAuth will fail with a
-# "redirect_uri" mismatch error.
+
 INSTAGRAM_REDIRECT_URI = os.getenv(
     "INSTAGRAM_REDIRECT_URI",
     "http://localhost:8000/social-accounts/instagram/callback",
