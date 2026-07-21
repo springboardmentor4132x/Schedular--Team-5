@@ -1,6 +1,7 @@
 from api.routers.user import router as user_router
 from api.routers.social_account import router as social_account_router
 from api.routers.twitter import router as twitter_router
+from api.routers import linkedin
 
 from api.core import constants
 from api.database.init_db import init_db
@@ -42,3 +43,4 @@ app.include_router(
 app.include_router(user_router)
 app.include_router(social_account_router)
 app.include_router(twitter_router)
+app.include_router(linkedin.router)
