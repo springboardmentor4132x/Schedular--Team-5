@@ -117,7 +117,9 @@ async def linkedin_callback(
         db.add(new_account)
         
     db.commit()
-    return {"message": "LinkedIn account connected successfully"}
+    return {
+        "message": "LinkedIn account connected successfully"
+    }
 
 @router.delete("/{account_id}")
 def disconnect_linkedin(

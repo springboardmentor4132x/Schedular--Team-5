@@ -86,7 +86,7 @@ class SocialAccount(Base):
         onupdate=func.now()
     )
 
-    user: Mapped["User"] = relationship(back_populates="social_accounts")
+    user: Mapped["User"] = relationship(back_populates="social_accounts")     # type: ignore
 
     def __repr__(self) -> str:
         return f"<SocialAccount id={self.id} platform={self.platform} account={self.account_name!r}>"

@@ -73,11 +73,11 @@ class Post(Base):
         onupdate=func.now()
     )
 
-    user: Mapped["User"] = relationship(back_populates="posts")
+    user: Mapped["User"] = relationship(back_populates="posts")     # type: ignore
 
-    campaign: Mapped["Campaign | None"] = relationship(back_populates="posts")
+    campaign: Mapped["Campaign | None"] = relationship(back_populates="posts")     # type: ignore
 
-    schedules: Mapped[list["Schedule"]] = relationship(
+    schedules: Mapped[list["Schedule"]] = relationship(     # type: ignore
         back_populates="post", cascade="all, delete-orphan"
     )
 

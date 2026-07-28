@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_SECRET: str
     LINKEDIN_REDIRECT_URI: str
 
+    REDIS_URL: str
+
     model_config = SettingsConfigDict(case_sensitive=True)
 
 settings = Settings()

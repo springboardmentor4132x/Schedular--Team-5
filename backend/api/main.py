@@ -2,6 +2,7 @@ from api.routers.user import router as user_router
 from api.routers.social_account import router as social_account_router
 from api.routers.twitter import router as twitter_router
 from api.routers import linkedin
+from api.routers import schedule
 
 from api.core import constants
 from api.database.init_db import init_db
@@ -36,11 +37,9 @@ def read_root() -> Dict:
 def health_check() -> Dict:
     return {"status": "healthy", "version": constants.PROJECT_VERSION}
 
-app.include_router(
-    router=youtube.router
-)
-
+app.include_router(youtube.router)
 app.include_router(user_router)
 app.include_router(social_account_router)
 app.include_router(twitter_router)
 app.include_router(linkedin.router)
+app.include_router(schedule.router)

@@ -21,6 +21,12 @@ class Schedule(Base):
         index=True
     )
 
+    social_account_id: Mapped[int] = mapped_column(
+        ForeignKey("socialaccounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
     post_id: Mapped[int] = mapped_column(
         ForeignKey("posts.id", ondelete="CASCADE"),
         nullable=False,
@@ -44,15 +50,17 @@ class Schedule(Base):
 
     status: Mapped[Status] = mapped_column(
         SAEnum(Status, name="schedule_status", native_enum=False, length=15,
-               values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+            values_callable=lambda enum_cls: [e.value for e in enum_cls]
+        ),
         nullable=False,
         default=Status.PENDING
     )
 
-    user: Mapped["User"] = relationship(back_populates="schedules")
+    user: Mapped["User"] = relationship(back_populates="schedules")     # type: ignore
 
-    post: Mapped["Post"] = relationship(back_populates="schedules")
+    post: Mapped["Post"] = relationship(back_populates="schedules")     # type: ignore
+
+    social_account: Mapped["SocialAccount"] = relationship()     # type: ignore
 
     def __repr__(self) -> str:
         return f"<Schedule id={self.id} post_id={self.post_id} status={self.status}>"
-    
