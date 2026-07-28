@@ -51,7 +51,7 @@ class Post(Base):
     timezone: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
-        default="UTC"
+        default="Asia/Kolkata"
     )
 
     published_time: Mapped[datetime | None] = mapped_column(

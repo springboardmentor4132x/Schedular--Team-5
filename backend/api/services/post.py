@@ -12,14 +12,22 @@ from api.exceptions.post import PostNotFoundException
 DEFAULT_TIMEZONE = "Asia/Kolkata"
 
 
-def _convert_to_utc(scheduled_time, timezone_name):
+def _convert_to_utc(
+    scheduled_time,
+    timezone_name,
+):
     if scheduled_time is None:
         return None
 
-    timezone_name = timezone_name or DEFAULT_TIMEZONE
+    timezone_name = (
+        timezone_name
+        or DEFAULT_TIMEZONE
+    )
 
     try:
-        user_timezone = ZoneInfo(timezone_name)
+        user_timezone = ZoneInfo(
+            timezone_name
+        )
     except Exception:
         raise ValueError(
             f"Invalid timezone: {timezone_name}"
@@ -30,7 +38,9 @@ def _convert_to_utc(scheduled_time, timezone_name):
             tzinfo=user_timezone
         )
 
-    return scheduled_time.astimezone(dt_timezone.utc)
+    return scheduled_time.astimezone(
+        dt_timezone.utc
+    )
 
 
 def _attach_platforms(
@@ -38,7 +48,9 @@ def _attach_platforms(
     post: Post,
     social_account_ids: list[int],
 ):
-    db.query(PostSocialAccount).filter(
+    db.query(
+        PostSocialAccount
+    ).filter(
         PostSocialAccount.post_id == post.id
     ).delete(
         synchronize_session=False
@@ -54,15 +66,13 @@ def _attach_platforms(
         )
 
 
-def create_post(user_id: int, data):
+def create_post(
+    user_id: int,
+    data,
+):
     db = SessionLocal()
 
     try:
-        if data.save_as_draft:
-            status = Status.DRAFT
-        else:
-            status = Status.SCHEDULED
-
         timezone_name = (
             data.timezone
             or DEFAULT_TIMEZONE
@@ -73,26 +83,28 @@ def create_post(user_id: int, data):
             timezone_name,
         )
 
-        if not data.save_as_draft and scheduled_time is None:
-            raise ValueError(
-                "scheduled_time is required for scheduled posts"
-            )
+        if data.save_as_draft:
+            status = Status.DRAFT
 
-        if (
-            not data.save_as_draft
-            and scheduled_time <= datetime.now(dt_timezone.utc)
-        ):
-            raise ValueError(
-                "scheduled_time must be in the future"
-            )
+        else:
+            if scheduled_time is None:
+                raise ValueError(
+                    "scheduled_time is required for scheduled posts"
+                )
 
-        if (
-            not data.save_as_draft
-            and not data.social_account_ids
-        ):
-            raise ValueError(
-                "At least one social account is required for scheduled posts"
-            )
+            if scheduled_time <= datetime.now(
+                dt_timezone.utc
+            ):
+                raise ValueError(
+                    "scheduled_time must be in the future"
+                )
+
+            if not data.social_account_ids:
+                raise ValueError(
+                    "At least one social account is required for scheduled posts"
+                )
+
+            status = Status.SCHEDULED
 
         new_post = Post(
             user_id=user_id,
@@ -117,9 +129,14 @@ def create_post(user_id: int, data):
             )
 
         db.commit()
+
         db.refresh(new_post)
 
         return new_post
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
@@ -132,7 +149,9 @@ def list_posts(
     db = SessionLocal()
 
     try:
-        query = db.query(Post).filter(
+        query = db.query(
+            Post
+        ).filter(
             Post.user_id == user_id
         )
 
@@ -156,13 +175,17 @@ def get_post(
     db = SessionLocal()
 
     try:
-        post = db.query(Post).filter(
+        post = db.query(
+            Post
+        ).filter(
             Post.id == post_id,
             Post.user_id == user_id,
         ).first()
 
         if not post:
-            raise PostNotFoundException(post_id)
+            raise PostNotFoundException(
+                post_id
+            )
 
         return post
 
@@ -178,29 +201,41 @@ def update_post(
     db = SessionLocal()
 
     try:
-        post = db.query(Post).filter(
+        post = db.query(
+            Post
+        ).filter(
             Post.id == post_id,
             Post.user_id == user_id,
         ).first()
 
         if not post:
-            raise PostNotFoundException(post_id)
+            raise PostNotFoundException(
+                post_id
+            )
 
         update_data = data.dict(
             exclude_unset=True,
-            exclude={"social_account_ids"},
+            exclude={
+                "social_account_ids"
+            },
         )
 
         timezone_name = (
-            update_data.get("timezone")
+            update_data.get(
+                "timezone"
+            )
             or post.timezone
             or DEFAULT_TIMEZONE
         )
 
         if "scheduled_time" in update_data:
-            scheduled_time = update_data["scheduled_time"]
+
+            scheduled_time = update_data[
+                "scheduled_time"
+            ]
 
             if scheduled_time is not None:
+
                 scheduled_time = _convert_to_utc(
                     scheduled_time,
                     timezone_name,
@@ -217,8 +252,12 @@ def update_post(
                     "scheduled_time"
                 ] = scheduled_time
 
+                post.status = Status.SCHEDULED
+
         if "timezone" in update_data:
-            update_data["timezone"] = timezone_name
+            update_data[
+                "timezone"
+            ] = timezone_name
 
         for field, value in update_data.items():
             setattr(
@@ -227,7 +266,15 @@ def update_post(
                 value,
             )
 
-        if data.social_account_ids is not None:
+        if (
+            data.social_account_ids
+            is not None
+        ):
+            if not data.social_account_ids:
+                raise ValueError(
+                    "At least one social account is required for scheduled posts"
+                )
+
             _attach_platforms(
                 db,
                 post,
@@ -239,9 +286,14 @@ def update_post(
         )
 
         db.commit()
+
         db.refresh(post)
 
         return post
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
@@ -254,17 +306,28 @@ def cancel_post(
     db = SessionLocal()
 
     try:
-        post = db.query(Post).filter(
+        post = db.query(
+            Post
+        ).filter(
             Post.id == post_id,
             Post.user_id == user_id,
         ).first()
 
         if not post:
-            raise PostNotFoundException(post_id)
+            raise PostNotFoundException(
+                post_id
+            )
+
+        if post.status != Status.SCHEDULED:
+            raise ValueError(
+                "Only scheduled posts can be cancelled. "
+                f"Current status: {post.status.value}"
+            )
 
         post.status = Status.CANCELLED
 
         db.commit()
+
         db.refresh(post)
 
         return post
@@ -280,31 +343,41 @@ def delete_post(
     db = SessionLocal()
 
     try:
-        post = db.query(Post).filter(
+        post = db.query(
+            Post
+        ).filter(
             Post.id == post_id,
             Post.user_id == user_id,
         ).first()
 
         if not post:
-            raise PostNotFoundException(post_id)
+            raise PostNotFoundException(
+                post_id
+            )
 
         db.delete(post)
 
         db.commit()
 
         return {
-            "message": f"Post {post_id} deleted"
+            "message": (
+                f"Post {post_id} deleted"
+            )
         }
 
     finally:
         db.close()
 
 
-def get_calendar(user_id: int):
+def get_calendar(
+    user_id: int,
+):
     db = SessionLocal()
 
     try:
-        return db.query(Post).filter(
+        return db.query(
+            Post
+        ).filter(
             Post.user_id == user_id,
             Post.status.in_([
                 Status.SCHEDULED,
@@ -320,11 +393,15 @@ def get_calendar(user_id: int):
         db.close()
 
 
-def get_queue(user_id: int):
+def get_queue(
+    user_id: int,
+):
     db = SessionLocal()
 
     try:
-        return db.query(Post).filter(
+        return db.query(
+            Post
+        ).filter(
             Post.user_id == user_id,
             Post.status == Status.SCHEDULED,
             Post.scheduled_time.isnot(None),

@@ -127,14 +127,58 @@ def create_account_from_oauth(
                 )
             )
 
+        account_id = (
+            real_account_id
+            or secrets.token_hex(8)
+        )
+
+        existing_account = (
+            db.query(SocialAccount)
+            .filter(
+                SocialAccount.user_id == user_id,
+                SocialAccount.platform == platform,
+                SocialAccount.account_id == account_id,
+            )
+            .first()
+        )
+
+        if existing_account:
+            existing_account.account_name = (
+                account_name
+            )
+
+            existing_account.access_token = (
+                access_token
+            )
+
+            existing_account.token_expiry = (
+                token_expiry
+            )
+
+            existing_account.is_connected = True
+
+            existing_account.permissions = (
+                DEFAULT_PERMISSIONS.get(
+                    platform,
+                    [],
+                )
+            )
+
+            existing_account.updated_at = (
+                datetime.now(timezone.utc)
+            )
+
+            db.commit()
+
+            db.refresh(existing_account)
+
+            return existing_account
+
         new_account = SocialAccount(
             user_id=user_id,
             platform=platform,
             account_name=account_name,
-            account_id=(
-                real_account_id
-                or secrets.token_hex(8)
-            ),
+            account_id=account_id,
             access_token=access_token,
             token_expiry=token_expiry,
             is_connected=True,
