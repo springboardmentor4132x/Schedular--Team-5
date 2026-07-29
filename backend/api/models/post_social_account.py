@@ -1,17 +1,30 @@
+<<<<<<< HEAD
 from api.database.base import Base
 from api.roles.post_social_account import PublishStatus
 from datetime import datetime
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, func, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+=======
+from sqlalchemy import ForeignKey, Integer
+
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from api.database.base import Base
+
+
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
 class PostSocialAccount(Base):
 
     __tablename__ = "post_social_accounts"
 
+<<<<<<< HEAD
     __table_args__ = (
         UniqueConstraint("post_id", "social_account_id", name="uq_post_social_account"),
     )
 
+=======
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
@@ -20,12 +33,17 @@ class PostSocialAccount(Base):
 
     post_id: Mapped[int] = mapped_column(
         ForeignKey("posts.id", ondelete="CASCADE"),
+<<<<<<< HEAD
         nullable=False,
         index=True
+=======
+        nullable=False
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
     )
 
     social_account_id: Mapped[int] = mapped_column(
         ForeignKey("socialaccounts.id", ondelete="CASCADE"),
+<<<<<<< HEAD
         nullable=False,
         index=True
     )
@@ -71,3 +89,14 @@ class PostSocialAccount(Base):
 
     def __repr__(self) -> str:
         return f"<PostSocialAccount post_id={self.post_id} account_id={self.social_account_id} status={self.publish_status}>"
+=======
+        nullable=False
+    )
+
+    post: Mapped["Post"] = relationship(
+        back_populates="social_accounts"
+    )
+
+    social_account: Mapped["SocialAccount"] = relationship()
+    post_accounts: Mapped[list["PostSocialAccount"]] = relationship()
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)

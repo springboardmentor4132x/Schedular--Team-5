@@ -1,11 +1,17 @@
 from datetime import datetime
+<<<<<<< HEAD
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+=======
+
+from pydantic import BaseModel
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
 
 from api.roles.campaign import Status
 from api.roles.social_account import Platform
 
 
 class CampaignCreate(BaseModel):
+<<<<<<< HEAD
 
     title: str = Field(
         ...,
@@ -125,3 +131,39 @@ class CampaignResponse(BaseModel):
     created_at: datetime
 
     updated_at: datetime
+=======
+    title: str
+    description: str
+    platform: Platform | None = None
+    budget: float | None = None
+    objectives: str | None = None
+    start_date: datetime
+    end_date: datetime | None = None
+
+
+class CampaignUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    platform: Platform | None = None
+    budget: float | None = None
+    objectives: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    status: Status | None = None
+
+
+class CampaignResponse(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    description: str
+    platform: Platform | None = None
+    budget: float | None = None
+    objectives: str | None = None
+    start_date: datetime
+    end_date: datetime | None = None
+    status: Status
+
+    class Config:
+        from_attributes = True
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)

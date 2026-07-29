@@ -1,4 +1,5 @@
 import os
+<<<<<<< HEAD
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -102,4 +103,37 @@ async def upload_media(
             if file.content_type in ALLOWED_VIDEO_TYPES
             else "image"
         ),
+=======
+import shutil
+import uuid
+
+from fastapi import APIRouter, File, UploadFile
+
+router = APIRouter(
+    prefix="/upload",
+    tags=["Upload"]
+)
+
+UPLOAD_DIR = "api/uploads"
+
+
+@router.post("/")
+def upload_file(file: UploadFile = File(...)):
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+    extension = file.filename.split(".")[-1]
+
+    filename = f"{uuid.uuid4()}.{extension}"
+
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {
+        "message": "File uploaded successfully",
+        "filename": filename,
+        "url": f"/uploads/{filename}"
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
     }

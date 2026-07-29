@@ -1,10 +1,16 @@
+<<<<<<< HEAD
 import os
 
+=======
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
 from contextlib import asynccontextmanager
 from typing import Dict
 
 from fastapi import FastAPI
+<<<<<<< HEAD
 from fastapi.middleware.cors import CORSMiddleware
+=======
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
 from fastapi.staticfiles import StaticFiles
 
 from api.core import constants
@@ -18,10 +24,20 @@ from api.routers.campaign import router as campaign_router
 from api.routers.upload import router as upload_router
 from api.routers import youtube
 
+<<<<<<< HEAD
 
 UPLOAD_DIR = "uploads"
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+=======
+from api.routers.user import router as user_router
+from api.routers.social_account import router as social_account_router
+from api.routers.twitter import router as twitter_router
+from api.routers.pinterest import router as pinterest_router
+from api.routers.post import router as post_router
+from api.routers.campaign import router as campaign_router
+from api.routers.upload import router as upload_router
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
 
 
 @asynccontextmanager
@@ -37,6 +53,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+<<<<<<< HEAD
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +65,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+=======
+app.include_router(user_router)
+app.include_router(social_account_router)
+app.include_router(twitter_router)
+app.include_router(pinterest_router)
+app.include_router(post_router)
+app.include_router(campaign_router)
+app.include_router(upload_router)
+
+app.mount("/uploads", StaticFiles(directory="api/uploads"), name="uploads")
+>>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
 
 
 @app.get(

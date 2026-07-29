@@ -86,6 +86,10 @@ class Post(Base):
     schedules: Mapped[list["Schedule"]] = relationship(
         back_populates="post", cascade="all, delete-orphan"
     )
+    social_accounts: Mapped[list["PostSocialAccount"]] = relationship(
+    back_populates="post",
+    cascade="all, delete-orphan"
+)
 
    
     post_social_accounts: Mapped[list["PostSocialAccount"]] = relationship(
