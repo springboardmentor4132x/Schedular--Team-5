@@ -22,6 +22,7 @@ from api.routers.twitter import router as twitter_router
 from api.routers.post import router as post_router
 from api.routers.campaign import router as campaign_router
 from api.routers.upload import router as upload_router
+from api.routers.client import router as client_router
 from api.routers import youtube
 
 <<<<<<< HEAD
@@ -111,6 +112,7 @@ app.include_router(twitter_router)
 app.include_router(post_router)
 app.include_router(campaign_router)
 app.include_router(upload_router)
+app.include_router(client_router)
 app.include_router(business_assignment_router)
 
 

@@ -58,6 +58,100 @@ def create_campaign(
         db.close()
 
 
+def create_client_campaign(
+    marketing_team_id: int,
+    client_id: int,
+    data,
+):
+    db = SessionLocal()
+
+    try:
+        marketing_team = (
+            db.query(User)
+            .filter(
+                User.id == marketing_team_id,
+                User.role == "marketing_team",
+            )
+            .first()
+        )
+
+        if not marketing_team:
+            raise ValueError(
+                "Marketing Team user not found"
+            )
+
+        assignment = (
+            db.query(BusinessAssignment)
+            .filter(
+                BusinessAssignment.business_user_id == client_id,
+                BusinessAssignment.marketing_team_id == marketing_team_id,
+            )
+            .first()
+        )
+
+        if not assignment:
+            raise ValueError(
+                "Client is not assigned to your Marketing Team"
+            )
+
+        client = (
+            db.query(User)
+            .filter(
+                User.id == client_id,
+                User.role == "business_user",
+            )
+            .first()
+        )
+
+        if not client:
+            raise ValueError(
+                "Client not found"
+            )
+
+        existing_campaign = (
+            db.query(Campaign)
+            .filter(
+                Campaign.user_id == client_id,
+                Campaign.title == data.title,
+            )
+            .first()
+        )
+
+        if existing_campaign:
+            raise ValueError(
+                "A campaign with this title already exists for this client"
+            )
+
+        if (
+            data.end_date is not None
+            and data.end_date < data.start_date
+        ):
+            raise ValueError(
+                "Campaign end date must be after start date"
+            )
+
+        new_campaign = Campaign(
+            user_id=client_id,
+            title=data.title,
+            description=data.description,
+            platform=data.platform,
+            budget=data.budget,
+            objectives=data.objectives,
+            start_date=data.start_date,
+            end_date=data.end_date,
+            status=data.status,
+        )
+
+        db.add(new_campaign)
+        db.commit()
+        db.refresh(new_campaign)
+
+        return new_campaign
+
+    finally:
+        db.close()
+
+
 def list_campaigns(
     user_id: int,
 ):

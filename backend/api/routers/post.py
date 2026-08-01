@@ -18,28 +18,45 @@ def _get_user_id(current_user: dict) -> int:
     raise Exception("User not found")
 
 
-@router.get("/", response_model=list[PostResponse])
-def list_posts(status: Optional[str] = None, current_user=Depends(get_current_user)):
+def _resolve_target_id(current_user, client_id: Optional[int]) -> int:
+    """Helper to determine if we should query for the client or the logged-in user."""
     user_id = _get_user_id(current_user)
-    return service.list_posts(user_id, status)
+    
+    # Normalize role check to handle both "Marketing Team" and "marketing_team"
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", "")
+    is_marketing = role and role.lower().replace(" ", "_") == "marketing_team"
+
+    if is_marketing and client_id is not None:
+        return client_id
+    return user_id
+
+
+@router.get("/", response_model=list[PostResponse])
+def list_posts(
+    status: Optional[str] = None, 
+    client_id: Optional[int] = None, 
+    current_user=Depends(get_current_user)
+):
+    target_id = _resolve_target_id(current_user, client_id)
+    return service.list_posts(target_id, status)
 
 
 @router.post("/", response_model=PostResponse)
-def create_post(post: PostCreate, current_user=Depends(get_current_user)):
-    user_id = _get_user_id(current_user)
-    return service.create_post(user_id, post)
+def create_post(post: PostCreate, client_id: Optional[int] = None, current_user=Depends(get_current_user)):
+    target_id = _resolve_target_id(current_user, client_id)
+    return service.create_post(target_id, post)
 
 
 @router.get("/calendar", response_model=list[PostResponse])
-def get_calendar(current_user=Depends(get_current_user)):
-    user_id = _get_user_id(current_user)
-    return service.get_calendar(user_id)
+def get_calendar(client_id: Optional[int] = None, current_user=Depends(get_current_user)):
+    target_id = _resolve_target_id(current_user, client_id)
+    return service.get_calendar(target_id)
 
 
 @router.get("/queue", response_model=list[PostResponse])
-def get_queue(current_user=Depends(get_current_user)):
-    user_id = _get_user_id(current_user)
-    return service.get_queue(user_id)
+def get_queue(client_id: Optional[int] = None, current_user=Depends(get_current_user)):
+    target_id = _resolve_target_id(current_user, client_id)
+    return service.get_queue(target_id)
 
 
 @router.get("/{post_id}", response_model=PostResponse)

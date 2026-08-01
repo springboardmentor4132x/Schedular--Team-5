@@ -1,6 +1,8 @@
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
+from api.models.business_assignment import BusinessAssignment
+from api.models.user import User
 from api.database.session import SessionLocal
 from api.models.post import Post
 from api.models.post_social_account import PostSocialAccount
@@ -19,15 +21,10 @@ def _convert_to_utc(
     if scheduled_time is None:
         return None
 
-    timezone_name = (
-        timezone_name
-        or DEFAULT_TIMEZONE
-    )
+    timezone_name = timezone_name or DEFAULT_TIMEZONE
 
     try:
-        user_timezone = ZoneInfo(
-            timezone_name
-        )
+        user_timezone = ZoneInfo(timezone_name)
     except Exception:
         raise ValueError(
             f"Invalid timezone: {timezone_name}"
@@ -73,6 +70,34 @@ def create_post(
     db = SessionLocal()
 
     try:
+        assignment = (
+            db.query(BusinessAssignment)
+            .filter(
+                BusinessAssignment.business_user_id == data.client_id,
+                BusinessAssignment.marketing_team_id == user_id,
+            )
+            .first()
+        )
+
+        if not assignment:
+            raise ValueError(
+                "Client is not assigned to your Marketing Team"
+            )
+
+        client = (
+            db.query(User)
+            .filter(
+                User.id == data.client_id,
+                User.role == "business_user",
+            )
+            .first()
+        )
+
+        if not client:
+            raise ValueError(
+                "Client not found"
+            )
+
         timezone_name = (
             data.timezone
             or DEFAULT_TIMEZONE
@@ -107,7 +132,7 @@ def create_post(
             status = Status.SCHEDULED
 
         new_post = Post(
-            user_id=user_id,
+            user_id=data.client_id,
             campaign_id=data.campaign_id,
             content=data.content,
             media_url=data.media_url,
@@ -118,7 +143,6 @@ def create_post(
         )
 
         db.add(new_post)
-
         db.flush()
 
         if data.social_account_ids:
@@ -129,7 +153,6 @@ def create_post(
             )
 
         db.commit()
-
         db.refresh(new_post)
 
         return new_post
@@ -142,6 +165,16 @@ def create_post(
         db.close()
 
 
+def _get_allowed_user_ids(db, target_id: int) -> list[int]:
+    """If target_id is a marketing user, find all assigned clients. Otherwise return target_id."""
+    user = db.query(User).filter(User.id == target_id).first()
+    if user and user.role and user.role.lower().replace(" ", "_") == "marketing_team":
+        assignments = db.query(BusinessAssignment).filter(BusinessAssignment.marketing_team_id == target_id).all()
+        client_ids = [a.business_user_id for a in assignments]
+        return client_ids if client_ids else [target_id]
+    return [target_id]
+
+
 def list_posts(
     user_id: int,
     status: str | None = None,
@@ -149,10 +182,11 @@ def list_posts(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         query = db.query(
             Post
         ).filter(
-            Post.user_id == user_id
+            Post.user_id.in_(allowed_ids)
         )
 
         if status:
@@ -161,7 +195,7 @@ def list_posts(
             )
 
         return query.order_by(
-            Post.scheduled_time.asc()
+            Post.scheduled_time.asc().nulls_last()
         ).all()
 
     finally:
@@ -175,11 +209,12 @@ def get_post(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         post = db.query(
             Post
         ).filter(
             Post.id == post_id,
-            Post.user_id == user_id,
+            Post.user_id.in_(allowed_ids),
         ).first()
 
         if not post:
@@ -201,11 +236,12 @@ def update_post(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         post = db.query(
             Post
         ).filter(
             Post.id == post_id,
-            Post.user_id == user_id,
+            Post.user_id.in_(allowed_ids),
         ).first()
 
         if not post:
@@ -221,21 +257,17 @@ def update_post(
         )
 
         timezone_name = (
-            update_data.get(
-                "timezone"
-            )
+            update_data.get("timezone")
             or post.timezone
             or DEFAULT_TIMEZONE
         )
 
         if "scheduled_time" in update_data:
-
             scheduled_time = update_data[
                 "scheduled_time"
             ]
 
             if scheduled_time is not None:
-
                 scheduled_time = _convert_to_utc(
                     scheduled_time,
                     timezone_name,
@@ -266,10 +298,7 @@ def update_post(
                 value,
             )
 
-        if (
-            data.social_account_ids
-            is not None
-        ):
+        if data.social_account_ids is not None:
             if not data.social_account_ids:
                 raise ValueError(
                     "At least one social account is required for scheduled posts"
@@ -286,7 +315,6 @@ def update_post(
         )
 
         db.commit()
-
         db.refresh(post)
 
         return post
@@ -306,11 +334,12 @@ def cancel_post(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         post = db.query(
             Post
         ).filter(
             Post.id == post_id,
-            Post.user_id == user_id,
+            Post.user_id.in_(allowed_ids),
         ).first()
 
         if not post:
@@ -327,7 +356,6 @@ def cancel_post(
         post.status = Status.CANCELLED
 
         db.commit()
-
         db.refresh(post)
 
         return post
@@ -343,11 +371,12 @@ def delete_post(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         post = db.query(
             Post
         ).filter(
             Post.id == post_id,
-            Post.user_id == user_id,
+            Post.user_id.in_(allowed_ids),
         ).first()
 
         if not post:
@@ -356,13 +385,10 @@ def delete_post(
             )
 
         db.delete(post)
-
         db.commit()
 
         return {
-            "message": (
-                f"Post {post_id} deleted"
-            )
+            "message": f"Post {post_id} deleted"
         }
 
     finally:
@@ -375,10 +401,11 @@ def get_calendar(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         return db.query(
             Post
         ).filter(
-            Post.user_id == user_id,
+            Post.user_id.in_(allowed_ids),
             Post.status.in_([
                 Status.SCHEDULED,
                 Status.PUBLISHED,
@@ -386,7 +413,7 @@ def get_calendar(
                 Status.CANCELLED,
             ]),
         ).order_by(
-            Post.scheduled_time.asc()
+            Post.scheduled_time.asc().nulls_last()
         ).all()
 
     finally:
@@ -399,14 +426,14 @@ def get_queue(
     db = SessionLocal()
 
     try:
+        allowed_ids = _get_allowed_user_ids(db, user_id)
         return db.query(
             Post
         ).filter(
-            Post.user_id == user_id,
-            Post.status == Status.SCHEDULED,
-            Post.scheduled_time.isnot(None),
+            Post.user_id.in_(allowed_ids),
+            Post.status.in_([Status.SCHEDULED, Status.DRAFT]),
         ).order_by(
-            Post.scheduled_time.asc()
+            Post.scheduled_time.asc().nulls_last()
         ).all()
 
     finally:

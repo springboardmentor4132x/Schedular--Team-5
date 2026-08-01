@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-<<<<<<< HEAD
+
 from api.auth.auth import get_current_user
 from api.schemas.campaign import (
     CampaignCreate,
@@ -54,6 +54,24 @@ def list_client_campaigns(
     return service.list_client_campaigns(
         marketing_team_id,
         client_id,
+    )
+
+
+@router.post(
+    "/client/{client_id}",
+    response_model=CampaignResponse,
+)
+def create_client_campaign(
+    client_id: int,
+    campaign: CampaignCreate,
+    current_user=Depends(get_current_user),
+):
+    marketing_team_id = _get_user_id(current_user)
+
+    return service.create_client_campaign(
+        marketing_team_id,
+        client_id,
+        campaign,
     )
 
 
@@ -172,55 +190,3 @@ def get_campaign_posts(
         user_id,
         campaign_id,
     )
-=======
-
-from api.auth.auth import get_current_user
-from api.schemas.campaign import CampaignCreate, CampaignUpdate
-from api.services.campaign_service import (
-    create_campaign,
-    delete_campaign,
-    get_campaign,
-    get_campaigns,
-    update_campaign,
-)
-
-router = APIRouter(
-    prefix="/campaigns",
-    tags=["Campaigns"]
-)
-
-
-@router.get("/")
-def read_campaigns():
-    return get_campaigns()
-
-
-@router.get("/{campaign_id}")
-def read_campaign(campaign_id: int):
-    return get_campaign(campaign_id)
-
-
-@router.post("/")
-def add_campaign(
-    campaign: CampaignCreate,
-    current_user=Depends(get_current_user)
-):
-    return create_campaign(campaign, current_user["id"])
-
-
-@router.put("/{campaign_id}")
-def edit_campaign(
-    campaign_id: int,
-    campaign: CampaignUpdate,
-    current_user=Depends(get_current_user)
-):
-    return update_campaign(campaign_id, campaign)
-
-
-@router.delete("/{campaign_id}")
-def remove_campaign(
-    campaign_id: int,
-    current_user=Depends(get_current_user)
-):
-    return delete_campaign(campaign_id)
->>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)

@@ -153,7 +153,6 @@ function App() {
               element={
                 <ProtectedRoute
                   allowedRoles={[
-                    'marketing_team',
                     'content_creator',
                   ]}
                 />

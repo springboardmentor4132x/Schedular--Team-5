@@ -22,7 +22,7 @@ DEFAULT_PERMISSIONS = {
     "linkedin": [
         "w_member_social",
     ],
-    "twitter": [
+    "x": [
         "tweet.read",
         "tweet.write",
     ],
@@ -57,7 +57,22 @@ def list_accounts(user_id: int):
     finally:
         db.close()
 
+def list_accounts_for_user(user_id: int):
+    db = SessionLocal()
 
+    try:
+        return (
+            db.query(SocialAccount)
+            .filter(
+                SocialAccount.user_id == user_id,
+                SocialAccount.is_connected == True,
+            )
+            .all()
+        )
+
+    finally:
+        db.close()
+        
 def create_account(
     user_id: int,
     platform: str,
@@ -66,6 +81,8 @@ def create_account(
     db = SessionLocal()
 
     try:
+        platform = platform.lower().strip()
+
         mock_access_token = secrets.token_hex(16)
 
         mock_account_id = secrets.token_hex(8)
@@ -109,9 +126,16 @@ def create_account_from_oauth(
     db = SessionLocal()
 
     try:
+        platform = platform.lower().strip()
+
         access_token = token_data.get(
             "access_token"
         )
+
+        if not access_token:
+            raise ValueError(
+                "OAuth response did not contain an access_token"
+            )
 
         expires_in = token_data.get(
             "expires_in"
@@ -123,7 +147,7 @@ def create_account_from_oauth(
             token_expiry = (
                 datetime.now(timezone.utc)
                 + timedelta(
-                    seconds=expires_in
+                    seconds=int(expires_in)
                 )
             )
 
@@ -132,12 +156,14 @@ def create_account_from_oauth(
             or secrets.token_hex(8)
         )
 
+        # STRICT ISOLATION GUARD: Ensure we query and match strictly by the requested platform.
+        # This prevents Facebook credentials from accidentally overwriting or mapping into Instagram rows and vice-versa.
         existing_account = (
             db.query(SocialAccount)
             .filter(
                 SocialAccount.user_id == user_id,
                 SocialAccount.platform == platform,
-                SocialAccount.account_id == account_id,
+                (SocialAccount.account_id == account_id) | (SocialAccount.account_name == account_name),
             )
             .first()
         )
@@ -248,7 +274,11 @@ def delete_account(
                 account_id
             )
 
-        db.delete(account)
+        account.is_connected = False
+
+        account.updated_at = (
+            datetime.now(timezone.utc)
+        )
 
         db.commit()
 
@@ -290,7 +320,9 @@ def sync_account(
                 account.platform,
                 "value",
             )
-            else account.platform
+            else str(
+                account.platform
+            )
         )
 
         module = PLATFORM_MODULES.get(
@@ -301,7 +333,6 @@ def sync_account(
             sync_result = module.sync(
                 account.account_id
             )
-
         else:
             sync_result = {
                 "account_id": account.account_id,

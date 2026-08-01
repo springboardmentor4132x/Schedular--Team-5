@@ -33,10 +33,7 @@ import {
   cn,
 } from '../utils/helpers';
 
-type ViewMode =
-  | 'month'
-  | 'week'
-  | 'day';
+type ViewMode = 'month' | 'week' | 'day';
 
 interface CalendarPost {
   id: string;
@@ -91,10 +88,7 @@ const months = [
   'December',
 ];
 
-const statusColors: Record<
-  string,
-  string
-> = {
+const statusColors: Record<string, string> = {
   scheduled: 'bg-blue-500',
   publishing: 'bg-indigo-500',
   published: 'bg-emerald-500',
@@ -102,6 +96,48 @@ const statusColors: Record<
   failed: 'bg-red-500',
   cancelled: 'bg-gray-500',
   pending_approval: 'bg-amber-500',
+};
+
+const parseScheduledDate = (
+  scheduledTime?: string | null
+): Date | null => {
+  if (!scheduledTime) {
+    return null;
+  }
+
+  const value = String(scheduledTime).trim();
+
+  if (!value) {
+    return null;
+  }
+
+  let normalizedValue = value;
+
+  const hasTimezone =
+    /([zZ]|[+-]\d{2}:?\d{2})$/.test(value);
+
+  if (!hasTimezone) {
+    normalizedValue = `${value}Z`;
+  }
+
+  const parsed = new Date(normalizedValue);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+};
+
+const formatDateForDebug = (date: Date) => {
+  return {
+    local: date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }),
+    iso: date.toISOString(),
+  };
 };
 
 export function CalendarPage() {
@@ -145,9 +181,7 @@ export function CalendarPage() {
     post: ApiPost
   ): string[] => {
     if (
-      Array.isArray(
-        post.social_account_ids
-      ) &&
+      Array.isArray(post.social_account_ids) &&
       post.social_account_ids.length > 0
     ) {
       return post.social_account_ids.map(
@@ -223,10 +257,7 @@ export function CalendarPage() {
             [];
 
       const campaignMap =
-        new Map<
-          string,
-          Campaign
-        >();
+        new Map<string, Campaign>();
 
       campaignsData.forEach(
         (campaign: Campaign) => {
@@ -245,6 +276,21 @@ export function CalendarPage() {
             );
           })
           .map((post: ApiPost) => {
+            const parsedDate =
+              parseScheduledDate(
+                post.scheduled_time
+              );
+
+            if (!parsedDate) {
+              console.warn(
+                'Invalid scheduled_time for post:',
+                post.id,
+                post.scheduled_time
+              );
+
+              return null;
+            }
+
             const postPlatforms =
               getPostPlatforms(post);
 
@@ -258,6 +304,17 @@ export function CalendarPage() {
                   )
                 : undefined;
 
+            console.log(
+              `Calendar post ${post.id} date:`,
+              {
+                backend:
+                  post.scheduled_time,
+                ...formatDateForDebug(
+                  parsedDate
+                ),
+              }
+            );
+
             return {
               id: String(post.id),
 
@@ -268,9 +325,7 @@ export function CalendarPage() {
               platforms:
                 postPlatforms,
 
-              date: new Date(
-                post.scheduled_time as string
-              ),
+              date: parsedDate,
 
               status:
                 String(
@@ -285,10 +340,10 @@ export function CalendarPage() {
             };
           })
           .filter(
-            (post: CalendarPost) =>
-              !Number.isNaN(
-                post.date.getTime()
-              )
+            (
+              post
+            ): post is CalendarPost =>
+              post !== null
           );
 
       setPosts(
@@ -331,8 +386,12 @@ export function CalendarPage() {
   ) => {
     return posts.filter(
       (post) =>
-        post.date.toDateString() ===
-        date.toDateString()
+        post.date.getFullYear() ===
+          date.getFullYear() &&
+        post.date.getMonth() ===
+          date.getMonth() &&
+        post.date.getDate() ===
+          date.getDate()
     );
   };
 
@@ -783,8 +842,12 @@ export function CalendarPage() {
                               (
                                 post
                               ) =>
-                                post.date.toDateString() ===
-                                  date.toDateString() &&
+                                post.date.getFullYear() ===
+                                  date.getFullYear() &&
+                                post.date.getMonth() ===
+                                  date.getMonth() &&
+                                post.date.getDate() ===
+                                  date.getDate() &&
                                 post.date.getHours() ===
                                   hour
                             );
@@ -854,8 +917,12 @@ export function CalendarPage() {
       const dayPosts =
         posts.filter(
           (post) =>
-            post.date.toDateString() ===
-            currentDate.toDateString()
+            post.date.getFullYear() ===
+              currentDate.getFullYear() &&
+            post.date.getMonth() ===
+              currentDate.getMonth() &&
+            post.date.getDate() ===
+              currentDate.getDate()
         );
 
       return (

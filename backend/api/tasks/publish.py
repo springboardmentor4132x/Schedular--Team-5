@@ -24,15 +24,50 @@ def check_scheduled_posts():
     try:
         now = datetime.now(timezone.utc)
 
-        posts = (
+        print(
+            f">>> SCHEDULER CHECK: UTC now={now.isoformat()}",
+            flush=True,
+        )
+
+        scheduled_posts = (
             db.query(Post)
             .filter(
                 Post.status == Status.SCHEDULED,
                 Post.scheduled_time.isnot(None),
-                Post.scheduled_time <= now,
             )
             .all()
         )
+
+        print(
+            f">>> SCHEDULED POSTS IN DATABASE: {len(scheduled_posts)}",
+            flush=True,
+        )
+
+        posts = []
+
+        for post in scheduled_posts:
+            scheduled_time = post.scheduled_time
+
+            if scheduled_time.tzinfo is None:
+                scheduled_time = scheduled_time.replace(
+                    tzinfo=timezone.utc
+                )
+
+            else:
+                scheduled_time = scheduled_time.astimezone(
+                    timezone.utc
+                )
+
+            print(
+                f">>> CHECKING POST: "
+                f"id={post.id}, "
+                f"scheduled_time={scheduled_time.isoformat()}, "
+                f"now={now.isoformat()}",
+                flush=True,
+            )
+
+            if scheduled_time <= now:
+                posts.append(post)
 
         task_ids = []
 
@@ -56,6 +91,12 @@ def check_scheduled_posts():
         if posts:
             print(
                 f">>> {len(posts)} POST(S) SENT FOR PUBLISHING",
+                flush=True,
+            )
+
+        else:
+            print(
+                ">>> NO POSTS READY FOR PUBLISHING",
                 flush=True,
             )
 
@@ -92,9 +133,7 @@ def publish_post_task(
     try:
         post = (
             db.query(Post)
-            .filter(
-                Post.id == post_id
-            )
+            .filter(Post.id == post_id)
             .first()
         )
 
@@ -156,16 +195,16 @@ def publish_post_task(
                 any_published = True
                 continue
 
-            try:
-                platform = (
-                    social_account.platform.value
-                    if hasattr(
-                        social_account.platform,
-                        "value",
-                    )
-                    else social_account.platform
+            platform = (
+                social_account.platform.value
+                if hasattr(
+                    social_account.platform,
+                    "value",
                 )
+                else social_account.platform
+            )
 
+            try:
                 print(
                     f">>> PUBLISHING POST: "
                     f"post_id={post.id}, "

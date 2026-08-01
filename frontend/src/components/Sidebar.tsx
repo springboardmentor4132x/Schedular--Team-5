@@ -46,7 +46,6 @@ const navItems = [
     icon: Share2,
     roles: [
       'administrator',
-      'marketing_team',
       'business_user',
     ],
   },
@@ -71,7 +70,6 @@ const navItems = [
     label: 'Create Post',
     icon: FileText,
     roles: [
-      'marketing_team',
       'content_creator',
     ],
   },

@@ -2,6 +2,9 @@ import secrets
 from datetime import datetime, timedelta, timezone
 import os
 import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 PLATFORM_SCOPES = [
     "pages_manage_posts",
