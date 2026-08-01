@@ -10,17 +10,23 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str
       
-    YOUTUBE_CALLBACK_URL: str
+    YOUTUBE_REDIRECT_URI: str
     YOUTUBE_CLIENT_ID: str
     YOUTUBE_CLIENT_SECRET: str
 
     X_CLIENT_ID: str
     X_CLIENT_SECRET: str
-    X_CALLBACK_URL: str
+    X_REDIRECT_URI: str
       
-    PINTEREST_CLIENT_ID: str = None
-    PINTEREST_CLIENT_SECRET: str = None
-    PINTEREST_REDIRECT_URI: str = None
+    PINTEREST_CLIENT_ID: str
+    PINTEREST_CLIENT_SECRET: str
+    PINTEREST_REDIRECT_URI: str
+
+    LINKEDIN_CLIENT_ID: str
+    LINKEDIN_CLIENT_SECRET: str
+    LINKEDIN_REDIRECT_URI: str
+
+    REDIS_URL: str
 
     model_config = SettingsConfigDict(case_sensitive=True)
 

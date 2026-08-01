@@ -69,23 +69,23 @@ class User(Base):
         onupdate=func.now()
     )
 
-    social_accounts: Mapped[List["SocialAccount"]] = relationship(
+    social_accounts: Mapped[List["SocialAccount"]] = relationship(     # type: ignore
         back_populates="user", cascade="all, delete-orphan"
     )
     
-    campaigns: Mapped[List["Campaign"]] = relationship(
+    campaigns: Mapped[List["Campaign"]] = relationship(     # type: ignore
         back_populates="user", cascade="all, delete-orphan"
     )
     
-    posts: Mapped[List["Post"]] = relationship(
+    posts: Mapped[List["Post"]] = relationship(     # type: ignore
         back_populates="user", cascade="all, delete-orphan"
     )
     
-    schedules: Mapped[List["Schedule"]] = relationship(
+    schedules: Mapped[List["Schedule"]] = relationship(     # type: ignore
         back_populates="user", cascade="all, delete-orphan"
     )
     
-    notifications: Mapped[List["Notification"]] = relationship(
+    notifications: Mapped[List["Notification"]] = relationship(     # type: ignore
         back_populates="user", cascade="all, delete-orphan"
     )
 

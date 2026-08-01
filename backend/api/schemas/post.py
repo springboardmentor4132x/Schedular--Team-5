@@ -46,3 +46,11 @@ class PostResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SchedulePost(BaseModel):
+    user_id: int
+    account_id: int | str
+    content: str
+    scheduled_time: datetime
+    media_url: str

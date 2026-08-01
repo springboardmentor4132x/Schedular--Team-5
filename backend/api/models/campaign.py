@@ -83,9 +83,9 @@ class Campaign(Base):
         onupdate=func.now()
     )
     
-    user: Mapped["User"] = relationship(back_populates="campaigns")
+    user: Mapped["User"] = relationship(back_populates="campaigns")     # type: ignore
 
-    posts: Mapped[List["Post"]] = relationship(back_populates="campaign")
+    posts: Mapped[List["Post"]] = relationship(back_populates="campaign")     # type: ignore
  
     def __repr__(self) -> str:
         return f"<Campaign id={self.id} title={self.title!r} status={self.status}>"
