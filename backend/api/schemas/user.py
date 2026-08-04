@@ -1,11 +1,13 @@
 from pydantic import BaseModel, EmailStr
+from api.roles.user import Role
 
 
 class UserCreate(BaseModel):
+    full_name: str
     username: str
     email: EmailStr
     password: str
-    role: str
+    role: Role
 
 
 class UserResponse(BaseModel):
@@ -19,7 +21,7 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    username: str | None = None
+    full_name: str | None = None
     email: EmailStr | None = None
 
 
