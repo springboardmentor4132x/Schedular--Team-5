@@ -1,20 +1,15 @@
 import os
-<<<<<<< HEAD
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-
 from api.auth.auth import get_current_user
-
 
 router = APIRouter(
     prefix="/uploads",
     tags=["Uploads"],
 )
 
-
 UPLOAD_DIR = "uploads"
-
 
 ALLOWED_IMAGE_TYPES = {
     "image/jpeg",
@@ -22,7 +17,6 @@ ALLOWED_IMAGE_TYPES = {
     "image/webp",
     "image/gif",
 }
-
 
 ALLOWED_VIDEO_TYPES = {
     "video/mp4",
@@ -52,9 +46,7 @@ async def upload_media(
             detail="Only image and video files are allowed.",
         )
 
-    file_extension = os.path.splitext(
-        file.filename or ""
-    )[1].lower()
+    file_extension = os.path.splitext(file.filename or "")[1].lower()
 
     if not file_extension:
         raise HTTPException(
@@ -62,20 +54,11 @@ async def upload_media(
             detail="File extension could not be detected.",
         )
 
-    os.makedirs(
-        UPLOAD_DIR,
-        exist_ok=True,
-    )
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    unique_filename = (
-        f"{uuid.uuid4().hex}"
-        f"{file_extension}"
-    )
+    unique_filename = f"{uuid.uuid4().hex}{file_extension}"
 
-    file_path = os.path.join(
-        UPLOAD_DIR,
-        unique_filename,
-    )
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
 
     contents = await file.read()
 
@@ -87,53 +70,15 @@ async def upload_media(
             detail="File size cannot exceed 50MB.",
         )
 
-    with open(
-        file_path,
-        "wb",
-    ) as buffer:
+    with open(file_path, "wb") as buffer:
         buffer.write(contents)
 
     return {
         "filename": unique_filename,
-        "media_url": (
-            f"http://127.0.0.1:8000/uploads/{unique_filename}"
-        ),
+        "media_url": f"http://127.0.0.1:8000/uploads/{unique_filename}",
         "media_type": (
             "video"
             if file.content_type in ALLOWED_VIDEO_TYPES
             else "image"
         ),
-=======
-import shutil
-import uuid
-
-from fastapi import APIRouter, File, UploadFile
-
-router = APIRouter(
-    prefix="/upload",
-    tags=["Upload"]
-)
-
-UPLOAD_DIR = "api/uploads"
-
-
-@router.post("/")
-def upload_file(file: UploadFile = File(...)):
-
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    extension = file.filename.split(".")[-1]
-
-    filename = f"{uuid.uuid4()}.{extension}"
-
-    filepath = os.path.join(UPLOAD_DIR, filename)
-
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    return {
-        "message": "File uploaded successfully",
-        "filename": filename,
-        "url": f"/uploads/{filename}"
->>>>>>> f499e49 (Complete Module 3 backend and Campaign APIs)
     }

@@ -5,6 +5,6 @@ class Platform(str, Enum):
     FACEBOOK = "facebook"
     INSTAGRAM = "instagram"
     LINKEDIN = "linkedin"
-    X = "x"
+    TWITTER = "twitter"
     YOUTUBE = "youtube"
     PINTEREST = "pinterest"

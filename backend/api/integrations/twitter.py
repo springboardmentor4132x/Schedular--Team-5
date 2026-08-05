@@ -1,120 +1,96 @@
-import secrets
-import hashlib
-import base64
-from urllib.parse import urlencode
-
-import requests
+from requests_oauthlib import OAuth1Session
 
 from api.core.config import settings
 
-AUTH_URL = "https://twitter.com/i/oauth2/authorize"
-TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
+
+REQUEST_TOKEN_URL = "https://api.twitter.com/oauth/request_token"
+AUTHORIZE_URL = "https://api.twitter.com/oauth/authorize"
+ACCESS_TOKEN_URL = "https://api.twitter.com/oauth/access_token"
+
 USER_URL = "https://api.twitter.com/2/users/me"
 TWEET_URL = "https://api.twitter.com/2/tweets"
-
-SCOPES = [
-    "tweet.read",
-    "tweet.write",
-    "users.read",
-    "offline.access"
-]
-
-
-def generate_pkce():
-    code_verifier = secrets.token_urlsafe(64)
-
-    code_challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(code_verifier.encode()).digest()
-    ).decode().replace("=", "")
-
-    return code_verifier, code_challenge
 
 
 def get_authorization_url():
 
-    state = secrets.token_urlsafe(32)
+    oauth = OAuth1Session(
+        settings.X_CONSUMER_KEY,
+        client_secret=settings.X_CONSUMER_SECRET,
+        callback_uri=settings.X_CALLBACK_URL,
+    )
 
-    code_verifier, code_challenge = generate_pkce()
-
-    params = {
-        "response_type": "code",
-        "client_id": settings.X_CLIENT_ID,
-        "redirect_uri": settings.X_CALLBACK_URL,
-        "scope": " ".join(SCOPES),
-        "state": state,
-        "code_challenge": code_challenge,
-        "code_challenge_method": "S256"
-    }
-
-    url = AUTH_URL + "?" + urlencode(params)
+    fetch_response = oauth.fetch_request_token(
+        REQUEST_TOKEN_URL
+    )
 
     return {
-        "url": url,
-        "state": state,
-        "code_verifier": code_verifier
-    }
-def get_access_token(code: str, code_verifier: str):
-
-    payload = {
-        "grant_type": "authorization_code",
-        "client_id": settings.X_CLIENT_ID,
-        "redirect_uri": settings.X_CALLBACK_URL,
-        "code": code,
-        "code_verifier": code_verifier
+        "url": oauth.authorization_url(
+            AUTHORIZE_URL
+        ),
+        "oauth_token": fetch_response["oauth_token"],
+        "oauth_token_secret": fetch_response[
+            "oauth_token_secret"
+        ],
     }
 
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
 
-    response = requests.post(
-        TOKEN_URL,
-        data=payload,
-        headers=headers,
-        auth=(settings.X_CLIENT_ID, settings.X_CLIENT_SECRET)
+def get_access_token(
+    oauth_token,
+    oauth_token_secret,
+    verifier,
+):
+
+    oauth = OAuth1Session(
+        settings.X_CONSUMER_KEY,
+        client_secret=settings.X_CONSUMER_SECRET,
+        resource_owner_key=oauth_token,
+        resource_owner_secret=oauth_token_secret,
+        verifier=verifier,
     )
+
+    return oauth.fetch_access_token(
+        ACCESS_TOKEN_URL
+    )
+
+
+def get_me(
+    access_token,
+    access_token_secret,
+):
+
+    oauth = OAuth1Session(
+        settings.X_CONSUMER_KEY,
+        client_secret=settings.X_CONSUMER_SECRET,
+        resource_owner_key=access_token,
+        resource_owner_secret=access_token_secret,
+    )
+
+    response = oauth.get(USER_URL)
 
     response.raise_for_status()
 
     return response.json()
 
 
-def get_profile(access_token: str):
+def post_tweet(
+    access_token,
+    access_token_secret,
+    text,
+):
 
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-
-    response = requests.get(
-        USER_URL,
-        headers=headers
+    oauth = OAuth1Session(
+        settings.X_CONSUMER_KEY,
+        client_secret=settings.X_CONSUMER_SECRET,
+        resource_owner_key=access_token,
+        resource_owner_secret=access_token_secret,
     )
 
-    response.raise_for_status()
-
-    return response.json()
-
-
-def post_tweet(access_token: str, text: str):
-
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
-
-    body = {
-        "text": text
-    }
-
-    response = requests.post(
+    response = oauth.post(
         TWEET_URL,
-        headers=headers,
-        json=body
+        json={
+            "text": text,
+        },
     )
-
-    print("STATUS:", response.status_code)
-    print("BODY:", response.text)
-    print("HEADERS:", response.headers)
 
     response.raise_for_status()
 

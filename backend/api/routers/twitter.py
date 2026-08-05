@@ -1,66 +1,96 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 
+from api.auth.auth import get_current_user
 from api.integrations import twitter
+from api.services import social_account as service
 
 router = APIRouter(
     prefix="/auth/twitter",
-    tags=["Twitter"]
+    tags=["Twitter"],
 )
 
-# Temporary memory (baad me DB/Redis me store karenge)
-pkce_store = {}
+oauth_store = {}
 
 
 @router.get("/login")
-def twitter_login():
+def twitter_login(
+    current_user=Depends(get_current_user),
+):
+    print("========== CURRENT USER ==========")
+    print(current_user)
+    print("==================================")
 
     data = twitter.get_authorization_url()
 
-    pkce_store[data["state"]] = data["code_verifier"]
+    oauth_store[data["oauth_token"]] = {
+        "oauth_token_secret": data["oauth_token_secret"],
+        "user_id": current_user["id"],
+    }
 
-    return RedirectResponse(data["url"])
+    print("========== OAUTH STORE ==========")
+    print(oauth_store[data["oauth_token"]])
+    print("=================================")
+
+    return {
+        "url": data["url"]
+    }
 
 
 @router.get("/callback")
 def twitter_callback(
-    code: str,
-    state: str | None = None
+    oauth_token: str,
+    oauth_verifier: str,
 ):
+    data = oauth_store.get(oauth_token)
 
-    if state:
-        code_verifier = pkce_store.get(state)
-    else:
-        if len(pkce_store) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Code verifier not found"
-            )
+    print("========== CALLBACK DATA ==========")
+    print(data)
+    print("===================================")
 
-        code_verifier = list(pkce_store.values())[0]
-        pkce_store.clear()
+    if not data:
+        raise HTTPException(
+            status_code=400,
+            detail="OAuth token not found",
+        )
 
     token = twitter.get_access_token(
-        code,
-        code_verifier
+        oauth_token,
+        data["oauth_token_secret"],
+        oauth_verifier,
     )
 
-    return token
+    print("========== TWITTER TOKEN ==========")
+    print(token)
+    print("===================================")
 
+    service.create_account_from_oauth(
+        user_id=data["user_id"],
+        platform="twitter",
+        account_name=token["screen_name"],
+        token_data={
+            "access_token": token["oauth_token"],
+        },
+        real_account_id=str(token["user_id"]),
+    )
 
-@router.get("/me")
-def twitter_me(access_token: str):
+    print("========== ACCOUNT SAVED ==========")
 
-    return twitter.get_profile(access_token)
+    oauth_store.pop(oauth_token)
+
+    return RedirectResponse(
+        url="http://localhost:5173/app/accounts"
+    )
 
 
 @router.post("/tweet")
 def create_tweet(
     access_token: str,
-    text: str
+    access_token_secret: str,
+    text: str,
 ):
-
     return twitter.post_tweet(
         access_token,
-        text
+        access_token_secret,
+        text,
     )
