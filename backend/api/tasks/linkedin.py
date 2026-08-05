@@ -39,7 +39,6 @@ def publish_to_linkedin(self, schedule_id: int):
         
         author_urn = f"urn:li:person:{account.account_id}"
         
-        # Base Post Payload
         payload = {
             "author": author_urn,
             "commentary": post.content,
@@ -52,7 +51,6 @@ def publish_to_linkedin(self, schedule_id: int):
             "lifecycleState": "PUBLISHED"
         }
 
-        # Handle Media Upload if media_url exists
         if post.media_url and os.path.exists(post.media_url):
             media_urn = None
             
@@ -60,7 +58,6 @@ def publish_to_linkedin(self, schedule_id: int):
                 file_bytes = file.read()
 
             if post.media_type == MediaType.IMAGE:
-                # 1. Initialize Image Upload
                 init_res = httpx.post(
                     "https://api.linkedin.com/rest/images?action=initializeUpload",
                     json={"initializeUploadRequest": {"owner": author_urn}},
@@ -70,12 +67,10 @@ def publish_to_linkedin(self, schedule_id: int):
                 upload_url = init_res.json()["value"]["uploadUrl"]
                 media_urn = init_res.json()["value"]["image"]
                 
-                # 2. Upload Bytes
                 upload_res = httpx.put(upload_url, content=file_bytes, headers={"Authorization": f"Bearer {account.access_token}"})
                 upload_res.raise_for_status()
 
             elif post.media_type == MediaType.VIDEO:
-                # 1. Initialize Video Upload
                 init_res = httpx.post(
                     "https://api.linkedin.com/rest/videos?action=initializeUpload",
                     json={
@@ -88,13 +83,11 @@ def publish_to_linkedin(self, schedule_id: int):
                 )
                 init_res.raise_for_status()
                 
-                # Extract the upload token and URL
                 init_data = init_res.json()["value"]
                 upload_url = init_data["uploadInstructions"][0]["uploadUrl"]
                 media_urn = init_data["video"]
                 upload_token = init_data.get("uploadToken", "")
                 
-                # 2. Upload Bytes
                 upload_headers = {
                     "Authorization": f"Bearer {account.access_token}",
                     "Content-Type": "application/octet-stream"
@@ -102,8 +95,6 @@ def publish_to_linkedin(self, schedule_id: int):
                 upload_res = httpx.put(upload_url, content=file_bytes, headers=upload_headers, timeout=120.0)
                 upload_res.raise_for_status()
                 
-                # 3. Finalize Video Upload (THIS WAS MISSING!)
-                # LinkedIn requires the exact ETag receipt returned from the PUT request
                 etag = upload_res.headers.get("etag")
                 
                 finalize_res = httpx.post(
@@ -119,11 +110,9 @@ def publish_to_linkedin(self, schedule_id: int):
                 )
                 finalize_res.raise_for_status()
 
-            # 3. Attach Media URN to Post Payload
             if media_urn:
                 payload["content"] = {"media": {"id": media_urn}}
 
-        # 4. Publish the final post
         response = httpx.post("https://api.linkedin.com/rest/posts", json=payload, headers=headers)
         response.raise_for_status()
 
