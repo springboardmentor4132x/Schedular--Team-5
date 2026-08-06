@@ -42,6 +42,31 @@ PLATFORM_MODULES = {
 }
 
 
+SUPPORTED_PLATFORMS = {
+    "facebook",
+    "instagram",
+    "linkedin",
+    "x",
+    "twitter",
+    "youtube",
+    "pinterest",
+}
+
+
+def _normalize_platform(platform: str) -> str:
+    platform = str(platform).lower().strip()
+
+    if platform == "twitter":
+        platform = "x"
+
+    if platform not in SUPPORTED_PLATFORMS:
+        raise ValueError(
+            f"Unsupported social platform: {platform}"
+        )
+
+    return platform
+
+
 def list_accounts(user_id: int):
     db = SessionLocal()
 
@@ -49,30 +74,20 @@ def list_accounts(user_id: int):
         return (
             db.query(SocialAccount)
             .filter(
-                SocialAccount.user_id == user_id
+                SocialAccount.user_id == user_id,
+                SocialAccount.is_connected.is_(True),
             )
+            .order_by(SocialAccount.id.asc())
             .all()
         )
-
     finally:
         db.close()
+
 
 def list_accounts_for_user(user_id: int):
-    db = SessionLocal()
+    return list_accounts(user_id)
 
-    try:
-        return (
-            db.query(SocialAccount)
-            .filter(
-                SocialAccount.user_id == user_id,
-                SocialAccount.is_connected == True,
-            )
-            .all()
-        )
 
-    finally:
-        db.close()
-        
 def create_account(
     user_id: int,
     platform: str,
@@ -81,18 +96,14 @@ def create_account(
     db = SessionLocal()
 
     try:
-        platform = platform.lower().strip()
-
-        mock_access_token = secrets.token_hex(16)
-
-        mock_account_id = secrets.token_hex(8)
+        platform = _normalize_platform(platform)
 
         new_account = SocialAccount(
             user_id=user_id,
             platform=platform,
             account_name=account_name,
-            account_id=mock_account_id,
-            access_token=mock_access_token,
+            account_id=secrets.token_hex(8),
+            access_token=secrets.token_hex(16),
             token_expiry=(
                 datetime.now(timezone.utc)
                 + timedelta(hours=1)
@@ -105,9 +116,7 @@ def create_account(
         )
 
         db.add(new_account)
-
         db.commit()
-
         db.refresh(new_account)
 
         return new_account
@@ -126,76 +135,62 @@ def create_account_from_oauth(
     db = SessionLocal()
 
     try:
-        platform = platform.lower().strip()
+        platform = _normalize_platform(platform)
 
-        access_token = token_data.get(
-            "access_token"
-        )
+        access_token = token_data.get("access_token")
 
         if not access_token:
             raise ValueError(
                 "OAuth response did not contain an access_token"
             )
 
-        expires_in = token_data.get(
-            "expires_in"
-        )
+        expires_in = token_data.get("expires_in")
 
         token_expiry = None
 
-        if expires_in:
-            token_expiry = (
-                datetime.now(timezone.utc)
-                + timedelta(
-                    seconds=int(expires_in)
+        if expires_in is not None:
+            try:
+                token_expiry = (
+                    datetime.now(timezone.utc)
+                    + timedelta(
+                        seconds=int(expires_in)
+                    )
                 )
-            )
+            except (TypeError, ValueError):
+                token_expiry = None
 
         account_id = (
-            real_account_id
-            or secrets.token_hex(8)
+            str(real_account_id)
+            if real_account_id is not None
+            else secrets.token_hex(8)
         )
 
-        # STRICT ISOLATION GUARD: Ensure we query and match strictly by the requested platform.
-        # This prevents Facebook credentials from accidentally overwriting or mapping into Instagram rows and vice-versa.
         existing_account = (
             db.query(SocialAccount)
             .filter(
                 SocialAccount.user_id == user_id,
                 SocialAccount.platform == platform,
-                (SocialAccount.account_id == account_id) | (SocialAccount.account_name == account_name),
+                SocialAccount.account_id == account_id,
             )
             .first()
         )
 
         if existing_account:
-            existing_account.account_name = (
-                account_name
-            )
-
-            existing_account.access_token = (
-                access_token
-            )
-
-            existing_account.token_expiry = (
-                token_expiry
-            )
-
+            existing_account.account_name = account_name
+            existing_account.access_token = access_token
+            existing_account.token_expiry = token_expiry
             existing_account.is_connected = True
-
             existing_account.permissions = (
                 DEFAULT_PERMISSIONS.get(
                     platform,
                     [],
                 )
             )
-
             existing_account.updated_at = (
                 datetime.now(timezone.utc)
             )
 
             db.commit()
-
             db.refresh(existing_account)
 
             return existing_account
@@ -215,9 +210,7 @@ def create_account_from_oauth(
         )
 
         db.add(new_account)
-
         db.commit()
-
         db.refresh(new_account)
 
         return new_account
@@ -275,9 +268,8 @@ def delete_account(
             )
 
         account.is_connected = False
-
-        account.updated_at = (
-            datetime.now(timezone.utc)
+        account.updated_at = datetime.now(
+            timezone.utc
         )
 
         db.commit()
@@ -305,6 +297,7 @@ def sync_account(
             .filter(
                 SocialAccount.id == account_id,
                 SocialAccount.user_id == user_id,
+                SocialAccount.is_connected.is_(True),
             )
             .first()
         )
@@ -316,18 +309,11 @@ def sync_account(
 
         platform_key = (
             account.platform.value
-            if hasattr(
-                account.platform,
-                "value",
-            )
-            else str(
-                account.platform
-            )
+            if hasattr(account.platform, "value")
+            else str(account.platform)
         )
 
-        module = PLATFORM_MODULES.get(
-            platform_key
-        )
+        module = PLATFORM_MODULES.get(platform_key)
 
         if module:
             sync_result = module.sync(
@@ -339,12 +325,11 @@ def sync_account(
                 "synced": False,
             }
 
-        account.updated_at = (
-            datetime.now(timezone.utc)
+        account.updated_at = datetime.now(
+            timezone.utc
         )
 
         db.commit()
-
         db.refresh(account)
 
         return {

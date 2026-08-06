@@ -5,6 +5,7 @@ from api.services.user import (
     get_users,
     add_user,
     login_user,
+    get_profile,
     update_profile,
     change_password,
     delete_user,
@@ -32,6 +33,10 @@ router = APIRouter(
 )
 
 
+# ============================================================
+# GET USERS
+# ============================================================
+
 @router.get(
     "/",
     response_model=list[UserResponse]
@@ -39,6 +44,10 @@ router = APIRouter(
 def read_users():
     return get_users()
 
+
+# ============================================================
+# CHECK ADMINISTRATOR
+# ============================================================
 
 @router.get("/admin-exists")
 def check_administrator_exists():
@@ -57,10 +66,18 @@ def check_administrator_exists():
         db.close()
 
 
+# ============================================================
+# CREATE USER
+# ============================================================
+
 @router.post("/")
 def create_user(user: UserCreate):
     return add_user(user)
 
+
+# ============================================================
+# LOGIN
+# ============================================================
 
 @router.post("/login")
 def login(
@@ -72,16 +89,42 @@ def login(
     )
 
 
+# ============================================================
+# GET CURRENT USER PROFILE
+# ============================================================
+
 @router.get("/me")
 def get_me(
     current_user=Depends(get_current_user)
 ):
+    profile = get_profile(
+        current_user["username"]
+    )
+
     return {
         "message": "Access granted",
-        "username": current_user["username"],
-        "role": current_user["role"]
+
+        "id": profile["id"],
+
+        "username": profile["username"],
+
+        "role": profile["role"],
+
+        "email": profile["email"],
+
+        "full_name": profile["full_name"],
+
+        "phone": profile["phone"],
+
+        "website": profile["website"],
+
+        "bio": profile["bio"],
     }
 
+
+# ============================================================
+# UPDATE CURRENT USER PROFILE
+# ============================================================
 
 @router.put("/me")
 def update_my_profile(
@@ -94,6 +137,10 @@ def update_my_profile(
     )
 
 
+# ============================================================
+# CHANGE PASSWORD
+# ============================================================
+
 @router.put("/me/password")
 def update_my_password(
     payload: PasswordChange,
@@ -105,6 +152,10 @@ def update_my_password(
         payload.new_password
     )
 
+
+# ============================================================
+# GET ALL USERS
+# ============================================================
 
 @router.get(
     "/all",
@@ -121,6 +172,10 @@ def list_all_users(
     return get_users()
 
 
+# ============================================================
+# DELETE USER
+# ============================================================
+
 @router.delete("/{user_id}")
 def delete_user_account(
     user_id: int,
@@ -130,6 +185,10 @@ def delete_user_account(
 ):
     return delete_user(user_id)
 
+
+# ============================================================
+# ADMIN ROUTE
+# ============================================================
 
 @router.get("/admin")
 def admin_route(
@@ -142,6 +201,10 @@ def admin_route(
         "user": current_user
     }
 
+
+# ============================================================
+# MARKETING ROUTE
+# ============================================================
 
 @router.get("/marketing")
 def marketing_route(
@@ -158,6 +221,10 @@ def marketing_route(
     }
 
 
+# ============================================================
+# BUSINESS ROUTE
+# ============================================================
+
 @router.get("/business")
 def business_route(
     current_user=Depends(
@@ -172,6 +239,10 @@ def business_route(
         "user": current_user
     }
 
+
+# ============================================================
+# CREATOR ROUTE
+# ============================================================
 
 @router.get("/creator")
 def creator_route(

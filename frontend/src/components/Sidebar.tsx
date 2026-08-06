@@ -47,6 +47,7 @@ const navItems = [
     roles: [
       'administrator',
       'business_user',
+      'content_creator',
     ],
   },
   {

@@ -1,3 +1,4 @@
+
 import {
   BrowserRouter,
   Routes,
@@ -12,6 +13,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 
 import { DashboardPage } from './pages/DashboardPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { SocialAccountsPage } from './pages/SocialAccountsPage';
 import { CreatePostPage } from './pages/CreatePostPage';
 import { CalendarPage } from './pages/CalendarPage';
@@ -30,7 +32,9 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* Public Routes */}
+        {/* =====================================================
+            PUBLIC ROUTES
+        ===================================================== */}
 
         <Route
           path="/"
@@ -48,7 +52,9 @@ function App() {
         />
 
 
-        {/* Protected Application Routes */}
+        {/* =====================================================
+            PROTECTED APPLICATION ROUTES
+        ===================================================== */}
 
         <Route
           path="/app"
@@ -58,7 +64,7 @@ function App() {
             element={<DashboardLayout />}
           >
 
-            {/* /app */}
+            {/* /app → /app/dashboard */}
 
             <Route
               index
@@ -71,7 +77,9 @@ function App() {
             />
 
 
-            {/* Dashboard */}
+            {/* =================================================
+                DASHBOARD
+            ================================================= */}
 
             <Route
               path="dashboard"
@@ -79,7 +87,19 @@ function App() {
             />
 
 
-            {/* Social Accounts */}
+            {/* =================================================
+                PROFILE
+            ================================================= */}
+
+            <Route
+              path="profile"
+              element={<ProfilePage />}
+            />
+
+
+            {/* =================================================
+                SOCIAL ACCOUNTS
+            ================================================= */}
 
             <Route
               path="accounts"
@@ -88,6 +108,7 @@ function App() {
                   allowedRoles={[
                     'administrator',
                     'business_user',
+                    'content_creator',
                   ]}
                 />
               }
@@ -99,7 +120,9 @@ function App() {
             </Route>
 
 
-            {/* Business User - Marketing Team */}
+            {/* =================================================
+                BUSINESS USER - MY MARKETING TEAM
+            ================================================= */}
 
             <Route
               path="my-marketing-team"
@@ -118,7 +141,9 @@ function App() {
             </Route>
 
 
-            {/* Marketing Team - My Clients */}
+            {/* =================================================
+                MARKETING TEAM - MY CLIENTS
+            ================================================= */}
 
             <Route
               path="clients"
@@ -130,14 +155,10 @@ function App() {
                 />
               }
             >
-              {/* /app/clients */}
-
               <Route
                 index
                 element={<MyClientsPage />}
               />
-
-              {/* /app/clients/:clientId */}
 
               <Route
                 path=":clientId"
@@ -146,7 +167,9 @@ function App() {
             </Route>
 
 
-            {/* Create Post */}
+            {/* =================================================
+                CREATE POST
+            ================================================= */}
 
             <Route
               path="create-post"
@@ -165,7 +188,9 @@ function App() {
             </Route>
 
 
-            {/* Calendar */}
+            {/* =================================================
+                CALENDAR
+            ================================================= */}
 
             <Route
               path="calendar"
@@ -186,7 +211,9 @@ function App() {
             </Route>
 
 
-            {/* Campaigns */}
+            {/* =================================================
+                CAMPAIGNS
+            ================================================= */}
 
             <Route
               path="campaigns"
@@ -206,7 +233,9 @@ function App() {
             </Route>
 
 
-            {/* Analytics */}
+            {/* =================================================
+                ANALYTICS
+            ================================================= */}
 
             <Route
               path="analytics"
@@ -226,7 +255,9 @@ function App() {
             </Route>
 
 
-            {/* Notifications */}
+            {/* =================================================
+                NOTIFICATIONS
+            ================================================= */}
 
             <Route
               path="notifications"
@@ -234,7 +265,9 @@ function App() {
             />
 
 
-            {/* Administrator Settings */}
+            {/* =================================================
+                SETTINGS
+            ================================================= */}
 
             <Route
               path="settings"
@@ -242,6 +275,9 @@ function App() {
                 <ProtectedRoute
                   allowedRoles={[
                     'administrator',
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
                   ]}
                 />
               }
@@ -256,7 +292,9 @@ function App() {
         </Route>
 
 
-        {/* Catch-All Route */}
+        {/* =====================================================
+            CATCH-ALL ROUTE
+        ===================================================== */}
 
         <Route
           path="*"
@@ -274,3 +312,4 @@ function App() {
 }
 
 export default App;
+

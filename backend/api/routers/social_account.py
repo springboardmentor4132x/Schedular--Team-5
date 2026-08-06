@@ -1,6 +1,7 @@
+from typing import Optional, List
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from api.schemas.social_account import (
@@ -19,38 +20,54 @@ router = APIRouter(prefix="/social-accounts")
 
 
 def get_db():
-    """Local session generator to guarantee compatibility."""
     db = SessionLocal()
+
     try:
         yield db
     finally:
         db.close()
 
 
-def _get_user_id(current_user: dict) -> int:
+def _get_user_id(current_user) -> int:
+    username = (
+        current_user.get("username")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "username", None)
+    )
+
+    if not username:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authenticated user.",
+        )
+
     users = get_users()
 
     for user in users:
-        if user.username == current_user["username"]:
+        if user.username == username:
             return user.id
 
     raise HTTPException(
         status_code=404,
-        detail="User not found",
+        detail="User not found.",
     )
 
 
-def _resolve_target_id(current_user, client_id: Optional[int]) -> int:
+def _resolve_target_id(
+    current_user,
+    client_id: Optional[int],
+) -> int:
     user_id = _get_user_id(current_user)
-    
-    is_marketing = False
-    if isinstance(current_user, dict) and current_user.get("role") == "marketing_team":
-        is_marketing = True
-    elif hasattr(current_user, "role") and getattr(current_user, "role") == "marketing_team":
-        is_marketing = True
 
-    if is_marketing and client_id is not None:
+    role = (
+        current_user.get("role")
+        if isinstance(current_user, dict)
+        else getattr(current_user, "role", None)
+    )
+
+    if role == "marketing_team" and client_id is not None:
         return client_id
+
     return user_id
 
 
@@ -64,21 +81,23 @@ def list_social_accounts(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    print(f"DEBUG: Received client_id query param -> {client_id} (type: {type(client_id)})")
-    if client_id is not None:
-        try:
-            accounts = db.query(SocialAccount).filter(
-                (SocialAccount.client_id == client_id) | 
-                (SocialAccount.client_id == str(client_id))
-            ).all()
-            print(f"DEBUG: Found accounts in DB -> {accounts}")
-            return accounts
-        except Exception as e:
-            print(f"DEBUG ERROR: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    target_id = _resolve_target_id(
+        current_user,
+        client_id,
+    )
 
-    target_id = _resolve_target_id(current_user, client_id)
-    return service.list_accounts(target_id)
+    accounts = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == target_id,
+            SocialAccount.is_connected.is_(True),
+        )
+        .order_by(SocialAccount.id.asc())
+        .all()
+    )
+
+    return accounts
+
 
 @router.post(
     "/",
@@ -90,7 +109,11 @@ def connect_social_account(
     client_id: Optional[int] = None,
     current_user=Depends(get_current_user),
 ):
-    target_id = _resolve_target_id(current_user, client_id)
+    target_id = _resolve_target_id(
+        current_user,
+        client_id,
+    )
+
     return service.create_account(
         target_id,
         account.platform,
@@ -106,13 +129,17 @@ def facebook_login(
     client_id: Optional[int] = None,
     current_user=Depends(get_current_user),
 ):
-    target_id = _resolve_target_id(current_user, client_id)
+    target_id = _resolve_target_id(
+        current_user,
+        client_id,
+    )
+
     url = facebook.get_login_url(
         state=str(target_id)
     )
 
     return {
-        "url": url
+        "url": url,
     }
 
 
@@ -139,15 +166,23 @@ async def facebook_callback(
             )
         )
 
-        user_access_token = token_data[
+        user_access_token = token_data.get(
             "access_token"
-        ]
+        )
+
+        if not user_access_token:
+            raise ValueError(
+                "Facebook OAuth did not return an access token."
+            )
 
         pages = (
             await facebook.get_user_pages(
                 user_access_token
             )
         )
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         raise HTTPException(
@@ -160,30 +195,54 @@ async def facebook_callback(
             status_code=422,
             detail=(
                 "No Facebook Pages found for this user. "
-                "You must manage at least one Page "
-                "to connect Facebook."
+                "You must manage at least one Facebook Page."
             ),
         )
 
     page = pages[0]
 
-    # Explicitly enforce saving strictly as Facebook, ignoring any side-effects
+    page_id = page.get("id")
+    page_name = page.get("name")
+    page_access_token = page.get(
+        "access_token"
+    )
+
+    if not page_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Facebook did not return a Page ID.",
+        )
+
+    if not page_name:
+        raise HTTPException(
+            status_code=422,
+            detail="Facebook did not return a Page name.",
+        )
+
+    if not page_access_token:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Facebook did not return a Page access token."
+            ),
+        )
+
     service.create_account_from_oauth(
         user_id=user_id,
         platform="facebook",
-        account_name=page["name"],
+        account_name=page_name,
         token_data={
-            "access_token": page[
-                "access_token"
-            ],
+            "access_token": page_access_token,
             "expires_in": token_data.get(
                 "expires_in"
             ),
         },
-        real_account_id=page["id"],
+        real_account_id=str(page_id),
     )
 
-    return RedirectResponse(url="http://localhost:5173/app/accounts")
+    return RedirectResponse(
+        url="http://localhost:5173/app/accounts"
+    )
 
 
 @router.get(
@@ -194,13 +253,17 @@ def instagram_login(
     client_id: Optional[int] = None,
     current_user=Depends(get_current_user),
 ):
-    target_id = _resolve_target_id(current_user, client_id)
+    target_id = _resolve_target_id(
+        current_user,
+        client_id,
+    )
+
     url = instagram.get_login_url(
         state=str(target_id)
     )
 
     return {
-        "url": url
+        "url": url,
     }
 
 
@@ -227,9 +290,14 @@ async def instagram_callback(
             )
         )
 
-        user_access_token = token_data[
+        user_access_token = token_data.get(
             "access_token"
-        ]
+        )
+
+        if not user_access_token:
+            raise ValueError(
+                "Instagram OAuth did not return an access token."
+            )
 
         ig_account = (
             await instagram.get_instagram_business_account(
@@ -249,30 +317,62 @@ async def instagram_callback(
             detail=str(e),
         )
 
-    # Strictly save as Instagram platform
+    instagram_account_id = ig_account.get(
+        "instagram_account_id"
+    )
+
+    instagram_username = ig_account.get(
+        "instagram_username"
+    )
+
+    page_name = ig_account.get(
+        "page_name"
+    )
+
+    page_access_token = ig_account.get(
+        "page_access_token"
+    )
+
+    if not instagram_account_id:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Instagram did not return an Instagram account ID."
+            ),
+        )
+
+    if not page_access_token:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Instagram did not return a Page access token."
+            ),
+        )
+
+    account_name = (
+        instagram_username
+        or page_name
+        or "Instagram Account"
+    )
+
     service.create_account_from_oauth(
         user_id=user_id,
         platform="instagram",
-        account_name=(
-            ig_account[
-                "instagram_username"
-            ]
-            or ig_account["page_name"]
-        ),
+        account_name=account_name,
         token_data={
-            "access_token": ig_account[
-                "page_access_token"
-            ],
+            "access_token": page_access_token,
             "expires_in": token_data.get(
                 "expires_in"
             ),
         },
-        real_account_id=ig_account[
-            "instagram_account_id"
-        ],
+        real_account_id=str(
+            instagram_account_id
+        ),
     )
 
-    return RedirectResponse(url="http://localhost:5173/app/accounts")
+    return RedirectResponse(
+        url="http://localhost:5173/app/accounts"
+    )
 
 
 @router.get(

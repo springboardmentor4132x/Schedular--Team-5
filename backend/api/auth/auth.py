@@ -7,26 +7,66 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-# Load .env file
+
+# ============================================================
+# ENVIRONMENT
+# ============================================================
+
 load_dotenv()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Read values from .env
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY is not configured.")
 
+if not ALGORITHM:
+    raise RuntimeError("ALGORITHM is not configured.")
+
+
+# ============================================================
+# PASSWORD HASHING
+# ============================================================
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+
+# ============================================================
+# OAUTH2
+# ============================================================
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/users/login"
+)
+
+
+# ============================================================
+# PASSWORD HELPERS
+# ============================================================
 
 def hash_password(password: str):
     return pwd_context.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(
+    plain_password: str,
+    hashed_password: str
+):
+    return pwd_context.verify(
+        plain_password,
+        hashed_password
+    )
 
+
+# ============================================================
+# CREATE ACCESS TOKEN
+# ============================================================
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -35,7 +75,9 @@ def create_access_token(data: dict):
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire
+    })
 
     return jwt.encode(
         to_encode,
@@ -44,7 +86,13 @@ def create_access_token(data: dict):
     )
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+# ============================================================
+# GET CURRENT USER
+# ============================================================
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme)
+):
     try:
         payload = jwt.decode(
             token,
@@ -54,6 +102,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
         username = payload.get("sub")
         role = payload.get("role")
+        user_id = payload.get("id")
 
         if username is None:
             raise HTTPException(
@@ -61,7 +110,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
                 detail="Invalid token"
             )
 
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Authenticated user ID is not available in the access token."
+            )
+
         return {
+            "id": user_id,
             "username": username,
             "role": role
         }
@@ -73,8 +129,14 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         )
 
 
+# ============================================================
+# ROLE CHECK
+# ============================================================
+
 def require_role(*allowed_roles: str):
-    def role_checker(current_user=Depends(get_current_user)):
+    def role_checker(
+        current_user=Depends(get_current_user)
+    ):
         if current_user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=403,

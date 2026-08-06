@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
@@ -17,6 +17,7 @@ import {
   Button,
   EmptyState,
 } from '../components/ui';
+import { notificationService } from '../services/api';
 import { cn } from '../utils/helpers';
 
 type NotificationType =
@@ -25,13 +26,22 @@ type NotificationType =
   | 'campaign'
   | 'info';
 
+type BackendNotificationType =
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'error';
+
 type Notification = {
-  id: string;
+  id: number;
+  user_id: number;
   title: string;
-  message: string;
+  description: string;
   type: NotificationType;
-  time: string;
-  read: boolean;
+  is_read: boolean;
+  related_post_id: number | null;
+  related_campaign_id: number | null;
+  created_at: string;
 };
 
 const notificationConfig = {
@@ -65,60 +75,184 @@ type FilterType =
   | 'campaign'
   | 'info';
 
+const getNotificationType = (
+  type: BackendNotificationType
+): NotificationType => {
+  switch (type) {
+    case 'warning':
+    case 'error':
+      return 'alert';
+
+    case 'success':
+      return 'info';
+
+    case 'info':
+    default:
+      return 'info';
+  }
+};
+
+const formatNotificationTime = (
+  createdAt: string
+) => {
+  const date = new Date(createdAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return createdAt;
+  }
+
+  return date.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+};
+
 export function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] =
+    useState<Notification[]>([]);
+
   const [filter, setFilter] =
     useState<FilterType>('all');
 
-  const filtered = notifications.filter((notification) => {
-    if (filter === 'all') {
-      return true;
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response =
+        await notificationService.getAll();
+
+      setNotifications(response.data);
+    } catch (err) {
+      console.error(
+        'Failed to load notifications:',
+        err
+      );
+
+      setError(
+        'Unable to load notifications.'
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (filter === 'unread') {
-      return !notification.read;
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const filtered =
+    notifications.filter(
+      (notification) => {
+        if (filter === 'all') {
+          return true;
+        }
+
+        if (filter === 'unread') {
+          return !notification.is_read;
+        }
+
+        return (
+          getNotificationType(
+            notification.type as BackendNotificationType
+          ) === filter
+        );
+      }
+    );
+
+  const unreadCount =
+    notifications.filter(
+      (notification) =>
+        !notification.is_read
+    ).length;
+
+  const markAsRead = async (
+    id: number
+  ) => {
+    try {
+      await notificationService.markAsRead(
+        id
+      );
+
+      setNotifications(
+        (previous) =>
+          previous.map(
+            (notification) =>
+              notification.id === id
+                ? {
+                    ...notification,
+                    is_read: true,
+                  }
+                : notification
+          )
+      );
+    } catch (err) {
+      console.error(
+        'Failed to mark notification as read:',
+        err
+      );
     }
+  };
 
-    return notification.type === filter;
-  });
+  const markAllRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
 
-  const unreadCount = notifications.filter(
-    (notification) => !notification.read
-  ).length;
-
-  const markAsRead = (id: string) => {
-    setNotifications((previous) =>
-      previous.map((notification) =>
-        notification.id === id
-          ? {
+      setNotifications(
+        (previous) =>
+          previous.map(
+            (notification) => ({
               ...notification,
-              read: true,
-            }
-          : notification
-      )
-    );
+              is_read: true,
+            })
+          )
+      );
+    } catch (err) {
+      console.error(
+        'Failed to mark all notifications as read:',
+        err
+      );
+    }
   };
 
-  const markAllRead = () => {
-    setNotifications((previous) =>
-      previous.map((notification) => ({
-        ...notification,
-        read: true,
-      }))
-    );
+  const deleteNotification = async (
+    id: number
+  ) => {
+    try {
+      await notificationService.delete(id);
+
+      setNotifications(
+        (previous) =>
+          previous.filter(
+            (notification) =>
+              notification.id !== id
+          )
+      );
+    } catch (err) {
+      console.error(
+        'Failed to delete notification:',
+        err
+      );
+    }
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications((previous) =>
-      previous.filter(
-        (notification) =>
-          notification.id !== id
-      )
-    );
-  };
+  const clearAll = async () => {
+    try {
+      await notificationService.clearAll();
 
-  const clearAll = () => {
-    setNotifications([]);
+      setNotifications([]);
+    } catch (err) {
+      console.error(
+        'Failed to clear notifications:',
+        err
+      );
+    }
   };
 
   const filters: {
@@ -165,7 +299,7 @@ export function NotificationsPage() {
           <p className="text-sm text-gray-500 mt-1">
             {unreadCount > 0
               ? `You have ${unreadCount} unread notifications`
-              : 'You\'re all caught up!'}
+              : "You're all caught up!"}
           </p>
         </div>
 
@@ -177,7 +311,10 @@ export function NotificationsPage() {
               <CheckCheck className="w-4 h-4" />
             }
             onClick={markAllRead}
-            disabled={unreadCount === 0}
+            disabled={
+              loading ||
+              unreadCount === 0
+            }
           >
             Mark all read
           </Button>
@@ -189,7 +326,10 @@ export function NotificationsPage() {
               <Trash2 className="w-4 h-4" />
             }
             onClick={clearAll}
-            disabled={notifications.length === 0}
+            disabled={
+              loading ||
+              notifications.length === 0
+            }
           >
             Clear all
           </Button>
@@ -212,7 +352,8 @@ export function NotificationsPage() {
           >
             {filterItem.label}
 
-            {filterItem.count !== undefined && (
+            {filterItem.count !==
+              undefined && (
               <span
                 className={cn(
                   'px-1.5 py-0.5 text-[10px] rounded-md',
@@ -228,7 +369,32 @@ export function NotificationsPage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <Card className="p-8">
+          <div className="flex items-center justify-center">
+            <p className="text-sm text-gray-500">
+              Loading notifications...
+            </p>
+          </div>
+        </Card>
+      ) : error ? (
+        <Card className="p-8">
+          <div className="text-center">
+            <Bell className="w-8 h-8 mx-auto text-red-400 mb-3" />
+
+            <p className="text-sm font-medium text-gray-900">
+              {error}
+            </p>
+
+            <button
+              onClick={loadNotifications}
+              className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              Try again
+            </button>
+          </div>
+        </Card>
+      ) : filtered.length === 0 ? (
         <Card className="p-0">
           <EmptyState
             icon={
@@ -238,7 +404,7 @@ export function NotificationsPage() {
             description={
               filter === 'unread'
                 ? 'You have no unread notifications.'
-                : 'You\'ll see updates here when there\'s new activity.'
+                : "You'll see updates here when there's new activity."
             }
           />
         </Card>
@@ -247,9 +413,14 @@ export function NotificationsPage() {
           <AnimatePresence>
             {filtered.map(
               (notification, index) => {
+                const notificationType =
+                  getNotificationType(
+                    notification.type as BackendNotificationType
+                  );
+
                 const config =
                   notificationConfig[
-                    notification.type
+                    notificationType
                   ];
 
                 const Icon = config.icon;
@@ -275,7 +446,7 @@ export function NotificationsPage() {
                     }}
                     className={cn(
                       'bg-white rounded-2xl border p-4 flex items-start gap-4 transition-all',
-                      !notification.read
+                      !notification.is_read
                         ? 'border-indigo-200 bg-indigo-50/30'
                         : 'border-gray-200'
                     )}
@@ -297,18 +468,22 @@ export function NotificationsPage() {
                               {notification.title}
                             </p>
 
-                            {!notification.read && (
+                            {!notification.is_read && (
                               <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" />
                             )}
                           </div>
 
                           <p className="text-sm text-gray-600 mt-1">
-                            {notification.message}
+                            {
+                              notification.description
+                            }
                           </p>
 
                           <div className="flex items-center gap-2 mt-2">
                             <span className="text-xs text-gray-400">
-                              {notification.time}
+                              {formatNotificationTime(
+                                notification.created_at
+                              )}
                             </span>
 
                             <Badge
@@ -321,7 +496,7 @@ export function NotificationsPage() {
                         </div>
 
                         <div className="flex items-center gap-1 flex-shrink-0">
-                          {!notification.read && (
+                          {!notification.is_read && (
                             <button
                               onClick={() =>
                                 markAsRead(

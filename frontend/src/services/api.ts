@@ -4,50 +4,79 @@ const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
     'http://127.0.0.1:8000',
-  timeout: 10000,
+  timeout: 120000,
 });
+
+/* =========================================================
+   REQUEST INTERCEPTOR
+========================================================= */
 
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers = config.headers || {};
+      config.headers.Authorization =
+        `Bearer ${token}`;
     }
 
     if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-    } else if (config.data instanceof URLSearchParams) {
+      delete config.headers?.['Content-Type'];
+    } else if (
+      config.data instanceof URLSearchParams
+    ) {
+      config.headers = config.headers || {};
       config.headers['Content-Type'] =
         'application/x-www-form-urlencoded';
     } else if (
       config.data &&
       typeof config.data === 'object'
     ) {
-      config.headers['Content-Type'] = 'application/json';
+      config.headers = config.headers || {};
+      config.headers['Content-Type'] =
+        'application/json';
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) =>
+    Promise.reject(error)
 );
+
+/* =========================================================
+   RESPONSE INTERCEPTOR
+========================================================= */
 
 api.interceptors.response.use(
   (response) => response,
+
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
+    if (
+      error.response?.status === 401
+    ) {
+      console.warn(
+        'API returned 401:',
+        error.config?.url
+      );
     }
 
     return Promise.reject(error);
   }
 );
 
+/* =========================================================
+   HEALTH
+========================================================= */
+
 export const healthService = {
-  check: () => {
-    return api.get('/health');
-  },
+  check: () =>
+    api.get('/health'),
 };
+
+/* =========================================================
+   AUTH
+========================================================= */
 
 export const authService = {
   register: (data: {
@@ -56,43 +85,155 @@ export const authService = {
     password: string;
     full_name: string;
     role: string;
-  }) => {
-    return api.post('/users/', data);
-  },
+  }) =>
+    api.post('/users/', data),
 
-  checkAdministratorExists: () => {
-    return api.get('/users/admin-exists');
-  },
+  checkAdministratorExists: () =>
+    api.get('/users/admin-exists'),
 
   login: (
     username: string,
     password: string
   ) => {
-    const formData = new URLSearchParams();
+    const formData =
+      new URLSearchParams();
 
-    formData.append('username', username);
-    formData.append('password', password);
+    formData.append(
+      'username',
+      username
+    );
 
-    return api.post('/users/login', formData);
+    formData.append(
+      'password',
+      password
+    );
+
+    return api.post(
+      '/users/login',
+      formData
+    );
   },
 
-  getMe: () => {
-    return api.get('/users/me');
+  getMe: () =>
+    api.get('/users/me'),
+
+  updateProfile: (data: {
+    full_name?: string;
+    email?: string;
+  }) =>
+    api.put('/users/me', data),
+
+  updatePassword: (data: {
+    current_password: string;
+    new_password: string;
+  }) =>
+    api.put(
+      '/users/me/password',
+      data
+    ),
+
+  updateMe: (data: {
+    username?: string;
+    email?: string;
+    full_name?: string;
+    phone?: string;
+    company?: string;
+    website?: string;
+    bio?: string;
+  }) =>
+    api.put(
+      '/users/me',
+      data
+    ),
+};
+
+/* =========================================================
+   USERS
+========================================================= */
+
+export const userService = {
+  getAll: () =>
+    api.get('/users/all'),
+};
+
+/* =========================================================
+   MEDIA UPLOAD
+========================================================= */
+
+export const uploadService = {
+
+  /*
+   * IMPORTANT:
+   *
+   * Backend endpoint is:
+   *
+   * POST /uploads/?platform=facebook
+   *
+   * Therefore platform MUST be sent.
+   */
+  uploadMedia: (
+    file: File,
+    platform: string
+  ) => {
+    const formData =
+      new FormData();
+
+    formData.append(
+      'file',
+      file
+    );
+
+    return api.post(
+      '/uploads/',
+      formData,
+      {
+        params: {
+          platform,
+        },
+        timeout: 120000,
+      }
+    );
   },
 };
 
+/* =========================================================
+   POSTS
+========================================================= */
+
 export const postService = {
-  getAll: (status?: string, clientId?: number) => {
-    const params: Record<string, any> = {};
-    if (status) params.status = status;
-    if (clientId) params.client_id = clientId;
 
-    return api.get('/posts/', { params });
+  getAll: (
+    status?: string,
+    clientId?: number
+  ) => {
+    const params: Record<
+      string,
+      any
+    > = {};
+
+    if (status) {
+      params.status = status;
+    }
+
+    if (clientId) {
+      params.client_id =
+        clientId;
+    }
+
+    return api.get(
+      '/posts/',
+      {
+        params,
+      }
+    );
   },
 
-  getById: (id: string | number) => {
-    return api.get(`/posts/${id}`);
-  },
+  getById: (
+    id: string | number
+  ) =>
+    api.get(
+      `/posts/${id}`
+    ),
 
   create: (data: {
     client_id?: number | null;
@@ -104,159 +245,284 @@ export const postService = {
     campaign_id?: number | null;
     social_account_ids: number[];
     save_as_draft: boolean;
-  }) => {
-    return api.post('/posts/', data);
-  },
+  }) =>
+    api.post(
+      '/posts/',
+      data
+    ),
 
   update: (
     id: string | number,
-    data: any
+    data: {
+      content?: string;
+      media_url?: string | null;
+      media_type?: string;
+      scheduled_time?: string;
+      timezone?: string;
+      campaign_id?: number | null;
+      social_account_ids?: number[];
+    }
+  ) =>
+    api.put(
+      `/posts/${id}`,
+      data
+    ),
+
+  delete: (
+    id: string | number
+  ) =>
+    api.delete(
+      `/posts/${id}`
+    ),
+
+  cancel: (
+    id: string | number
+  ) =>
+    api.post(
+      `/posts/${id}/cancel`
+    ),
+
+  getCalendar: (
+    clientId?: number
   ) => {
-    return api.put(`/posts/${id}`, data);
+    const params: Record<
+      string,
+      any
+    > = {};
+
+    if (clientId) {
+      params.client_id =
+        clientId;
+    }
+
+    return api.get(
+      '/posts/calendar',
+      {
+        params,
+      }
+    );
   },
 
-  delete: (id: string | number) => {
-    return api.delete(`/posts/${id}`);
-  },
+  getQueue: (
+    clientId?: number
+  ) => {
+    const params: Record<
+      string,
+      any
+    > = {};
 
-  cancel: (id: string | number) => {
-    return api.post(`/posts/${id}/cancel`);
-  },
+    if (clientId) {
+      params.client_id =
+        clientId;
+    }
 
-  getCalendar: (clientId?: number) => {
-    const params: Record<string, any> = {};
-    if (clientId) params.client_id = clientId;
-
-    return api.get('/posts/calendar', { params });
-  },
-
-  getQueue: (clientId?: number) => {
-    const params: Record<string, any> = {};
-    if (clientId) params.client_id = clientId;
-
-    return api.get('/posts/queue', { params });
+    return api.get(
+      '/posts/queue',
+      {
+        params,
+      }
+    );
   },
 };
+
+/* =========================================================
+   CAMPAIGNS
+========================================================= */
 
 export const campaignService = {
-  // Updated to accept an optional clientId parameter
-  getAll: (clientId?: number) => {
-    const params: Record<string, any> = {};
-    if (clientId) params.client_id = clientId;
-    
-    return api.get('/campaigns/', { params });
-  },
 
-  getById: (id: string | number) => {
-    return api.get(`/campaigns/${id}`);
-  },
+  getAll: (
+    clientId?: number
+  ) => {
+    const params: Record<
+      string,
+      any
+    > = {};
 
-  // Standard creation handler
-  create: (data: any) => {
-    return api.post('/campaigns/', data);
-  },
+    if (clientId) {
+      params.client_id =
+        clientId;
+    }
 
-  update: (id: string | number, data: any) => {
-    return api.put(`/campaigns/${id}`, data);
-  },
-
-  delete: (id: string | number) => {
-    return api.delete(`/campaigns/${id}`);
-  },
-
-  getCampaignPosts: (campaignId: string | number) => {
-    return api.get(`/campaigns/${campaignId}/posts`);
-  },
-};
-
-export const accountService = {
-  getAll: () => {
-    return api.get('/social-accounts/');
+    return api.get(
+      '/campaigns/',
+      {
+        params,
+      }
+    );
   },
 
   getById: (
     id: string | number
-  ) => {
-    return api.get(`/social-accounts/${id}`);
-  },
+  ) =>
+    api.get(
+      `/campaigns/${id}`
+    ),
 
-  delete: (id: string | number) => {
-    return api.delete(
-      `/social-accounts/${id}`
-    );
-  },
+  create: (
+    data: any
+  ) =>
+    api.post(
+      '/campaigns/',
+      data
+    ),
 
-  facebookLogin: () => {
-    return api.get(
-      '/social-accounts/facebook/login'
-    );
-  },
+  update: (
+    id: string | number,
+    data: any
+  ) =>
+    api.put(
+      `/campaigns/${id}`,
+      data
+    ),
 
-  instagramLogin: () => {
-    return api.get(
-      '/social-accounts/instagram/login'
-    );
-  },
+  delete: (
+    id: string | number
+  ) =>
+    api.delete(
+      `/campaigns/${id}`
+    ),
 
-  youtubeLogin: () => {
-    return api.get(
-      '/social-accounts/youtube/login'
-    );
-  },
-
-  linkedinLogin: () => {
-    return api.get(
-      '/social-accounts/linkedin/login'
-    );
-  },
-
-  twitterLogin: () => {
-    return api.get(
-      '/social-accounts/twitter/login'
-    );
-  },
-
-  pinterestLogin: () => {
-    return api.get(
-      '/social-accounts/pinterest/login'
-    );
-  },
+  getCampaignPosts: (
+    campaignId: string | number
+  ) =>
+    api.get(
+      `/campaigns/${campaignId}/posts`
+    ),
 };
 
-export const businessAssignmentService = {
-  getMarketingTeams: () => {
-    return api.get(
-      '/business-assignment/marketing-teams'
-    );
-  },
+/* =========================================================
+   SOCIAL ACCOUNTS
+========================================================= */
 
-  getMyAssignment: () => {
-    return api.get(
+export const accountService = {
+
+  getAll: () =>
+    api.get(
+      '/social-accounts/'
+    ),
+
+  getById: (
+    id: string | number
+  ) =>
+    api.get(
+      `/social-accounts/${id}`
+    ),
+
+  delete: (
+    id: string | number
+  ) =>
+    api.delete(
+      `/social-accounts/${id}`
+    ),
+
+  facebookLogin: () =>
+    api.get(
+      '/social-accounts/facebook/login'
+    ),
+
+  instagramLogin: () =>
+    api.get(
+      '/social-accounts/instagram/login'
+    ),
+
+  linkedinLogin: () =>
+    api.get(
+      '/linkedin/login'
+    ),
+
+  youtubeLogin: () =>
+    api.get(
+      '/youtube/login'
+    ),
+
+  twitterLogin: () =>
+    api.get(
+      '/social-accounts/twitter/login'
+    ),
+
+  pinterestLogin: () =>
+    api.get(
+      '/social-accounts/pinterest/login'
+    ),
+};
+
+/* =========================================================
+   BUSINESS ASSIGNMENT
+========================================================= */
+
+export const businessAssignmentService = {
+
+  getMarketingTeams: () =>
+    api.get(
+      '/business-assignment/marketing-teams'
+    ),
+
+  getMyAssignment: () =>
+    api.get(
       '/business-assignment/my-assignment'
-    );
-  },
+    ),
 
   assignMarketingTeam: (
     marketingTeamId: number
-  ) => {
-    return api.post(
+  ) =>
+    api.post(
       `/business-assignment/assign/${marketingTeamId}`
-    );
-  },
+    ),
 
-  getMyClients: () => {
-    return api.get(
+  getMyClients: () =>
+    api.get(
       '/business-assignment/my-clients'
-    );
-  },
+    ),
 
   getClientDetails: (
     clientId: number
-  ) => {
-    return api.get(
+  ) =>
+    api.get(
       `/business-assignment/client/${clientId}`
-    );
-  },
+    ),
+};
+
+/* =========================================================
+   NOTIFICATIONS
+========================================================= */
+
+export const notificationService = {
+
+  getAll: () =>
+    api.get(
+      '/notifications'
+    ),
+
+  markAsRead: (
+    id: string | number
+  ) =>
+    api.patch(
+      `/notifications/${id}/read`
+    ),
+
+  markAllAsRead: () =>
+    api.patch(
+      '/notifications/read-all'
+    ),
+
+  delete: (
+    id: string | number
+  ) =>
+    api.delete(
+      `/notifications/${id}`
+    ),
+
+  clearAll: () =>
+    api.delete(
+      '/notifications'
+    ),
+
+  clearAll: () =>
+    api.delete(
+      '/notifications'
+    ),
 };
 
 export default api;
+

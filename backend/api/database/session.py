@@ -1,15 +1,48 @@
-
-from api.core.config import settings
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from api.database.base import Base
+from api.core.config import settings
+
+
+# ---------------------------------------------------------
+# DATABASE URL
+# ---------------------------------------------------------
+
+DATABASE_URL = settings.DATABASE_URL
+
+
+# ---------------------------------------------------------
+# DATABASE ENGINE
+# ---------------------------------------------------------
+
 engine = create_engine(
-    url=settings.DATABASE_URL,
-    pool_pre_ping=True
+    DATABASE_URL,
+    connect_args={
+        "check_same_thread": False
+    } if DATABASE_URL.startswith("sqlite") else {},
 )
 
+
+# ---------------------------------------------------------
+# SESSION FACTORY
+# ---------------------------------------------------------
+
 SessionLocal = sessionmaker(
-    bind=engine,
+    autocommit=False,
     autoflush=False,
-    autocommit=False
+    bind=engine,
 )
+
+
+# ---------------------------------------------------------
+# DATABASE DEPENDENCY
+# ---------------------------------------------------------
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
