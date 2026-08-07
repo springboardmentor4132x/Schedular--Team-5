@@ -380,6 +380,18 @@ export const accountService = {
     ),
 };
 
+export const analyticsService = {
+  getAnalytics: (range: string = '30d', platform: string = 'all') => {
+    const params: Record<string, any> = { range, platform };
+    return api.get('/analytics/', { params });
+  },
+
+  exportAnalytics: (range: string = '30d', platform: string = 'all') => {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    return `${baseUrl}/analytics/export?range=${range}&platform=${platform}`;
+  },
+};
+
 export const businessAssignmentService = {
   getMarketingTeams: () =>
     api.get(

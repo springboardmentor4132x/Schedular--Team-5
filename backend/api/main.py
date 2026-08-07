@@ -25,28 +25,16 @@ from api.routers import linkedin
 from api.routers import schedule
 
 
-# ============================================================
-# UPLOAD DIRECTORY
-# ============================================================
-
 UPLOAD_DIR = "uploads"
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-
-# ============================================================
-# APPLICATION LIFESPAN
-# ============================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     yield
 
-
-# ============================================================
-# FASTAPI APPLICATION
-# ============================================================
 
 app = FastAPI(
     title=constants.PROJECT_TITLE,
@@ -55,10 +43,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-
-# ============================================================
-# CORS
-# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -71,10 +55,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# ============================================================
-# ROOT ROUTES
-# ============================================================
 
 @app.get(
     "/",
@@ -98,10 +78,6 @@ def health_check() -> Dict:
         "version": constants.PROJECT_VERSION,
     }
 
-
-# ============================================================
-# ROUTERS
-# ============================================================
 
 app.include_router(youtube.router)
 app.include_router(linkedin.router)

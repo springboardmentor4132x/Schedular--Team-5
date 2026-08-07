@@ -1,394 +1,1091 @@
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Dict, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from api.dependencies.database import get_db
 from api.exceptions import integrations
-from api.models.campaign import Campaign
 from api.models.social_account import SocialAccount
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import Annotated, Dict
-import httpx
-import random
+
 
 router = APIRouter(
     prefix="/audience",
-    tags=["Analytics"]
+    tags=["Analytics"],
 )
 
-@router.get("/youtube/{account_id}/analytics")
-async def get_youtube_audience_analytics(
+dashboard_router = APIRouter(
+    prefix="/analytics",
+    tags=["Analytics Dashboard"],
+)
+
+GRAPH_API_VERSION = "v19.0"
+GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+
+
+def _get_platform_value(account: SocialAccount) -> str:
+    if hasattr(account.platform, "value"):
+        return account.platform.value
+
+    return str(account.platform).lower()
+
+
+def _get_account(
+    db: Session,
     account_id: str,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    platform: str,
+) -> SocialAccount:
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.account_id == str(account_id),
+            SocialAccount.is_connected.is_(True),
+        )
+        .first()
+    )
+
     if not account:
-        raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+        if platform == "facebook":
+            raise integrations.FACEBOOK_ACCOUNT_NOT_FOUND_EXCEPTION
 
-    headers: Dict = {
-        "Authorization": f"Bearer {account.access_token}",
-        "Accept": "application/json"
-    }
+        if platform == "instagram":
+            raise integrations.INSTAGRAM_ACCOUNT_NOT_FOUND_EXCEPTION
 
-    url: str = "https://youtube.googleapis.com/youtube/v3/channels"
-    params: Dict = {
-        "part": "statistics",
-        "mine": "true"
-    }
+        raise HTTPException(
+            status_code=404,
+            detail="Social account not found.",
+        )
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            print(f"YOUTUBE API ERROR: {response.text}")
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch YouTube analytics")
-            
-        data = response.json()
-        
-        if not data.get("items"):
-            raise integrations.YOUTUBE_CHANNEL_NOT_FOUND_EXCEPTION
-            
-        stats = data["items"][0]["statistics"]
-        
-        return {
-            "platform": "YOUTUBE",
-            "audience": {
-                "follower_count": int(stats.get("subscriberCount", 0)),
-                "total_views": int(stats.get("viewCount", 0)),
-                "total_videos": int(stats.get("videoCount", 0))
+    actual_platform = _get_platform_value(account)
+
+    if actual_platform != platform:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Account {account_id} is connected to "
+                f"{actual_platform}, not {platform}."
+            ),
+        )
+
+    if not account.access_token:
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                f"{platform.capitalize()} access token is missing."
+            ),
+        )
+
+    return account
+
+
+async def _graph_get(
+    endpoint: str,
+    access_token: str,
+    params: Optional[Dict] = None,
+) -> Dict:
+    request_params = dict(params or {})
+    request_params["access_token"] = access_token
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.get(
+            endpoint,
+            params=request_params,
+        )
+
+    if response.status_code != 200:
+        try:
+            error_data = response.json()
+        except Exception:
+            error_data = {
+                "message": response.text,
             }
-        }
 
-@router.get("/youtube/{account_id}/content/{video_id}")
-async def get_youtube_content_analytics(
-    account_id: str, video_id: str,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+        raise HTTPException(
+            status_code=response.status_code,
+            detail={
+                "message": "Meta Graph API request failed.",
+                "error": error_data,
+            },
+        )
 
-    headers: Dict = {
-        "Authorization": f"Bearer {account.access_token}",
-        "Accept": "application/json"
-    }
-    
-    url: str = "https://youtube.googleapis.com/youtube/v3/videos"
-    params: Dict = {
-        "part": "statistics",
-        "id": video_id
-    }
+    try:
+        return response.json()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Meta Graph API returned invalid JSON.",
+        ) from exc
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch video analytics")
-            
-        data = response.json()
-        
-        if not data.get("items"):
-            raise integrations.YOUTUBE_VIDEO_NOT_FOUND_EXCEPTION
-            
-        stats = data["items"][0]["statistics"]
-        
-        return {
-            "platform": "YOUTUBE",
-            "video_id": video_id,
-            "engagement": {
-                "views": int(stats.get("viewCount", 0)),
-                "likes": int(stats.get("likeCount", 0)),
-                "comments": int(stats.get("commentCount", 0))
+
+def _format_insights(data: list) -> list:
+    formatted = []
+
+    for item in data:
+        formatted.append(
+            {
+                "name": item.get("name"),
+                "period": item.get("period"),
+                "title": item.get("title"),
+                "description": item.get("description"),
+                "values": item.get("values", []),
             }
-        }
+        )
 
-@router.get("/youtube/{account_id}/trends")
-async def get_youtube_performance_trends(
+    return formatted
+
+
+# ============================================================
+# FACEBOOK
+# ============================================================
+
+
+@router.get("/facebook/{account_id}/overview")
+async def get_facebook_overview(
     account_id: str,
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
-    """Fetches a 30-day historical trend report for the channel."""
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+    account = _get_account(
+        db,
+        account_id,
+        "facebook",
+    )
 
-    headers: Dict = {
-        "Authorization": f"Bearer {account.access_token}",
-        "Accept": "application/json"
-    }
-    
-    end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    start_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
+    page_id = account.account_id
+    access_token = account.access_token
 
-    url: str = "https://youtubeanalytics.googleapis.com/v2/reports"
-    
-    params: Dict = {
-        "ids": "channel==MINE",
-        "startDate": start_date,
-        "endDate": end_date,
-        "metrics": "views,likes,comments,estimatedMinutesWatched",
-        "dimensions": "day",
-        "sort": "day"
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            print(f"YOUTUBE ANALYTICS ERROR: {response.text}")
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch performance trends")
-            
-        data = response.json()
-        
-        formatted_trends = []
-        if "rows" in data:
-            for row in data["rows"]:
-                formatted_trends.append({
-                    "date": row[0],
-                    "views": row[1],
-                    "likes": row[2],
-                    "comments": row[3],
-                    "watch_time_minutes": row[4]
-                })
-
-        return {
-            "platform": "YOUTUBE",
-            "report_type": "30_DAY_TREND",
-            "data": formatted_trends
-        }
-
-@router.get("/youtube/{account_id}/geography")
-async def get_youtube_geography(
-    account_id: str,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    """Fetches geographic distribution (views by country) over the last 30 days."""
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
-
-    headers: Dict = {
-        "Authorization": f"Bearer {account.access_token}",
-        "Accept": "application/json"
-    }
-
-    end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    start_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
-
-    url: str = "https://youtubeanalytics.googleapis.com/v2/reports"
-    
-    params: Dict = {
-        "ids": "channel==MINE",
-        "startDate": start_date,
-        "endDate": end_date,
-        "metrics": "views,estimatedMinutesWatched",
-        "dimensions": "country",
-        "sort": "-views",
-        "maxResults": 10
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch geography stats")
-            
-        data = response.json()
-        
-        formatted_geo = []
-        if "rows" in data:
-            for row in data["rows"]:
-                formatted_geo.append({
-                    "country": row[0],
-                    "views": row[1],
-                    "watch_time_minutes": row[2]
-                })
-
-        return {
-            "platform": "YOUTUBE",
-            "report_type": "GEOGRAPHIC_DISTRIBUTION",
-            "data": formatted_geo
-        }
-
-@router.get("/youtube/{account_id}/demographics")
-async def get_youtube_demographics(
-    account_id: str,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    """Fetches audience demographics (age and gender breakdown)."""
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
-
-    headers: Dict = {
-        "Authorization": f"Bearer {account.access_token}",
-        "Accept": "application/json"
-    }
-
-    end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    start_date = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
-
-    url: str = "https://youtubeanalytics.googleapis.com/v2/reports"
-    
-    params: Dict = {
-        "ids": "channel==MINE",
-        "startDate": start_date,
-        "endDate": end_date,
-        "metrics": "viewerPercentage",
-        "dimensions": "ageGroup,gender",
-        "sort": "ageGroup,gender"
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers, params=params)
-        
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch demographics stats")
-            
-        data = response.json()
-        
-        formatted_demo = []
-        if "rows" in data:
-            for row in data["rows"]:
-                formatted_demo.append({
-                    "age_group": row[0],
-                    "gender": row[1],
-                    "viewer_percentage": row[2]
-                })
-
-        return {
-            "platform": "YOUTUBE",
-            "report_type": "AUDIENCE_DEMOGRAPHICS",
-            "data": formatted_demo
-        }
-
-# MOCK ENDPOINTS AND RESPONSES FOR LINKEDIN ANALYTICS (BECAUSE OF COMMUNITY MANAGEMENT API) AND CAMPAIGNS (BECAUSE CAMPAIGNS MODULE IS NOT COMPLETED) BUT EVERY ENDPOINT AND RESPONSE FOR YOUTUBE IS REAL AND IS FETCHED FROM YOUTUBE'S API KEY
-
-@router.get("/linkedin/{account_id}/audience")
-async def get_linkedin_audience_mock(
-    account_id: str,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    """Mocks follower statistics for a LinkedIn Organization Page."""
-    
-    # We still verify the account exists for security
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
+    page_data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{page_id}",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "name,"
+                "picture,"
+                "followers_count,"
+                "fan_count,"
+                "link,"
+                "category"
+            )
+        },
+    )
 
     return {
-        "platform": "LINKEDIN",
+        "platform": "FACEBOOK",
+        "account_id": page_data.get(
+            "id",
+            page_id,
+        ),
+        "account_name": page_data.get(
+            "name",
+            account.account_name,
+        ),
+        "profile_picture": (
+            page_data.get("picture", {})
+            .get("data", {})
+            .get("url")
+        ),
+        "category": page_data.get("category"),
+        "followers": int(
+            page_data.get(
+                "followers_count",
+                0,
+            )
+            or 0
+        ),
+        "page_likes": int(
+            page_data.get(
+                "fan_count",
+                0,
+            )
+            or 0
+        ),
+        "page_url": page_data.get("link"),
+    }
+
+
+@router.get("/facebook/{account_id}/audience")
+async def get_facebook_audience(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "facebook",
+    )
+
+    page_id = account.account_id
+    access_token = account.access_token
+
+    page_data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{page_id}",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "name,"
+                "followers_count,"
+                "fan_count"
+            )
+        },
+    )
+
+    return {
+        "platform": "FACEBOOK",
         "report_type": "AUDIENCE_STATS",
         "data": {
-            "total_followers": 12450,
-            "organic_followers": 10200,
-            "paid_followers": 2250
-        }
+            "followers": int(
+                page_data.get(
+                    "followers_count",
+                    0,
+                )
+                or 0
+            ),
+            "page_likes": int(
+                page_data.get(
+                    "fan_count",
+                    0,
+                )
+                or 0
+            ),
+        },
     }
 
-@router.get("/linkedin/{account_id}/trends")
-async def get_linkedin_trends_mock(
-    account_id: str,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    """Mocks a 30-day historical trend report for LinkedIn."""
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
 
-    # Generate 30 days of realistic-looking dummy data
-    end_date = datetime.now(timezone.utc)
-    mock_trends = []
-    
-    for i in range(30, 0, -1):
-        current_date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
-        mock_trends.append({
-            "date": current_date,
-            "impressions": random.randint(500, 2000),
-            "clicks": random.randint(50, 300),
-            "reactions": random.randint(20, 150),
-            "comments": random.randint(5, 40)
-        })
+@router.get("/facebook/{account_id}/insights")
+async def get_facebook_insights(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "facebook",
+    )
+
+    page_id = account.account_id
+    access_token = account.access_token
+
+    since = (
+        datetime.now(timezone.utc)
+        - timedelta(days=30)
+    ).strftime("%Y-%m-%d")
+
+    until = datetime.now(
+        timezone.utc
+    ).strftime("%Y-%m-%d")
+
+    metrics = (
+        "page_impressions,"
+        "page_reach,"
+        "page_engaged_users,"
+        "page_post_engagements,"
+        "page_views_total,"
+        "page_fan_adds,"
+        "page_fan_removes"
+    )
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{page_id}/insights",
+        access_token,
+        {
+            "metric": metrics,
+            "period": "day",
+            "since": since,
+            "until": until,
+        },
+    )
+
+    formatted = _format_insights(
+        data.get("data", [])
+    )
+
+    totals = {
+        "impressions": 0,
+        "reach": 0,
+        "engaged_users": 0,
+        "post_engagements": 0,
+        "page_views": 0,
+        "fan_adds": 0,
+        "fan_removes": 0,
+    }
+
+    metric_mapping = {
+        "page_impressions": "impressions",
+        "page_reach": "reach",
+        "page_engaged_users": "engaged_users",
+        "page_post_engagements": "post_engagements",
+        "page_views_total": "page_views",
+        "page_fan_adds": "fan_adds",
+        "page_fan_removes": "fan_removes",
+    }
+
+    for item in data.get("data", []):
+        metric_name = item.get("name")
+
+        output_name = metric_mapping.get(
+            metric_name
+        )
+
+        if not output_name:
+            continue
+
+        for value_item in item.get(
+            "values",
+            [],
+        ):
+            value = value_item.get(
+                "value",
+                0,
+            )
+
+            try:
+                value = float(value)
+            except (
+                TypeError,
+                ValueError,
+            ):
+                value = 0
+
+            totals[output_name] += value
 
     return {
-        "platform": "LINKEDIN",
+        "platform": "FACEBOOK",
+        "report_type": "30_DAY_INSIGHTS",
+        "period": {
+            "start": since,
+            "end": until,
+        },
+        "summary": totals,
+        "data": formatted,
+    }
+
+
+@router.get("/facebook/{account_id}/trends")
+async def get_facebook_trends(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "facebook",
+    )
+
+    page_id = account.account_id
+    access_token = account.access_token
+
+    since_date = (
+        datetime.now(timezone.utc)
+        - timedelta(days=30)
+    ).strftime("%Y-%m-%d")
+
+    until_date = datetime.now(
+        timezone.utc
+    ).strftime("%Y-%m-%d")
+
+    metrics = (
+        "page_impressions,"
+        "page_reach,"
+        "page_post_engagements"
+    )
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{page_id}/insights",
+        access_token,
+        {
+            "metric": metrics,
+            "period": "day",
+            "since": since_date,
+            "until": until_date,
+        },
+    )
+
+    trend_map = {}
+
+    for insight in data.get(
+        "data",
+        [],
+    ):
+        metric_name = insight.get("name")
+
+        for value_item in insight.get(
+            "values",
+            [],
+        ):
+            date_value = value_item.get(
+                "end_time"
+            )
+
+            if not date_value:
+                continue
+
+            date_key = date_value[:10]
+
+            if date_key not in trend_map:
+                trend_map[date_key] = {
+                    "date": date_key,
+                    "impressions": 0,
+                    "reach": 0,
+                    "engagement": 0,
+                }
+
+            value = value_item.get(
+                "value",
+                0,
+            )
+
+            try:
+                value = float(value)
+            except (
+                TypeError,
+                ValueError,
+            ):
+                value = 0
+
+            if metric_name == "page_impressions":
+                trend_map[date_key][
+                    "impressions"
+                ] = value
+
+            elif metric_name == "page_reach":
+                trend_map[date_key][
+                    "reach"
+                ] = value
+
+            elif metric_name == "page_post_engagements":
+                trend_map[date_key][
+                    "engagement"
+                ] = value
+
+    trends = sorted(
+        trend_map.values(),
+        key=lambda item: item["date"],
+    )
+
+    return {
+        "platform": "FACEBOOK",
         "report_type": "30_DAY_TREND",
-        "data": mock_trends
+        "data": trends,
     }
 
-@router.get("/linkedin/{account_id}/demographics")
-async def get_linkedin_demographics_mock(
+
+@router.get("/facebook/{account_id}/posts")
+async def get_facebook_posts(
     account_id: str,
-    db: Annotated[Session, Depends(get_db)]
+    db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
-    """Mocks audience demographics (seniority and industry) for LinkedIn."""
-    
-    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
-    if not account:
-        raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
+    account = _get_account(
+        db,
+        account_id,
+        "facebook",
+    )
+
+    page_id = account.account_id
+    access_token = account.access_token
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{page_id}/posts",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "message,"
+                "created_time,"
+                "permalink_url,"
+                "shares,"
+                "likes.summary(true),"
+                "comments.summary(true),"
+                "reactions.summary(true)"
+            ),
+            "limit": 25,
+        },
+    )
+
+    posts = []
+
+    for post in data.get(
+        "data",
+        [],
+    ):
+        likes = (
+            post.get("likes", {})
+            .get("summary", {})
+            .get("total_count", 0)
+        )
+
+        comments = (
+            post.get("comments", {})
+            .get("summary", {})
+            .get("total_count", 0)
+        )
+
+        reactions = (
+            post.get("reactions", {})
+            .get("summary", {})
+            .get("total_count", 0)
+        )
+
+        shares = (
+            post.get("shares", {})
+            .get("count", 0)
+        )
+
+        posts.append(
+            {
+                "id": post.get("id"),
+                "message": post.get(
+                    "message",
+                    "",
+                ),
+                "created_time": post.get(
+                    "created_time"
+                ),
+                "permalink_url": post.get(
+                    "permalink_url"
+                ),
+                "likes": likes,
+                "comments": comments,
+                "reactions": reactions,
+                "shares": shares,
+                "engagement": (
+                    likes
+                    + comments
+                    + reactions
+                    + shares
+                ),
+            }
+        )
 
     return {
-        "platform": "LINKEDIN",
-        "report_type": "AUDIENCE_DEMOGRAPHICS",
-        "data": {
-            "seniority": [
-                {"level": "Entry", "percentage": 45},
-                {"level": "Senior", "percentage": 30},
-                {"level": "Manager", "percentage": 15},
-                {"level": "Director+", "percentage": 10}
-            ],
-            "industry": [
-                {"name": "Information Technology", "percentage": 60},
-                {"name": "Financial Services", "percentage": 20},
-                {"name": "Marketing", "percentage": 15},
-                {"name": "Other", "percentage": 5}
-            ]
-        }
+        "platform": "FACEBOOK",
+        "report_type": "RECENT_POSTS",
+        "data": posts,
     }
 
-@router.get("/campaigns/{campaign_id}/performance")
-async def get_campaign_performance(
-    campaign_id: int,
-    db: Annotated[Session, Depends(get_db)]
-) -> Dict:
-    """Fetches performance, ROI, and engagement comparison for a specific campaign."""
-    
-    # 1. Fetch the Campaign from your database
-    campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
-    if not campaign:
-        raise integrations.CAMPAIGN_NOT_FOUND_EXCEPTION
 
-    # 2. In a fully productionized app, we would loop through campaign.posts 
-    # and sum up the live analytics. For now, we provide the structured layout 
-    # to fulfill the Module 6 dashboard requirements.
-    
-    budget = float(campaign.budget) if campaign.budget else 0.0
-    mock_revenue = budget * 2.4  # Simulating a positive ROI
-    
+# ============================================================
+# INSTAGRAM
+# ============================================================
+
+
+@router.get("/instagram/{account_id}/overview")
+async def get_instagram_overview(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "instagram",
+    )
+
+    ig_user_id = account.account_id
+    access_token = account.access_token
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{ig_user_id}",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "username,"
+                "name,"
+                "profile_picture_url,"
+                "followers_count,"
+                "follows_count,"
+                "media_count"
+            )
+        },
+    )
+
     return {
-        "campaign_name": campaign.title,
-        "status": campaign.status.value,
-        "performance_reports": {
-            "total_reach": 45200,
-            "total_engagement": 3800,
-            "conversion_rate": "3.2%"
+        "platform": "INSTAGRAM",
+        "account_id": data.get(
+            "id",
+            ig_user_id,
+        ),
+        "username": data.get(
+            "username",
+            account.account_name,
+        ),
+        "name": data.get("name"),
+        "profile_picture": data.get(
+            "profile_picture_url"
+        ),
+        "followers": int(
+            data.get(
+                "followers_count",
+                0,
+            )
+            or 0
+        ),
+        "following": int(
+            data.get(
+                "follows_count",
+                0,
+            )
+            or 0
+        ),
+        "media_count": int(
+            data.get(
+                "media_count",
+                0,
+            )
+            or 0
+        ),
+    }
+
+
+@router.get("/instagram/{account_id}/audience")
+async def get_instagram_audience(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "instagram",
+    )
+
+    ig_user_id = account.account_id
+    access_token = account.access_token
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{ig_user_id}",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "username,"
+                "followers_count,"
+                "follows_count,"
+                "media_count"
+            )
         },
-        "engagement_comparison": {
-            "LINKEDIN": {"clicks": 850, "likes": 320, "comments": 45},
-            "YOUTUBE": {"views": 12000, "likes": 950, "comments": 110}
+    )
+
+    return {
+        "platform": "INSTAGRAM",
+        "report_type": "AUDIENCE_STATS",
+        "data": {
+            "username": data.get(
+                "username",
+                account.account_name,
+            ),
+            "followers": int(
+                data.get(
+                    "followers_count",
+                    0,
+                )
+                or 0
+            ),
+            "following": int(
+                data.get(
+                    "follows_count",
+                    0,
+                )
+                or 0
+            ),
+            "media_count": int(
+                data.get(
+                    "media_count",
+                    0,
+                )
+                or 0
+            ),
         },
-        "roi_tracking": {
-            "budget_spent": budget,
-            "estimated_revenue_generated": mock_revenue,
-            "roi_percentage": 140.0 if budget > 0 else 0.0
+    }
+
+
+@router.get("/instagram/{account_id}/insights")
+async def get_instagram_insights(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "instagram",
+    )
+
+    ig_user_id = account.account_id
+    access_token = account.access_token
+
+    metrics = (
+        "impressions,"
+        "reach,"
+        "profile_views,"
+        "website_clicks"
+    )
+
+    since = (
+        datetime.now(timezone.utc)
+        - timedelta(days=30)
+    ).strftime("%Y-%m-%d")
+
+    until = datetime.now(
+        timezone.utc
+    ).strftime("%Y-%m-%d")
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
+        access_token,
+        {
+            "metric": metrics,
+            "period": "day",
+            "since": since,
+            "until": until,
         },
-        "growth_monitoring": {
-            "audience_growth_during_campaign": "+4.5%",
-            "engagement_growth_vs_previous": "+12.1%"
-        }
+    )
+
+    formatted = _format_insights(
+        data.get("data", [])
+    )
+
+    totals = {
+        "impressions": 0,
+        "reach": 0,
+        "profile_views": 0,
+        "website_clicks": 0,
+    }
+
+    metric_mapping = {
+        "impressions": "impressions",
+        "reach": "reach",
+        "profile_views": "profile_views",
+        "website_clicks": "website_clicks",
+    }
+
+    for insight in data.get(
+        "data",
+        [],
+    ):
+        metric_name = insight.get("name")
+
+        output_name = metric_mapping.get(
+            metric_name
+        )
+
+        if not output_name:
+            continue
+
+        for value_item in insight.get(
+            "values",
+            [],
+        ):
+            value = value_item.get(
+                "value",
+                0,
+            )
+
+            try:
+                value = float(value)
+            except (
+                TypeError,
+                ValueError,
+            ):
+                value = 0
+
+            totals[output_name] += value
+
+    return {
+        "platform": "INSTAGRAM",
+        "report_type": "30_DAY_INSIGHTS",
+        "period": {
+            "start": since,
+            "end": until,
+        },
+        "summary": totals,
+        "data": formatted,
+    }
+
+
+@router.get("/instagram/{account_id}/trends")
+async def get_instagram_trends(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "instagram",
+    )
+
+    ig_user_id = account.account_id
+    access_token = account.access_token
+
+    since = (
+        datetime.now(timezone.utc)
+        - timedelta(days=30)
+    ).strftime("%Y-%m-%d")
+
+    until = datetime.now(
+        timezone.utc
+    ).strftime("%Y-%m-%d")
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
+        access_token,
+        {
+            "metric": (
+                "impressions,"
+                "reach,"
+                "profile_views"
+            ),
+            "period": "day",
+            "since": since,
+            "until": until,
+        },
+    )
+
+    trend_map = {}
+
+    for insight in data.get(
+        "data",
+        [],
+    ):
+        metric_name = insight.get("name")
+
+        for value_item in insight.get(
+            "values",
+            [],
+        ):
+            end_time = value_item.get(
+                "end_time"
+            )
+
+            if not end_time:
+                continue
+
+            date_key = end_time[:10]
+
+            if date_key not in trend_map:
+                trend_map[date_key] = {
+                    "date": date_key,
+                    "impressions": 0,
+                    "reach": 0,
+                    "profile_views": 0,
+                }
+
+            value = value_item.get(
+                "value",
+                0,
+            )
+
+            try:
+                value = float(value)
+            except (
+                TypeError,
+                ValueError,
+            ):
+                value = 0
+
+            if metric_name == "impressions":
+                trend_map[date_key][
+                    "impressions"
+                ] = value
+
+            elif metric_name == "reach":
+                trend_map[date_key][
+                    "reach"
+                ] = value
+
+            elif metric_name == "profile_views":
+                trend_map[date_key][
+                    "profile_views"
+                ] = value
+
+    trends = sorted(
+        trend_map.values(),
+        key=lambda item: item["date"],
+    )
+
+    return {
+        "platform": "INSTAGRAM",
+        "report_type": "30_DAY_TREND",
+        "data": trends,
+    }
+
+
+@router.get("/instagram/{account_id}/media")
+async def get_instagram_media(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "instagram",
+    )
+
+    ig_user_id = account.account_id
+    access_token = account.access_token
+
+    data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{ig_user_id}/media",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "caption,"
+                "media_type,"
+                "media_product_type,"
+                "media_url,"
+                "thumbnail_url,"
+                "permalink,"
+                "timestamp,"
+                "like_count,"
+                "comments_count"
+            ),
+            "limit": 25,
+        },
+    )
+
+    media = []
+
+    for item in data.get(
+        "data",
+        [],
+    ):
+        likes = int(
+            item.get(
+                "like_count",
+                0,
+            )
+            or 0
+        )
+
+        comments = int(
+            item.get(
+                "comments_count",
+                0,
+            )
+            or 0
+        )
+
+        media.append(
+            {
+                "id": item.get("id"),
+                "caption": item.get(
+                    "caption",
+                    "",
+                ),
+                "media_type": item.get(
+                    "media_type"
+                ),
+                "media_product_type": item.get(
+                    "media_product_type"
+                ),
+                "media_url": item.get(
+                    "media_url"
+                ),
+                "thumbnail_url": item.get(
+                    "thumbnail_url"
+                ),
+                "permalink": item.get(
+                    "permalink"
+                ),
+                "timestamp": item.get(
+                    "timestamp"
+                ),
+                "likes": likes,
+                "comments": comments,
+                "engagement": (
+                    likes + comments
+                ),
+            }
+        )
+
+    return {
+        "platform": "INSTAGRAM",
+        "report_type": "RECENT_MEDIA",
+        "data": media,
+    }
+
+
+@router.get(
+    "/instagram/{account_id}/media/{media_id}"
+)
+async def get_instagram_media_analytics(
+    account_id: str,
+    media_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> Dict:
+    account = _get_account(
+        db,
+        account_id,
+        "instagram",
+    )
+
+    access_token = account.access_token
+
+    media_data = await _graph_get(
+        f"{GRAPH_BASE_URL}/{media_id}",
+        access_token,
+        {
+            "fields": (
+                "id,"
+                "caption,"
+                "media_type,"
+                "media_product_type,"
+                "media_url,"
+                "thumbnail_url,"
+                "permalink,"
+                "timestamp,"
+                "like_count,"
+                "comments_count"
+            )
+        },
+    )
+
+    likes = int(
+        media_data.get(
+            "like_count",
+            0,
+        )
+        or 0
+    )
+
+    comments = int(
+        media_data.get(
+            "comments_count",
+            0,
+        )
+        or 0
+    )
+
+    return {
+        "platform": "INSTAGRAM",
+        "media_id": media_id,
+        "data": {
+            "caption": media_data.get(
+                "caption",
+                "",
+            ),
+            "media_type": media_data.get(
+                "media_type"
+            ),
+            "media_product_type": media_data.get(
+                "media_product_type"
+            ),
+            "media_url": media_data.get(
+                "media_url"
+            ),
+            "thumbnail_url": media_data.get(
+                "thumbnail_url"
+            ),
+            "permalink": media_data.get(
+                "permalink"
+            ),
+            "timestamp": media_data.get(
+                "timestamp"
+            ),
+            "likes": likes,
+            "comments": comments,
+            "engagement": (
+                likes + comments
+            ),
+        },
     }

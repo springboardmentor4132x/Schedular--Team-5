@@ -19,8 +19,8 @@ PLATFORM_SCOPES = [
     "pages_manage_posts",
     "pages_show_list",
     "pages_read_engagement",
+   
 ]
-
 FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID")
 FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
 

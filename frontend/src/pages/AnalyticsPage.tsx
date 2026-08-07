@@ -8,6 +8,7 @@ import { StatCard, ChartCard } from '../components/ui/StatCard';
 import { GradientAreaChart, MultiLineChart, GradientBarChart, DonutChart } from '../components/charts/Charts';
 import { Card, Button, Badge } from '../components/ui';
 import { formatNumber, getPlatformConfig, cn } from '../utils/helpers';
+import { analyticsService } from '../services/api';
 
 const dateRanges = [
   { label: '7 days', value: '7d' },
@@ -24,37 +25,16 @@ export function AnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
 
-  const getBackendBaseUrl = () => {
-    const configuredUrl = (import.meta as any)?.env?.VITE_API_URL;
-    if (configuredUrl) {
-      return String(configuredUrl).replace(/\/$/, '');
-    }
-    return 'http://127.0.0.1:8000';
-  };
-
   const fetchAnalytics = async () => {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('auth_token');
-      const url = `${getBackendBaseUrl()}/analytics/?range=${range}&platform=${platform}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch real-time analytics data from server.');
-      }
-
-      const result = await response.json();
+      const response = await analyticsService.getAnalytics(range, platform);
+      const result = response.data;
       setAnalyticsData(result.data || result);
     } catch (err: any) {
       console.error('Error fetching analytics:', err);
-      setError(err?.message || 'Could not load analytics metrics.');
+      setError(err?.message || 'Could not load analytics metrics from backend server.');
     } finally {
       setLoading(false);
     }
@@ -65,8 +45,8 @@ export function AnalyticsPage() {
   }, [range, platform]);
 
   const handleExport = () => {
-    // Trigger CSV / PDF export endpoint or file download
-    window.open(`${getBackendBaseUrl()}/analytics/export?range=${range}&platform=${platform}`, '_blank');
+    const exportUrl = analyticsService.exportAnalytics(range, platform);
+    window.open(exportUrl, '_blank');
   };
 
   if (loading && !analyticsData) {
