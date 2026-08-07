@@ -10,7 +10,13 @@ from api.models.post import Post
 from api.roles.post import Status as PostStatus, MediaType
 from api.roles.schedule import Status as ScheduleStatus
 
-@celery_app.task(bind=True)
+@celery_app.task(
+        bind=True,
+        autoretry_for=(httpx.RequestError, httpx.HTTPStatusError),
+        retry_backoff=True,
+        retry_backoff_max=600,
+        max_retries=3
+)
 def publish_to_linkedin(self, schedule_id: int):
     db: Session = SessionLocal()
     schedule = None

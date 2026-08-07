@@ -21,6 +21,21 @@ YOUTUBE_CHANNEL_NOT_FOUND_EXCEPTION = HTTPException(
     detail="channel not found"
 )
 
+YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="account not found"
+)
+
+YOUTUBE_VIDEO_NOT_FOUND_EXCEPTION = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="video not found"
+)
+
+CAMPAIGN_NOT_FOUND_EXCEPTION = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="campaign not found"
+)
+
 RETRIEVE_CHANNEL_INFO_FAILED_EXCEPTION = HTTPException(
     status_code=status.HTTP_400_BAD_REQUEST,
     detail="failed to retrieve YouTube channel info"

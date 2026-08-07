@@ -40,7 +40,7 @@ async def youtube_login(
         "client_id": settings.YOUTUBE_CLIENT_ID,
         "redirect_uri": settings.YOUTUBE_REDIRECT_URI,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
+        "scope": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly https://youtubeanalytics.googleapis.com/v2/reports",
         "access_type": "offline", 
         "prompt": "consent", 
         "state": str(user_id)

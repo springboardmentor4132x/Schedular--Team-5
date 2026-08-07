@@ -7,6 +7,7 @@ from api.routers import schedule
 from api.core import constants
 from api.database.init_db import init_db
 from api.routers import youtube
+from api.routers import analytics
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -43,3 +44,4 @@ app.include_router(social_account_router)
 app.include_router(twitter_router)
 app.include_router(linkedin.router)
 app.include_router(schedule.router)
+app.include_router(analytics.router)

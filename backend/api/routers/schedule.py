@@ -1,10 +1,12 @@
 
-from api.roles.social_account import Platform
-from api.exceptions.tasks import INVALID_SCHEDULED_TIME_EXCEPTION
+from api.core.celery_setup import celery_app
 from api.dependencies.database import get_db
+from api.exceptions.tasks import INVALID_SCHEDULED_TIME_EXCEPTION
 from api.models.post import Post
 from api.models.schedule import Schedule
+from api.roles.social_account import Platform
 from api.models.social_account import SocialAccount
+from api.models.publishing_log import PublishingLog
 from api.roles.post import MediaType, Status as PostStatus
 from api.roles.schedule import Status as ScheduleStatus
 from api.tasks.youtube import publish_to_youtube
@@ -12,7 +14,7 @@ from api.tasks.linkedin import publish_to_linkedin
 from api.schemas.post import SchedulePost
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Annotated
+from typing import Annotated, Dict
 from sqlalchemy.orm import Session
 import mimetypes
 import uuid
@@ -92,3 +94,24 @@ def schedule_youtube_post(payload: SchedulePost, db: Annotated[Session, Depends(
     db.commit()
 
     return {"message": f"Post scheduled successfully for {account.platform}", "task_id": task.id}
+
+# @router.put("/posts/{post_id}/cancel")
+# async def cancel_scheduled_post(
+#     post_id: int,
+#     db: Annotated[Session, Depends(get_db)]
+# ) -> Dict:
+    
+#     post = db.query(Schedule).filter(Schedule.id == post_id).first()
+    
+#     if post.status != PostStatus.SCHEDULED:
+#         raise HTTPException(status_code=400, detail="Only scheduled posts can be cancelled")
+        
+#     # Assuming you saved the Celery task_id to your Post model when you scheduled it
+#     if post.celery_task_id:
+#         celery_app.control.revoke(post.celery_task_id, terminate=True)
+        
+#     post.status = PostStatus.CANCELLED
+#     db.add(PublishingLog(post_id=post.id, status_changed_to=PostStatus.CANCELLED, message="User manually cancelled the post."))
+#     db.commit()
+    
+#     return {"message": "Post successfully pulled from the publishing queue"}
