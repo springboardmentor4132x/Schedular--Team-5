@@ -268,14 +268,12 @@ async def get_youtube_demographics(
 
 # MOCK ENDPOINTS AND RESPONSES FOR LINKEDIN ANALYTICS (BECAUSE OF COMMUNITY MANAGEMENT API) AND CAMPAIGNS (BECAUSE CAMPAIGNS MODULE IS NOT COMPLETED) BUT EVERY ENDPOINT AND RESPONSE FOR YOUTUBE IS REAL AND IS FETCHED FROM YOUTUBE'S API KEY
 
-@router.get("/linkedin/{account_id}/audience")
+@router.get("/linkedin/{account_id}/analytics")
 async def get_linkedin_audience_mock(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Mocks follower statistics for a LinkedIn Organization Page."""
     
-    # We still verify the account exists for security
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
         raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
@@ -284,9 +282,9 @@ async def get_linkedin_audience_mock(
         "platform": "LINKEDIN",
         "report_type": "AUDIENCE_STATS",
         "data": {
-            "total_followers": 12450,
-            "organic_followers": 10200,
-            "paid_followers": 2250
+            "total_followers": 1,
+            "organic_followers": 1,
+            "paid_followers": 0
         }
     }
 
@@ -295,13 +293,11 @@ async def get_linkedin_trends_mock(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Mocks a 30-day historical trend report for LinkedIn."""
     
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
         raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
 
-    # Generate 30 days of realistic-looking dummy data
     end_date = datetime.now(timezone.utc)
     mock_trends = []
     
@@ -309,10 +305,10 @@ async def get_linkedin_trends_mock(
         current_date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
         mock_trends.append({
             "date": current_date,
-            "impressions": random.randint(500, 2000),
-            "clicks": random.randint(50, 300),
-            "reactions": random.randint(20, 150),
-            "comments": random.randint(5, 40)
+            "impressions": 0, # random.randint(500, 2000),
+            "clicks": 0, # random.randint(50, 300),
+            "reactions": 0, # random.randint(20, 150),
+            "comments": 0 # random.randint(5, 40)
         })
 
     return {
@@ -335,20 +331,20 @@ async def get_linkedin_demographics_mock(
     return {
         "platform": "LINKEDIN",
         "report_type": "AUDIENCE_DEMOGRAPHICS",
-        "data": {
-            "seniority": [
-                {"level": "Entry", "percentage": 45},
-                {"level": "Senior", "percentage": 30},
-                {"level": "Manager", "percentage": 15},
-                {"level": "Director+", "percentage": 10}
-            ],
-            "industry": [
-                {"name": "Information Technology", "percentage": 60},
-                {"name": "Financial Services", "percentage": 20},
-                {"name": "Marketing", "percentage": 15},
-                {"name": "Other", "percentage": 5}
-            ]
-        }
+        "data": []# {
+        #     "seniority": [
+        #         {"level": "Entry", "percentage": 45},
+        #         {"level": "Senior", "percentage": 30},
+        #         {"level": "Manager", "percentage": 15},
+        #         {"level": "Director+", "percentage": 10}
+        #     ],
+        #     "industry": [
+        #         {"name": "Information Technology", "percentage": 60},
+        #         {"name": "Financial Services", "percentage": 20},
+        #         {"name": "Marketing", "percentage": 15},
+        #         {"name": "Other", "percentage": 5}
+        #     ]
+        # }
     }
 
 @router.get("/campaigns/{campaign_id}/performance")
@@ -363,10 +359,6 @@ async def get_campaign_performance(
     if not campaign:
         raise integrations.CAMPAIGN_NOT_FOUND_EXCEPTION
 
-    # 2. In a fully productionized app, we would loop through campaign.posts 
-    # and sum up the live analytics. For now, we provide the structured layout 
-    # to fulfill the Module 6 dashboard requirements.
-    
     budget = float(campaign.budget) if campaign.budget else 0.0
     mock_revenue = budget * 2.4  # Simulating a positive ROI
     

@@ -6,7 +6,6 @@ from api.models.post import Post
 from api.models.schedule import Schedule
 from api.roles.social_account import Platform
 from api.models.social_account import SocialAccount
-from api.models.publishing_log import PublishingLog
 from api.roles.post import MediaType, Status as PostStatus
 from api.roles.schedule import Status as ScheduleStatus
 from api.tasks.youtube import publish_to_youtube
@@ -19,7 +18,7 @@ from sqlalchemy.orm import Session
 import mimetypes
 import uuid
 
-router = APIRouter(prefix="/schedule", tags=["Posts"])
+router = APIRouter(prefix="/schedule", tags=["Posts Scheduling Routes"])
 
 @router.post("/post")
 def schedule_youtube_post(payload: SchedulePost, db: Annotated[Session, Depends(get_db)]):
@@ -93,25 +92,41 @@ def schedule_youtube_post(payload: SchedulePost, db: Annotated[Session, Depends(
     new_schedule.celery_task_id = task.id
     db.commit()
 
-    return {"message": f"Post scheduled successfully for {account.platform}", "task_id": task.id}
+    return {
+        "message": f"Post scheduled successfully for {account.platform}", "task_id": task.id
+    }
 
-# @router.put("/posts/{post_id}/cancel")
-# async def cancel_scheduled_post(
-#     post_id: int,
-#     db: Annotated[Session, Depends(get_db)]
-# ) -> Dict:
+@router.put("/{schedule_id}/cancel")
+async def cancel_scheduled_post(
+    schedule_id: int,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
     
-#     post = db.query(Schedule).filter(Schedule.id == post_id).first()
+    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
     
-#     if post.status != PostStatus.SCHEDULED:
-#         raise HTTPException(status_code=400, detail="Only scheduled posts can be cancelled")
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Scheduled task not found."
+        )
         
-#     # Assuming you saved the Celery task_id to your Post model when you scheduled it
-#     if post.celery_task_id:
-#         celery_app.control.revoke(post.celery_task_id, terminate=True)
+    if schedule.status in [ScheduleStatus.PUBLISHED, ScheduleStatus.PUBLISHING, ScheduleStatus.FAILED]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Cannot cancel a post that is already in '{schedule.status.value}' state."
+        )
         
-#     post.status = PostStatus.CANCELLED
-#     db.add(PublishingLog(post_id=post.id, status_changed_to=PostStatus.CANCELLED, message="User manually cancelled the post."))
-#     db.commit()
+    if schedule.status == ScheduleStatus.CANCELLED:
+        return {"message": "Schedule is already cancelled."}
+
+    if schedule.celery_task_id:
+        celery_app.control.revoke(schedule.celery_task_id, terminate=True)
+        
+    schedule.status = ScheduleStatus.CANCELLED
+    db.commit()
     
-#     return {"message": "Post successfully pulled from the publishing queue"}
+    return {
+        "message": "Scheduled post cancelled successfully",
+        "schedule_id": schedule.id,
+        "status": schedule.status.value
+    }

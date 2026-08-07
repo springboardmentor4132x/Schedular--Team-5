@@ -14,7 +14,7 @@ import httpx
 
 router = APIRouter(
     prefix="/linkedin",
-    tags=["LinkedIn API Integration Routes"]
+    tags=["LinkedIn Integration Routes"]
 )
 
 LINKEDIN_AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization"
@@ -140,5 +140,5 @@ def disconnect_linkedin(
     db.delete(account)
     db.commit()
     return {
-        "message": "account disconnected successfully"
+        "message": "LinkedIn account disconnected successfully"
     }

@@ -14,11 +14,11 @@ import httpx
 import json
 
 @celery_app.task(
-        bind=True,
-        autoretry_for=(httpx.RequestError, httpx.HTTPStatusError),
-        retry_backoff=True,
-        retry_backoff_max=600,
-        max_retries=3
+        bind=True
+        # autoretry_for=(httpx.RequestError, httpx.HTTPStatusError),
+        # retry_backoff=True,
+        # retry_backoff_max=600,
+        # max_retries=3
 )
 def publish_to_youtube(self, schedule_id: int) -> Dict | str:
     db: Session = SessionLocal()

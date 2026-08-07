@@ -38,10 +38,10 @@ def read_root() -> Dict:
 def health_check() -> Dict:
     return {"status": "healthy", "version": constants.PROJECT_VERSION}
 
-app.include_router(youtube.router)
 app.include_router(user_router)
 app.include_router(social_account_router)
 app.include_router(twitter_router)
+app.include_router(youtube.router)
 app.include_router(linkedin.router)
 app.include_router(schedule.router)
 app.include_router(analytics.router)

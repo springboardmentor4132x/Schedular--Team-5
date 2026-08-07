@@ -14,7 +14,7 @@ import httpx
 
 router = APIRouter(
     prefix="/youtube",
-    tags=["YouTube API Integration Routes"]
+    tags=["YouTube Integration Routes"]
 )
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -40,7 +40,7 @@ async def youtube_login(
         "client_id": settings.YOUTUBE_CLIENT_ID,
         "redirect_uri": settings.YOUTUBE_REDIRECT_URI,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly https://youtubeanalytics.googleapis.com/v2/reports",
+        "scope": "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly",
         "access_type": "offline", 
         "prompt": "consent", 
         "state": str(user_id)
@@ -153,5 +153,5 @@ def disconnect_youtube(
     db.delete(account)
     db.commit()
     return {
-        "message": "account disconnected successfully"
+        "message": "YouTube account disconnected successfully"
     }
