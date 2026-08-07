@@ -24,10 +24,6 @@ class User(Base):
 
     __tablename__ = "users"
 
-    # ============================================================
-    # BASIC USER INFORMATION
-    # ============================================================
-
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
@@ -56,10 +52,6 @@ class User(Base):
         nullable=False
     )
 
-    # ============================================================
-    # PROFILE INFORMATION
-    # ============================================================
-
     phone: Mapped[str | None] = mapped_column(
         String(30),
         nullable=True
@@ -75,10 +67,6 @@ class User(Base):
         nullable=True
     )
 
-    # ============================================================
-    # ROLE
-    # ============================================================
-
     role: Mapped[Role] = mapped_column(
         SAEnum(
             Role,
@@ -93,10 +81,6 @@ class User(Base):
         default=Role.CONTENT_CREATOR
     )
 
-    # ============================================================
-    # ACCOUNT STATUS
-    # ============================================================
-
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -108,10 +92,6 @@ class User(Base):
         nullable=False,
         default=False
     )
-
-    # ============================================================
-    # TIMESTAMPS
-    # ============================================================
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -126,31 +106,27 @@ class User(Base):
         onupdate=func.now()
     )
 
-    # ============================================================
-    # RELATIONSHIPS
-    # ============================================================
-
-    social_accounts: Mapped[List["SocialAccount"]] = relationship(  # type: ignore
+    social_accounts: Mapped[List["SocialAccount"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan"
     )
 
-    campaigns: Mapped[List["Campaign"]] = relationship(  # type: ignore
+    campaigns: Mapped[List["Campaign"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan"
     )
 
-    posts: Mapped[List["Post"]] = relationship(  # type: ignore
+    posts: Mapped[List["Post"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan"
     )
 
-    schedules: Mapped[List["Schedule"]] = relationship(  # type: ignore
+    schedules: Mapped[List["Schedule"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan"
     )
 
-    notifications: Mapped[List["Notification"]] = relationship(  # type: ignore
+    notifications: Mapped[List["Notification"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan"
     )
@@ -172,14 +148,9 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
-    # ============================================================
-    # REPRESENTATION
-    # ============================================================
-
     def __repr__(self) -> str:
         return (
-            f"<User "
-            f"id={self.id} "
+            f"<User id={self.id} "
             f"username={self.username!r} "
             f"role={self.role}>"
         )

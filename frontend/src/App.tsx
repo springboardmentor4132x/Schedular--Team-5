@@ -1,4 +1,3 @@
-
 import {
   BrowserRouter,
   Routes,
@@ -24,6 +23,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { MyClientsPage } from './pages/MyClientsPage';
 import { MyMarketingTeamPage } from './pages/MyMarketingTeamPage';
 import { ClientWorkspacePage } from './pages/ClientWorkspacePage';
+import { DraftsPage } from './pages/DraftsPage';
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -107,6 +107,7 @@ function App() {
                 <ProtectedRoute
                   allowedRoles={[
                     'administrator',
+                    'marketing_team',
                     'business_user',
                     'content_creator',
                   ]}
@@ -184,6 +185,28 @@ function App() {
               <Route
                 index
                 element={<CreatePostPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                DRAFTS MANAGEMENT
+            ================================================= */}
+
+            <Route
+              path="drafts"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'content_creator',
+                    'marketing_team',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<DraftsPage />}
               />
             </Route>
 
@@ -312,4 +335,3 @@ function App() {
 }
 
 export default App;
-

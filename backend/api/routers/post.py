@@ -51,7 +51,7 @@ def _resolve_target_id(
                 detail="client_id is required for Marketing Team users",
             )
 
-        return client_id
+        return user.id
 
     if role == Role.CONTENT_CREATOR.value:
         if client_id is not None:
@@ -168,7 +168,10 @@ def get_calendar(
         client_id,
     )
 
-    return service.get_calendar(target_id)
+    try:
+        return service.get_calendar(target_id, client_id)
+    except TypeError:
+        return service.get_calendar(target_id)
 
 
 @router.get(

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,9 +11,10 @@ import {
   Edit2,
   Trash2,
   Eye,
-  X,
   Check,
+  Unlink,
 } from 'lucide-react';
+
 import {
   Card,
   Badge,
@@ -21,7 +23,12 @@ import {
   Input,
   EmptyState,
 } from '../components/ui';
-import { campaignService } from '../services/api';
+
+import {
+  campaignService,
+  postService,
+} from '../services/api';
+
 import {
   formatCurrency,
   formatDate,
@@ -55,6 +62,15 @@ type CampaignForm = {
   status: string;
 };
 
+type Post = {
+  id: number;
+  user_id: number;
+  campaign_id?: number | null;
+  content?: string;
+  status: string;
+  scheduled_time?: string;
+};
+
 const emptyForm: CampaignForm = {
   title: '',
   description: '',
@@ -67,29 +83,77 @@ const emptyForm: CampaignForm = {
 };
 
 export function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [campaigns, setCampaigns] =
+    useState<Campaign[]>([]);
 
-  const [activeTab, setActiveTab] = useState('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [posts, setPosts] =
+    useState<Post[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [activeTab, setActiveTab] =
+    useState('all');
+
+  const [showCreateModal, setShowCreateModal] =
+    useState(false);
+
   const [editingCampaign, setEditingCampaign] =
     useState<Campaign | null>(null);
+
   const [viewingCampaign, setViewingCampaign] =
     useState<Campaign | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const [form, setForm] = useState<CampaignForm>(emptyForm);
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null);
+
+  const [removingPostId, setRemovingPostId] =
+    useState<number | null>(null);
+
+  const [form, setForm] =
+    useState<CampaignForm>(emptyForm);
 
   const loadCampaigns = async () => {
     try {
       setLoading(true);
 
-      const response = await campaignService.getAll();
+      const campaignRes =
+        await campaignService.getAll();
 
-      setCampaigns(response.data || []);
+      let postData: Post[] = [];
+
+      try {
+        if (postService.getAll) {
+          const postRes =
+            await postService.getAll();
+
+          postData =
+            Array.isArray(postRes?.data)
+              ? postRes.data
+              : [];
+        }
+      } catch (postError) {
+        console.error(
+          'Failed to load posts:',
+          postError
+        );
+      }
+
+      setCampaigns(
+        Array.isArray(campaignRes?.data)
+          ? campaignRes.data
+          : []
+      );
+
+      setPosts(postData);
     } catch (error) {
-      console.error('Failed to load campaigns:', error);
+      console.error(
+        'Failed to load campaigns or posts:',
+        error
+      );
     } finally {
       setLoading(false);
     }
@@ -100,7 +164,9 @@ export function CampaignsPage() {
   }, []);
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+    });
   };
 
   const openCreateModal = () => {
@@ -109,25 +175,55 @@ export function CampaignsPage() {
     setShowCreateModal(true);
   };
 
-  const openEditModal = (campaign: Campaign) => {
+  const openEditModal = (
+    campaign: Campaign
+  ) => {
     setEditingCampaign(campaign);
 
     setForm({
-      title: campaign.title || '',
-      description: campaign.description || '',
-      platform: campaign.platform || 'facebook',
-      budget: String(campaign.budget ?? ''),
-      objectives: campaign.objectives || '',
-      start_date: campaign.start_date
-        ? campaign.start_date.slice(0, 16)
-        : '',
-      end_date: campaign.end_date
-        ? campaign.end_date.slice(0, 16)
-        : '',
-      status: campaign.status || 'draft',
+      title:
+        campaign.title || '',
+
+      description:
+        campaign.description || '',
+
+      platform:
+        campaign.platform ||
+        'facebook',
+
+      budget:
+        String(
+          campaign.budget ?? ''
+        ),
+
+      objectives:
+        campaign.objectives ||
+        '',
+
+      start_date:
+        campaign.start_date
+          ? campaign.start_date.slice(
+              0,
+              16
+            )
+          : '',
+
+      end_date:
+        campaign.end_date
+          ? campaign.end_date.slice(
+              0,
+              16
+            )
+          : '',
+
+      status:
+        campaign.status ||
+        'draft',
     });
 
-    setShowCreateModal(true);
+    setShowCreateModal(
+      true
+    );
   };
 
   const closeModal = () => {
@@ -135,8 +231,14 @@ export function CampaignsPage() {
       return;
     }
 
-    setShowCreateModal(false);
-    setEditingCampaign(null);
+    setShowCreateModal(
+      false
+    );
+
+    setEditingCampaign(
+      null
+    );
+
     resetForm();
   };
 
@@ -144,29 +246,40 @@ export function CampaignsPage() {
     field: keyof CampaignForm,
     value: string
   ) => {
-    setForm((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
+    setForm(
+      (previous) => ({
+        ...previous,
+        [field]: value,
+      })
+    );
   };
 
   const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>
+    e: React.FormEvent
   ) => {
     e.preventDefault();
 
     if (!form.title.trim()) {
-      alert('Please enter a campaign title.');
+      alert(
+        'Please enter a campaign title.'
+      );
       return;
     }
 
     if (!form.budget) {
-      alert('Please enter a campaign budget.');
+      alert(
+        'Please enter a campaign budget.'
+      );
       return;
     }
 
-    if (!form.start_date || !form.end_date) {
-      alert('Please select start and end dates.');
+    if (
+      !form.start_date ||
+      !form.end_date
+    ) {
+      alert(
+        'Please select start and end dates.'
+      );
       return;
     }
 
@@ -174,14 +287,33 @@ export function CampaignsPage() {
       setSaving(true);
 
       const campaignData = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        platform: form.platform,
-        budget: Number(form.budget),
-        objectives: form.objectives.trim(),
-        start_date: new Date(form.start_date).toISOString(),
-        end_date: new Date(form.end_date).toISOString(),
-        status: form.status,
+        title:
+          form.title.trim(),
+
+        description:
+          form.description.trim(),
+
+        platform:
+          form.platform,
+
+        budget:
+          Number(form.budget),
+
+        objectives:
+          form.objectives.trim(),
+
+        start_date:
+          new Date(
+            form.start_date
+          ).toISOString(),
+
+        end_date:
+          new Date(
+            form.end_date
+          ).toISOString(),
+
+        status:
+          form.status,
       };
 
       if (editingCampaign) {
@@ -190,21 +322,28 @@ export function CampaignsPage() {
           campaignData
         );
       } else {
-        await campaignService.create(campaignData);
+        await campaignService.create(
+          campaignData
+        );
       }
 
       await loadCampaigns();
 
       closeModal();
     } catch (error: any) {
-      console.error('Failed to save campaign:', error);
+      console.error(
+        'Failed to save campaign:',
+        error
+      );
 
       const message =
-        error?.response?.data?.detail ||
+        error?.response?.data
+          ?.detail ||
         'Failed to save campaign. Please try again.';
 
       alert(
-        typeof message === 'string'
+        typeof message ===
+          'string'
           ? message
           : 'Failed to save campaign. Please try again.'
       );
@@ -213,10 +352,13 @@ export function CampaignsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this campaign?'
-    );
+  const handleDelete = async (
+    id: number
+  ) => {
+    const confirmed =
+      window.confirm(
+        'Are you sure you want to delete this campaign?'
+      );
 
     if (!confirmed) {
       return;
@@ -225,88 +367,227 @@ export function CampaignsPage() {
     try {
       setDeletingId(id);
 
-      await campaignService.delete(id);
-
-      setCampaigns((previous) =>
-        previous.filter((campaign) => campaign.id !== id)
+      await campaignService.delete(
+        id
       );
+
+      setCampaigns(
+        (previous) =>
+          previous.filter(
+            (campaign) =>
+              campaign.id !== id
+          )
+      );
+
+      if (
+        viewingCampaign?.id ===
+        id
+      ) {
+        setViewingCampaign(
+          null
+        );
+      }
     } catch (error: any) {
-      console.error('Failed to delete campaign:', error);
+      console.error(
+        'Failed to delete campaign:',
+        error
+      );
 
       const message =
-        error?.response?.data?.detail ||
+        error?.response?.data
+          ?.detail ||
         'Failed to delete campaign. Please try again.';
 
       alert(
-        typeof message === 'string'
+        typeof message ===
+          'string'
           ? message
           : 'Failed to delete campaign. Please try again.'
       );
     } finally {
-      setDeletingId(null);
+      setDeletingId(
+        null
+      );
     }
   };
 
-  const filteredCampaigns = campaigns.filter((campaign) => {
-    if (activeTab === 'all') {
-      return true;
+  const handleRemovePost = async (
+    campaignId: number,
+    postId: number
+  ) => {
+    const confirmed =
+      window.confirm(
+        'Are you sure you want to remove this post from the campaign? The post itself will not be deleted.'
+      );
+
+    if (!confirmed) {
+      return;
     }
 
-    return campaign.status === activeTab;
-  });
+    try {
+      setRemovingPostId(
+        postId
+      );
 
-  const totalBudget = campaigns.reduce(
-    (total, campaign) => total + Number(campaign.budget || 0),
-    0
-  );
+      await campaignService.removePostFromCampaign(
+        campaignId,
+        postId
+      );
 
-  const activeCampaigns = campaigns.filter(
-    (campaign) => campaign.status === 'active'
-  ).length;
+      setPosts(
+        (previous) =>
+          previous.map(
+            (post) =>
+              post.id === postId
+                ? {
+                    ...post,
+                    campaign_id:
+                      null,
+                  }
+                : post
+          )
+      );
+    } catch (error: any) {
+      console.error(
+        'Failed to remove post from campaign:',
+        error
+      );
 
-  const draftCampaigns = campaigns.filter(
-    (campaign) => campaign.status === 'draft'
-  ).length;
+      const message =
+        error?.response?.data
+          ?.detail ||
+        'Failed to remove post from campaign. Please try again.';
 
-  const completedCampaigns = campaigns.filter(
-    (campaign) => campaign.status === 'completed'
-  ).length;
+      alert(
+        typeof message ===
+          'string'
+          ? message
+          : 'Failed to remove post from campaign. Please try again.'
+      );
+    } finally {
+      setRemovingPostId(
+        null
+      );
+    }
+  };
+
+  const filteredCampaigns =
+    campaigns.filter(
+      (campaign) => {
+        if (
+          activeTab ===
+          'all'
+        ) {
+          return true;
+        }
+
+        return (
+          campaign.status ===
+          activeTab
+        );
+      }
+    );
+
+  const totalBudget =
+    campaigns.reduce(
+      (
+        total,
+        campaign
+      ) =>
+        total +
+        Number(
+          campaign.budget ||
+            0
+        ),
+      0
+    );
+
+  const activeCampaigns =
+    campaigns.filter(
+      (campaign) =>
+        campaign.status ===
+        'active'
+    ).length;
+
+  const draftCampaigns =
+    campaigns.filter(
+      (campaign) =>
+        campaign.status ===
+        'draft'
+    ).length;
+
+  const completedCampaigns =
+    campaigns.filter(
+      (campaign) =>
+        campaign.status ===
+        'completed'
+    ).length;
 
   const getStatusVariant = (
     status: string
-  ): 'success' | 'warning' | 'info' | 'danger' | 'default' => {
+  ):
+    | 'success'
+    | 'warning'
+    | 'info'
+    | 'danger'
+    | 'default' => {
     switch (status) {
       case 'active':
         return 'success';
+
       case 'draft':
         return 'warning';
+
       case 'completed':
         return 'info';
+
       case 'cancelled':
         return 'danger';
+
       default:
         return 'default';
     }
   };
 
-  const getPlatformLabel = (platform: string) => {
+  const getPlatformLabel = (
+    platform: string
+  ) => {
     switch (platform) {
       case 'facebook':
         return 'Facebook';
+
       case 'instagram':
         return 'Instagram';
+
       case 'linkedin':
         return 'LinkedIn';
+
       case 'youtube':
         return 'YouTube';
+
       case 'twitter':
         return 'X';
+
       case 'pinterest':
         return 'Pinterest';
+
       default:
         return platform;
     }
   };
+
+  const campaignPosts =
+    viewingCampaign
+      ? posts.filter(
+          (post) =>
+            Number(
+              post.campaign_id
+            ) ===
+            Number(
+              viewingCampaign.id
+            )
+        )
+      : [];
 
   return (
     <div className="space-y-6">
@@ -322,8 +603,12 @@ export function CampaignsPage() {
         </div>
 
         <Button
-          icon={<Plus className="w-4 h-4" />}
-          onClick={openCreateModal}
+          icon={
+            <Plus className="w-4 h-4" />
+          }
+          onClick={
+            openCreateModal
+          }
         >
           New Campaign
         </Button>
@@ -378,7 +663,9 @@ export function CampaignsPage() {
               </p>
 
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totalBudget)}
+                {formatCurrency(
+                  totalBudget
+                )}
               </p>
             </div>
           </div>
@@ -408,30 +695,39 @@ export function CampaignsPage() {
           {
             key: 'all',
             label: 'All Campaigns',
-            count: campaigns.length,
+            count:
+              campaigns.length,
           },
           {
             key: 'active',
             label: 'Active',
-            count: activeCampaigns,
+            count:
+              activeCampaigns,
           },
           {
             key: 'draft',
             label: 'Drafts',
-            count: draftCampaigns,
+            count:
+              draftCampaigns,
           },
           {
             key: 'completed',
             label: 'Completed',
-            count: completedCampaigns,
+            count:
+              completedCampaigns,
           },
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() =>
+              setActiveTab(
+                tab.key
+              )
+            }
             className={cn(
               'px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors',
-              activeTab === tab.key
+              activeTab ===
+                tab.key
                 ? 'bg-indigo-600 text-white'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
             )}
@@ -441,7 +737,8 @@ export function CampaignsPage() {
             <span
               className={cn(
                 'ml-2 px-1.5 py-0.5 rounded-md text-xs',
-                activeTab === tab.key
+                activeTab ===
+                  tab.key
                   ? 'bg-white/20'
                   : 'bg-gray-100'
               )}
@@ -460,16 +757,23 @@ export function CampaignsPage() {
             </p>
           </div>
         </Card>
-      ) : filteredCampaigns.length === 0 ? (
+      ) : filteredCampaigns.length ===
+        0 ? (
         <Card>
           <EmptyState
-            icon={<Megaphone className="w-8 h-8" />}
+            icon={
+              <Megaphone className="w-8 h-8" />
+            }
             title="No campaigns found"
             description="Create your first campaign to start managing your marketing activities."
             action={
               <Button
-                icon={<Plus className="w-4 h-4" />}
-                onClick={openCreateModal}
+                icon={
+                  <Plus className="w-4 h-4" />
+                }
+                onClick={
+                  openCreateModal
+                }
               >
                 New Campaign
               </Button>
@@ -479,190 +783,230 @@ export function CampaignsPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
           <AnimatePresence>
-            {filteredCampaigns.map((campaign) => {
-              const platformConfig = getPlatformConfig(
-                campaign.platform
-              );
+            {filteredCampaigns.map(
+              (campaign) => {
+                const platformConfig =
+                  getPlatformConfig(
+                    campaign.platform
+                  );
 
-              return (
-                <motion.div
-                  key={campaign.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  layout
-                >
-                  <Card className="h-full">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center"
-                          style={{
-                            backgroundColor: `${platformConfig.color}15`,
-                          }}
-                        >
-                          <Megaphone
-                            className="w-5 h-5"
+                return (
+                  <motion.div
+                    key={
+                      campaign.id
+                    }
+                    initial={{
+                      opacity: 0,
+                      y: 20,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      y: -20,
+                    }}
+                    layout
+                  >
+                    <Card className="h-full">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center"
                             style={{
-                              color: platformConfig.color,
+                              backgroundColor: `${platformConfig.color}15`,
                             }}
-                          />
+                          >
+                            <Megaphone
+                              className="w-5 h-5"
+                              style={{
+                                color:
+                                  platformConfig.color,
+                              }}
+                            />
+                          </div>
+
+                          <div>
+                            <h3 className="font-semibold text-gray-900">
+                              {
+                                campaign.title
+                              }
+                            </h3>
+
+                            <p className="text-xs text-gray-500 mt-1">
+                              Campaign #
+                              {
+                                campaign.id
+                              }
+                            </p>
+                          </div>
                         </div>
 
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {campaign.title}
-                          </h3>
+                        <div className="relative group">
+                          <button className="p-2 rounded-lg hover:bg-gray-100">
+                            <MoreVertical className="w-4 h-4 text-gray-500" />
+                          </button>
 
-                          <p className="text-xs text-gray-500 mt-1">
-                            Campaign #{campaign.id}
-                          </p>
+                          <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 hidden group-hover:block z-10">
+                            <button
+                              onClick={() =>
+                                setViewingCampaign(
+                                  campaign
+                                )
+                              }
+                              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                openEditModal(
+                                  campaign
+                                )
+                              }
+                              className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                handleDelete(
+                                  campaign.id
+                                )
+                              }
+                              disabled={
+                                deletingId ===
+                                campaign.id
+                              }
+                              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+
+                              {deletingId ===
+                              campaign.id
+                                ? 'Deleting...'
+                                : 'Delete'}
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="relative group">
-                        <button className="p-2 rounded-lg hover:bg-gray-100">
-                          <MoreVertical className="w-4 h-4 text-gray-500" />
-                        </button>
-
-                        <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 hidden group-hover:block z-10">
-                          <button
-                            onClick={() =>
-                              setViewingCampaign(campaign)
-                            }
-                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Eye className="w-4 h-4" />
-                            View
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              openEditModal(campaign)
-                            }
-                            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                            Edit
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              handleDelete(campaign.id)
-                            }
-                            disabled={
-                              deletingId === campaign.id
-                            }
-                            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            {deletingId === campaign.id
-                              ? 'Deleting...'
-                              : 'Delete'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <Badge
-                        variant={getStatusVariant(
-                          campaign.status
-                        )}
-                      >
-                        {campaign.status}
-                      </Badge>
-                    </div>
-
-                    <p className="text-sm text-gray-500 mt-3 min-h-[40px]">
-                      {campaign.description ||
-                        'No campaign description provided.'}
-                    </p>
-
-                    <div className="mt-5 space-y-4">
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          Platform
-                        </p>
-
-                        <p className="text-sm font-medium text-gray-900 mt-1">
-                          {getPlatformLabel(
-                            campaign.platform
+                      <div className="mt-4">
+                        <Badge
+                          variant={getStatusVariant(
+                            campaign.status
                           )}
-                        </p>
+                        >
+                          {
+                            campaign.status
+                          }
+                        </Badge>
                       </div>
 
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          Objective
-                        </p>
+                      <p className="text-sm text-gray-500 mt-3 min-h-[40px]">
+                        {campaign.description ||
+                          'No campaign description provided.'}
+                      </p>
 
-                        <p className="text-sm font-medium text-gray-900 mt-1">
-                          {campaign.objectives ||
-                            'No objective specified'}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between">
+                      <div className="mt-5 space-y-4">
                         <div>
                           <p className="text-xs text-gray-500">
-                            Budget
-                          </p>
-
-                          <p className="text-sm font-semibold text-gray-900 mt-1">
-                            {formatCurrency(
-                              Number(campaign.budget || 0)
-                            )}
-                          </p>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">
-                            Duration
+                            Platform
                           </p>
 
                           <p className="text-sm font-medium text-gray-900 mt-1">
-                            {formatDate(
-                              campaign.start_date
-                            )}{' '}
-                            -{' '}
-                            {formatDate(
-                              campaign.end_date
+                            {getPlatformLabel(
+                              campaign.platform
                             )}
                           </p>
                         </div>
+
+                        <div>
+                          <p className="text-xs text-gray-500">
+                            Objective
+                          </p>
+
+                          <p className="text-sm font-medium text-gray-900 mt-1">
+                            {campaign.objectives ||
+                              'No objective specified'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-gray-500">
+                              Budget
+                            </p>
+
+                            <p className="text-sm font-semibold text-gray-900 mt-1">
+                              {formatCurrency(
+                                Number(
+                                  campaign.budget ||
+                                    0
+                                )
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">
+                              Duration
+                            </p>
+
+                            <p className="text-sm font-medium text-gray-900 mt-1">
+                              {formatDate(
+                                campaign.start_date
+                              )}{' '}
+                              -{' '}
+                              {formatDate(
+                                campaign.end_date
+                              )}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
-                      <button
-                        onClick={() =>
-                          setViewingCampaign(campaign)
-                        }
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-                      >
-                        View Details
-                      </button>
+                      <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
+                        <button
+                          onClick={() =>
+                            setViewingCampaign(
+                              campaign
+                            )
+                          }
+                          className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                        >
+                          View Details
+                        </button>
 
-                      <button
-                        onClick={() =>
-                          openEditModal(campaign)
-                        }
-                        className="text-sm font-medium text-gray-600 hover:text-gray-900"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </Card>
-                </motion.div>
-              );
-            })}
+                        <button
+                          onClick={() =>
+                            openEditModal(
+                              campaign
+                            )
+                          }
+                          className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </Card>
+                  </motion.div>
+                );
+              }
+            )}
           </AnimatePresence>
         </div>
       )}
 
       <Modal
-        open={showCreateModal}
+        isOpen={
+          showCreateModal
+        }
         onClose={closeModal}
         title={
           editingCampaign
@@ -671,7 +1015,9 @@ export function CampaignsPage() {
         }
       >
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="space-y-5"
         >
           <Input
@@ -679,7 +1025,10 @@ export function CampaignsPage() {
             placeholder="Enter campaign title"
             value={form.title}
             onChange={(e) =>
-              handleFormChange('title', e.target.value)
+              handleFormChange(
+                'title',
+                e.target.value
+              )
             }
             required
           />
@@ -687,7 +1036,9 @@ export function CampaignsPage() {
           <Input
             label="Description"
             placeholder="Enter campaign description"
-            value={form.description}
+            value={
+              form.description
+            }
             onChange={(e) =>
               handleFormChange(
                 'description',
@@ -702,7 +1053,9 @@ export function CampaignsPage() {
             </label>
 
             <select
-              value={form.platform}
+              value={
+                form.platform
+              }
               onChange={(e) =>
                 handleFormChange(
                   'platform',
@@ -741,7 +1094,9 @@ export function CampaignsPage() {
             label="Budget"
             type="number"
             placeholder="Enter budget"
-            value={form.budget}
+            value={
+              form.budget
+            }
             onChange={(e) =>
               handleFormChange(
                 'budget',
@@ -754,7 +1109,9 @@ export function CampaignsPage() {
           <Input
             label="Objectives"
             placeholder="Enter campaign objectives"
-            value={form.objectives}
+            value={
+              form.objectives
+            }
             onChange={(e) =>
               handleFormChange(
                 'objectives',
@@ -767,7 +1124,9 @@ export function CampaignsPage() {
             <Input
               label="Start Date"
               type="datetime-local"
-              value={form.start_date}
+              value={
+                form.start_date
+              }
               onChange={(e) =>
                 handleFormChange(
                   'start_date',
@@ -780,7 +1139,9 @@ export function CampaignsPage() {
             <Input
               label="End Date"
               type="datetime-local"
-              value={form.end_date}
+              value={
+                form.end_date
+              }
               onChange={(e) =>
                 handleFormChange(
                   'end_date',
@@ -797,7 +1158,9 @@ export function CampaignsPage() {
             </label>
 
             <select
-              value={form.status}
+              value={
+                form.status
+              }
               onChange={(e) =>
                 handleFormChange(
                   'status',
@@ -806,11 +1169,18 @@ export function CampaignsPage() {
               }
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
+              <option value="draft">
+                Draft
+              </option>
+
+              <option value="active">
+                Active
+              </option>
+
               <option value="completed">
                 Completed
               </option>
+
               <option value="cancelled">
                 Cancelled
               </option>
@@ -821,15 +1191,21 @@ export function CampaignsPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={closeModal}
-              disabled={saving}
+              onClick={
+                closeModal
+              }
+              disabled={
+                saving
+              }
             >
               Cancel
             </Button>
 
             <Button
               type="submit"
-              loading={saving}
+              loading={
+                saving
+              }
               icon={
                 !saving ? (
                   <Check className="w-4 h-4" />
@@ -845,8 +1221,14 @@ export function CampaignsPage() {
       </Modal>
 
       <Modal
-        open={!!viewingCampaign}
-        onClose={() => setViewingCampaign(null)}
+        isOpen={
+          !!viewingCampaign
+        }
+        onClose={() =>
+          setViewingCampaign(
+            null
+          )
+        }
         title="Campaign Details"
       >
         {viewingCampaign && (
@@ -857,7 +1239,9 @@ export function CampaignsPage() {
               </p>
 
               <p className="text-lg font-semibold text-gray-900 mt-1">
-                {viewingCampaign.title}
+                {
+                  viewingCampaign.title
+                }
               </p>
             </div>
 
@@ -896,7 +1280,9 @@ export function CampaignsPage() {
                       viewingCampaign.status
                     )}
                   >
-                    {viewingCampaign.status}
+                    {
+                      viewingCampaign.status
+                    }
                   </Badge>
                 </div>
               </div>
@@ -909,7 +1295,10 @@ export function CampaignsPage() {
 
               <p className="text-sm font-semibold text-gray-900 mt-1">
                 {formatCurrency(
-                  Number(viewingCampaign.budget || 0)
+                  Number(
+                    viewingCampaign.budget ||
+                      0
+                  )
                 )}
               </p>
             </div>
@@ -951,24 +1340,98 @@ export function CampaignsPage() {
               </div>
             </div>
 
+            <div className="pt-3 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Linked Posts (
+                {
+                  campaignPosts.length
+                }
+                )
+              </p>
+
+              {campaignPosts.length ===
+              0 ? (
+                <p className="text-sm text-gray-400 italic">
+                  No posts assigned to this campaign yet.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {campaignPosts.map(
+                    (post) => (
+                      <div
+                        key={
+                          post.id
+                        }
+                        className="p-3 bg-gray-50 border border-gray-100 rounded-xl flex items-center gap-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-800 truncate">
+                            {post.content ||
+                              'Media Post'}
+                          </p>
+
+                          <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-medium">
+                            {
+                              post.status
+                            }
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRemovePost(
+                              viewingCampaign.id,
+                              post.id
+                            )
+                          }
+                          disabled={
+                            removingPostId ===
+                            post.id
+                          }
+                          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Unlink className="w-3.5 h-3.5" />
+
+                          {removingPostId ===
+                          post.id
+                            ? 'Removing...'
+                            : 'Remove'}
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
               <Button
                 variant="secondary"
                 onClick={() =>
-                  setViewingCampaign(null)
+                  setViewingCampaign(
+                    null
+                  )
                 }
               >
                 Close
               </Button>
 
               <Button
-                icon={<Edit2 className="w-4 h-4" />}
+                icon={
+                  <Edit2 className="w-4 h-4" />
+                }
                 onClick={() => {
                   const campaign =
                     viewingCampaign;
 
-                  setViewingCampaign(null);
-                  openEditModal(campaign);
+                  setViewingCampaign(
+                    null
+                  );
+
+                  openEditModal(
+                    campaign
+                  );
                 }}
               >
                 Edit Campaign
@@ -980,3 +1443,4 @@ export function CampaignsPage() {
     </div>
   );
 }
+

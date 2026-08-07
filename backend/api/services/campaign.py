@@ -1,10 +1,152 @@
+
 from datetime import datetime, timezone
 
 from api.database.session import SessionLocal
+from api.models.business_assignment import BusinessAssignment
 from api.models.campaign import Campaign
 from api.models.post import Post
-from api.models.business_assignment import BusinessAssignment
 from api.models.user import User
+from api.roles.user import Role
+
+
+def _get_assigned_client(
+    db,
+    marketing_team_id: int,
+    client_id: int,
+):
+    marketing_team = (
+        db.query(User)
+        .filter(
+            User.id == marketing_team_id,
+            User.role == Role.MARKETING_TEAM,
+        )
+        .first()
+    )
+
+    if not marketing_team:
+        raise ValueError("Marketing Team user not found")
+
+    assignment = (
+        db.query(BusinessAssignment)
+        .filter(
+            BusinessAssignment.business_user_id == client_id,
+            BusinessAssignment.marketing_team_id == marketing_team_id,
+        )
+        .first()
+    )
+
+    if not assignment:
+        raise ValueError(
+            "Client is not assigned to your Marketing Team"
+        )
+
+    client = (
+        db.query(User)
+        .filter(
+            User.id == client_id,
+            User.role == Role.BUSINESS_USER,
+        )
+        .first()
+    )
+
+    if not client:
+        raise ValueError("Client not found")
+
+    return client
+
+
+def _get_campaign_for_user(
+    db,
+    user_id: int,
+    campaign_id: int,
+):
+    campaign = (
+        db.query(Campaign)
+        .filter(
+            Campaign.id == campaign_id,
+            Campaign.user_id == user_id,
+        )
+        .first()
+    )
+
+    if campaign:
+        return campaign
+
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    if user and user.role == Role.MARKETING_TEAM:
+        campaign = (
+            db.query(Campaign)
+            .join(
+                BusinessAssignment,
+                BusinessAssignment.business_user_id
+                == Campaign.user_id,
+            )
+            .filter(
+                Campaign.id == campaign_id,
+                BusinessAssignment.marketing_team_id
+                == user_id,
+            )
+            .first()
+        )
+
+    if not campaign:
+        raise ValueError(
+            f"Campaign {campaign_id} not found"
+        )
+
+    return campaign
+
+
+def _get_post_for_user(
+    db,
+    user_id: int,
+    post_id: int,
+):
+    post = (
+        db.query(Post)
+        .filter(
+            Post.id == post_id,
+            Post.user_id == user_id,
+        )
+        .first()
+    )
+
+    if post:
+        return post
+
+    user = (
+        db.query(User)
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    if user and user.role == Role.MARKETING_TEAM:
+        post = (
+            db.query(Post)
+            .join(
+                BusinessAssignment,
+                BusinessAssignment.business_user_id
+                == Post.user_id,
+            )
+            .filter(
+                Post.id == post_id,
+                BusinessAssignment.marketing_team_id
+                == user_id,
+            )
+            .first()
+        )
+
+    if not post:
+        raise ValueError(
+            f"Post {post_id} not found"
+        )
+
+    return post
 
 
 def create_campaign(
@@ -36,7 +178,7 @@ def create_campaign(
                 "Campaign end date must be after start date"
             )
 
-        new_campaign = Campaign(
+        campaign = Campaign(
             user_id=user_id,
             title=data.title,
             description=data.description,
@@ -48,11 +190,11 @@ def create_campaign(
             status=data.status,
         )
 
-        db.add(new_campaign)
+        db.add(campaign)
         db.commit()
-        db.refresh(new_campaign)
+        db.refresh(campaign)
 
-        return new_campaign
+        return campaign
 
     finally:
         db.close()
@@ -66,47 +208,11 @@ def create_client_campaign(
     db = SessionLocal()
 
     try:
-        marketing_team = (
-            db.query(User)
-            .filter(
-                User.id == marketing_team_id,
-                User.role == "marketing_team",
-            )
-            .first()
+        _get_assigned_client(
+            db,
+            marketing_team_id,
+            client_id,
         )
-
-        if not marketing_team:
-            raise ValueError(
-                "Marketing Team user not found"
-            )
-
-        assignment = (
-            db.query(BusinessAssignment)
-            .filter(
-                BusinessAssignment.business_user_id == client_id,
-                BusinessAssignment.marketing_team_id == marketing_team_id,
-            )
-            .first()
-        )
-
-        if not assignment:
-            raise ValueError(
-                "Client is not assigned to your Marketing Team"
-            )
-
-        client = (
-            db.query(User)
-            .filter(
-                User.id == client_id,
-                User.role == "business_user",
-            )
-            .first()
-        )
-
-        if not client:
-            raise ValueError(
-                "Client not found"
-            )
 
         existing_campaign = (
             db.query(Campaign)
@@ -130,7 +236,7 @@ def create_client_campaign(
                 "Campaign end date must be after start date"
             )
 
-        new_campaign = Campaign(
+        campaign = Campaign(
             user_id=client_id,
             title=data.title,
             description=data.description,
@@ -142,11 +248,11 @@ def create_client_campaign(
             status=data.status,
         )
 
-        db.add(new_campaign)
+        db.add(campaign)
         db.commit()
-        db.refresh(new_campaign)
+        db.refresh(campaign)
 
-        return new_campaign
+        return campaign
 
     finally:
         db.close()
@@ -180,47 +286,11 @@ def list_client_campaigns(
     db = SessionLocal()
 
     try:
-        marketing_team = (
-            db.query(User)
-            .filter(
-                User.id == marketing_team_id,
-                User.role == "marketing_team",
-            )
-            .first()
+        _get_assigned_client(
+            db,
+            marketing_team_id,
+            client_id,
         )
-
-        if not marketing_team:
-            raise ValueError(
-                "Marketing Team user not found"
-            )
-
-        assignment = (
-            db.query(BusinessAssignment)
-            .filter(
-                BusinessAssignment.business_user_id == client_id,
-                BusinessAssignment.marketing_team_id == marketing_team_id,
-            )
-            .first()
-        )
-
-        if not assignment:
-            raise ValueError(
-                "Client is not assigned to your Marketing Team"
-            )
-
-        client = (
-            db.query(User)
-            .filter(
-                User.id == client_id,
-                User.role == "business_user",
-            )
-            .first()
-        )
-
-        if not client:
-            raise ValueError(
-                "Client not found"
-            )
 
         return (
             db.query(Campaign)
@@ -244,21 +314,11 @@ def get_campaign(
     db = SessionLocal()
 
     try:
-        campaign = (
-            db.query(Campaign)
-            .filter(
-                Campaign.id == campaign_id,
-                Campaign.user_id == user_id,
-            )
-            .first()
+        return _get_campaign_for_user(
+            db,
+            user_id,
+            campaign_id,
         )
-
-        if not campaign:
-            raise ValueError(
-                f"Campaign {campaign_id} not found"
-            )
-
-        return campaign
 
     finally:
         db.close()
@@ -272,19 +332,11 @@ def update_campaign(
     db = SessionLocal()
 
     try:
-        campaign = (
-            db.query(Campaign)
-            .filter(
-                Campaign.id == campaign_id,
-                Campaign.user_id == user_id,
-            )
-            .first()
+        campaign = _get_campaign_for_user(
+            db,
+            user_id,
+            campaign_id,
         )
-
-        if not campaign:
-            raise ValueError(
-                f"Campaign {campaign_id} not found"
-            )
 
         update_data = data.model_dump(
             exclude_unset=True
@@ -302,6 +354,7 @@ def update_campaign(
 
         if (
             new_end_date is not None
+            and new_start_date is not None
             and new_end_date < new_start_date
         ):
             raise ValueError(
@@ -312,7 +365,7 @@ def update_campaign(
             existing_campaign = (
                 db.query(Campaign)
                 .filter(
-                    Campaign.user_id == user_id,
+                    Campaign.user_id == campaign.user_id,
                     Campaign.title == update_data["title"],
                     Campaign.id != campaign_id,
                 )
@@ -351,25 +404,16 @@ def delete_campaign(
     db = SessionLocal()
 
     try:
-        campaign = (
-            db.query(Campaign)
-            .filter(
-                Campaign.id == campaign_id,
-                Campaign.user_id == user_id,
-            )
-            .first()
+        campaign = _get_campaign_for_user(
+            db,
+            user_id,
+            campaign_id,
         )
-
-        if not campaign:
-            raise ValueError(
-                f"Campaign {campaign_id} not found"
-            )
 
         for post in campaign.posts:
             post.campaign_id = None
 
         db.delete(campaign)
-
         db.commit()
 
         return {
@@ -390,33 +434,17 @@ def assign_post_to_campaign(
     db = SessionLocal()
 
     try:
-        campaign = (
-            db.query(Campaign)
-            .filter(
-                Campaign.id == campaign_id,
-                Campaign.user_id == user_id,
-            )
-            .first()
+        campaign = _get_campaign_for_user(
+            db,
+            user_id,
+            campaign_id,
         )
 
-        if not campaign:
-            raise ValueError(
-                f"Campaign {campaign_id} not found"
-            )
-
-        post = (
-            db.query(Post)
-            .filter(
-                Post.id == post_id,
-                Post.user_id == user_id,
-            )
-            .first()
+        post = _get_post_for_user(
+            db,
+            user_id,
+            post_id,
         )
-
-        if not post:
-            raise ValueError(
-                f"Post {post_id} not found"
-            )
 
         if post.campaign_id is not None:
             raise ValueError(
@@ -460,35 +488,19 @@ def remove_post_from_campaign(
     db = SessionLocal()
 
     try:
-        campaign = (
-            db.query(Campaign)
-            .filter(
-                Campaign.id == campaign_id,
-                Campaign.user_id == user_id,
-            )
-            .first()
+        campaign = _get_campaign_for_user(
+            db,
+            user_id,
+            campaign_id,
         )
 
-        if not campaign:
-            raise ValueError(
-                f"Campaign {campaign_id} not found"
-            )
-
-        post = (
-            db.query(Post)
-            .filter(
-                Post.id == post_id,
-                Post.user_id == user_id,
-            )
-            .first()
+        post = _get_post_for_user(
+            db,
+            user_id,
+            post_id,
         )
 
-        if not post:
-            raise ValueError(
-                f"Post {post_id} not found"
-            )
-
-        if post.campaign_id != campaign_id:
+        if post.campaign_id != campaign.id:
             raise ValueError(
                 f"Post {post_id} is not assigned to Campaign {campaign_id}"
             )
@@ -511,24 +523,15 @@ def get_campaign_posts(
     db = SessionLocal()
 
     try:
-        campaign = (
-            db.query(Campaign)
-            .filter(
-                Campaign.id == campaign_id,
-                Campaign.user_id == user_id,
-            )
-            .first()
+        _get_campaign_for_user(
+            db,
+            user_id,
+            campaign_id,
         )
-
-        if not campaign:
-            raise ValueError(
-                f"Campaign {campaign_id} not found"
-            )
 
         return (
             db.query(Post)
             .filter(
-                Post.user_id == user_id,
                 Post.campaign_id == campaign_id,
             )
             .order_by(
@@ -539,3 +542,4 @@ def get_campaign_posts(
 
     finally:
         db.close()
+

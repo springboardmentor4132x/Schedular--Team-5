@@ -18,6 +18,7 @@ from api.routers.campaign import router as campaign_router
 from api.routers.upload import router as upload_router
 from api.routers.client import router as client_router
 from api.routers.notification import router as notification_router
+from api.routers.analytics import router as analytics_router
 
 from api.routers import youtube
 from api.routers import linkedin
@@ -119,3 +120,5 @@ app.include_router(business_assignment_router)
 app.include_router(notification_router)
 
 app.include_router(schedule.router)
+
+app.include_router(analytics_router)

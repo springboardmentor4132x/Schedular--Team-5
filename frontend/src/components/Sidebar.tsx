@@ -41,37 +41,11 @@ const navItems = [
     ],
   },
   {
-    to: '/app/accounts',
-    label: 'Social Accounts',
-    icon: Share2,
-    roles: [
-      'administrator',
-      'business_user',
-      'content_creator',
-    ],
-  },
-  {
-    to: '/app/my-marketing-team',
-    label: 'My Marketing Team',
-    icon: UserCheck,
-    roles: [
-      'business_user',
-    ],
-  },
-  {
     to: '/app/clients',
     label: 'My Clients',
     icon: Users,
     roles: [
       'marketing_team',
-    ],
-  },
-  {
-    to: '/app/create-post',
-    label: 'Create Post',
-    icon: FileText,
-    roles: [
-      'content_creator',
     ],
   },
   {
@@ -94,6 +68,25 @@ const navItems = [
     ],
   },
   {
+    to: '/app/accounts',
+    label: 'Social Accounts',
+    icon: Share2,
+    roles: [
+      'administrator',
+      'marketing_team',
+      'business_user',
+      'content_creator',
+    ],
+  },
+  {
+    to: '/app/create-post',
+    label: 'Create Post',
+    icon: FileText,
+    roles: [
+      'content_creator',
+    ],
+  },
+  {
     to: '/app/analytics',
     label: 'Analytics',
     icon: BarChart3,
@@ -110,6 +103,14 @@ const navItems = [
       'administrator',
       'marketing_team',
       'content_creator',
+      'business_user',
+    ],
+  },
+  {
+    to: '/app/my-marketing-team',
+    label: 'My Marketing Team',
+    icon: UserCheck,
+    roles: [
       'business_user',
     ],
   },

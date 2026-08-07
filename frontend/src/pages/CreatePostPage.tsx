@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import { Card, Button } from '../components/ui';
+import { ContentPreview } from '../components/ContentPreview';
 import api, {
   accountService,
   postService,
@@ -50,61 +51,131 @@ type UploadedMedia = {
   filename?: string;
 };
 
+type PostMediaType =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'carousel';
+
+const IMAGE_PLATFORMS = [
+  'facebook',
+  'instagram',
+  'linkedin',
+];
+
+const VIDEO_PLATFORMS = [
+  'facebook',
+  'instagram',
+  'linkedin',
+  'youtube',
+];
+
+const normalizePlatform = (
+  platform?: string
+): string => {
+  const normalized =
+    platform?.toLowerCase().trim() || '';
+
+  if (normalized === 'twitter') {
+    return 'x';
+  }
+
+  return normalized;
+};
+
+const isImagePlatform = (
+  platform: string
+) =>
+  IMAGE_PLATFORMS.includes(
+    normalizePlatform(platform)
+  );
+
+const isVideoPlatform = (
+  platform: string
+) =>
+  VIDEO_PLATFORMS.includes(
+    normalizePlatform(platform)
+  );
+
+const isValidRemoteUrl = (
+  value?: string | null
+): boolean => {
+  if (!value) {
+    return false;
+  }
+
+  if (
+    value.startsWith('blob:') ||
+    value.includes('blob:')
+  ) {
+    return false;
+  }
+
+  return (
+    value.startsWith('https://') ||
+    value.startsWith('http://')
+  );
+};
+
 export function CreatePostPage() {
   const [content, setContent] = useState('');
 
-  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<
-    (number | string)[]
-  >([]);
+  const [accounts, setAccounts] =
+    useState<SocialAccount[]>([]);
 
-  /*
-   * Multiple media support.
-   *
-   * Instagram carousel:
-   * 2-10 images
-   */
-  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [
+    selectedAccountIds,
+    setSelectedAccountIds,
+  ] = useState<(number | string)[]>([]);
 
-  /*
-   * Uploaded backend URLs.
-   *
-   * Each selected file gets its own uploaded URL.
-   */
-  const [uploadedMedia, setUploadedMedia] = useState<
-    UploadedMedia[]
-  >([]);
+  const [media, setMedia] =
+    useState<MediaItem[]>([]);
 
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
+  const [uploadedMedia, setUploadedMedia] =
+    useState<UploadedMedia[]>([]);
 
-  const [campaign, setCampaign] = useState('');
-  const [isDraftMode, setIsDraftMode] = useState(false);
+  const [scheduleDate, setScheduleDate] =
+    useState('');
 
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
-  const [publishing, setPublishing] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [scheduleTime, setScheduleTime] =
+    useState('');
 
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
+  const [campaign, setCampaign] =
+    useState('');
+
+  const [isDraftMode, setIsDraftMode] =
+    useState(false);
+
+  const [loadingAccounts, setLoadingAccounts] =
+    useState(true);
+
+  const [publishing, setPublishing] =
+    useState(false);
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  const [success, setSuccess] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
+
+  const [isDragging, setIsDragging] =
+    useState(false);
 
   const fileInputRef =
-    useRef<HTMLInputElement>(null);
+    useRef<HTMLInputElement | null>(null);
 
   const maxLength = 280;
-  const remaining = maxLength - content.length;
 
-  /*
-   * Load connected social accounts.
-   */
+  const remaining =
+    maxLength - content.length;
+
   useEffect(() => {
     loadAccounts();
   }, []);
 
-  /*
-   * Clean up all browser preview URLs.
-   */
   useEffect(() => {
     return () => {
       media.forEach((item) => {
@@ -123,20 +194,25 @@ export function CreatePostPage() {
       const response =
         await accountService.getAll();
 
-      const data = Array.isArray(response.data)
+      const data = Array.isArray(
+        response.data
+      )
         ? response.data
         : response.data?.items ||
           response.data?.accounts ||
           [];
 
-      const connectedOnly = data.filter(
-        (account: SocialAccount) =>
-          account.is_connected === true
-      );
+      const connectedOnly =
+        data.filter(
+          (account: SocialAccount) =>
+            account.is_connected === true
+        );
 
       setAccounts(connectedOnly);
 
-      if (connectedOnly.length === 0) {
+      if (
+        connectedOnly.length === 0
+      ) {
         setSelectedAccountIds([]);
       }
     } catch (err: any) {
@@ -157,12 +233,13 @@ export function CreatePostPage() {
   const toggleAccount = (
     accountId: number | string
   ) => {
-    setSelectedAccountIds((previous) =>
-      previous.includes(accountId)
-        ? previous.filter(
-            (id) => id !== accountId
-          )
-        : [...previous, accountId]
+    setSelectedAccountIds(
+      (previous) =>
+        previous.includes(accountId)
+          ? previous.filter(
+              (id) => id !== accountId
+            )
+          : [...previous, accountId]
     );
   };
 
@@ -184,755 +261,958 @@ export function CreatePostPage() {
     const config =
       getPlatformConfig(platform);
 
-    return config?.name || platform;
+    return (
+      config?.name ||
+      platform
+    );
   };
 
-  /*
-   * Determine selected platform.
-   */
-  const getSelectedPlatform = () => {
-    if (selectedAccountIds.length === 0) {
-      return null;
-    }
-
-    const selectedAccount =
-      accounts.find((account) =>
-        selectedAccountIds.includes(account.id)
+  const getSelectedPlatforms =
+    (): string[] => {
+      return Array.from(
+        new Set(
+          accounts
+            .filter((account) =>
+              selectedAccountIds.includes(
+                account.id
+              )
+            )
+            .map((account) =>
+              normalizePlatform(
+                account.platform
+              )
+            )
+        )
       );
+    };
 
-    if (!selectedAccount) {
-      return null;
+  const getSelectedPlatform =
+    (): string | null => {
+      const platforms =
+        getSelectedPlatforms();
+
+      if (platforms.length === 0) {
+        return null;
+      }
+
+      return platforms[0];
+    };
+
+  const validateMediaAgainstPlatforms = (
+    files: File[]
+  ) => {
+    const selectedPlatforms =
+      getSelectedPlatforms();
+
+    if (
+      selectedPlatforms.length === 0
+    ) {
+      throw new Error(
+        'Please select at least one connected social account before uploading media.'
+      );
     }
 
-    let platform =
-      selectedAccount.platform
-        ?.toLowerCase()
-        .trim();
+    const hasVideo = files.some(
+      (file) =>
+        file.type.startsWith('video/')
+    );
 
-    if (platform === 'twitter') {
-      platform = 'x';
+    const hasImage = files.some(
+      (file) =>
+        file.type.startsWith('image/')
+    );
+
+    if (hasVideo && hasImage) {
+      throw new Error(
+        'Please select either images or videos, not both.'
+      );
     }
 
-    return platform;
+    if (hasVideo) {
+      const unsupported =
+        selectedPlatforms.filter(
+          (platform) =>
+            !isVideoPlatform(platform)
+        );
+
+      if (
+        unsupported.length > 0
+      ) {
+        throw new Error(
+          `Video publishing is supported only for Instagram, Facebook, LinkedIn, and YouTube. Remove unsupported selected accounts before uploading the video.`
+        );
+      }
+    }
+
+    if (hasImage) {
+      const unsupported =
+        selectedPlatforms.filter(
+          (platform) =>
+            !isImagePlatform(platform)
+        );
+
+      if (
+        unsupported.length > 0
+      ) {
+        throw new Error(
+          `Image publishing is supported only for Instagram, Facebook, and LinkedIn. Remove unsupported selected accounts before uploading the image.`
+        );
+      }
+    }
   };
 
-  /*
-   * Upload one file to backend.
-   */
   const uploadMediaToBackend = async (
     file: File
   ): Promise<UploadedMedia> => {
-    const platform =
-      getSelectedPlatform();
+    const selectedPlatforms =
+      getSelectedPlatforms();
 
-    if (!platform) {
+    if (
+      selectedPlatforms.length === 0
+    ) {
       throw new Error(
-        'Unable to determine the selected social platform.'
+        'No social platform selected.'
       );
     }
 
-    const formData = new FormData();
+    const isVideo =
+      file.type.startsWith('video/');
 
-    formData.append('file', file);
+    const isImage =
+      file.type.startsWith('image/');
+
+    if (!isVideo && !isImage) {
+      throw new Error(
+        'Only image and video files are supported.'
+      );
+    }
+
+    const uploadPlatform =
+      isVideo
+        ? selectedPlatforms.find(
+            (platform) =>
+              isVideoPlatform(platform)
+          )
+        : selectedPlatforms.find(
+            (platform) =>
+              isImagePlatform(platform)
+          );
+
+    if (!uploadPlatform) {
+      throw new Error(
+        isVideo
+          ? 'No supported platform is selected for video publishing.'
+          : 'No supported platform is selected for image publishing.'
+      );
+    }
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      'file',
+      file
+    );
 
     console.log(
-      'Uploading media:',
+      '>>> MEDIA UPLOAD START',
       {
-        platform,
         filename: file.name,
         contentType: file.type,
         size: file.size,
+        platform: uploadPlatform,
       }
     );
 
-    const response = await api.post(
-      `/uploads/?platform=${encodeURIComponent(
-        platform
-      )}`,
-      formData
-    );
+    const response =
+      await api.post(
+        `/uploads/?platform=${encodeURIComponent(
+          uploadPlatform
+        )}`,
+        formData
+      );
 
     console.log(
-      'Media upload response:',
+      '>>> MEDIA UPLOAD RESPONSE',
       response.data
     );
 
+    const uploadedUrl =
+      response.data?.media_url;
+
+    const uploadedType =
+      response.data?.media_type;
+
     if (
-      !response.data?.media_url ||
-      !response.data?.media_type
+      !isValidRemoteUrl(
+        uploadedUrl
+      )
     ) {
       throw new Error(
-        'Backend did not return media_url or media_type.'
+        'Backend did not return a valid HTTPS media URL. The upload was not completed.'
+      );
+    }
+
+    if (
+      !uploadedType
+    ) {
+      throw new Error(
+        'Backend did not return media_type.'
       );
     }
 
     return {
       media_url:
-        response.data.media_url,
+        uploadedUrl,
       media_type:
-        response.data.media_type,
+        uploadedType,
       filename:
-        response.data.filename,
+        response.data?.filename,
     };
   };
 
-  /*
-   * Validate selected files.
-   */
   const validateFiles = (
     files: File[]
   ) => {
-    if (files.length === 0) {
+    if (
+      files.length === 0
+    ) {
       return;
     }
 
-    /*
-     * Maximum carousel size.
-     */
-    if (files.length > 10) {
+    if (
+      files.length > 10
+    ) {
       throw new Error(
-        'Instagram carousel supports a maximum of 10 images.'
+        'You can select a maximum of 10 images.'
       );
     }
 
-    /*
-     * Determine whether this is a
-     * multi-image selection.
-     */
-    const imageFiles = files.filter(
-      (file) =>
-        file.type.startsWith('image/')
-    );
+    const imageFiles =
+      files.filter(
+        (file) =>
+          file.type.startsWith(
+            'image/'
+          )
+      );
 
-    const videoFiles = files.filter(
-      (file) =>
-        file.type.startsWith('video/')
-    );
+    const videoFiles =
+      files.filter(
+        (file) =>
+          file.type.startsWith(
+            'video/'
+          )
+      );
 
-    /*
-     * Multiple files must all be images.
-     */
+    if (
+      imageFiles.length +
+        videoFiles.length !==
+      files.length
+    ) {
+      throw new Error(
+        'Only image and video files are supported.'
+      );
+    }
+
+    if (
+      videoFiles.length > 0 &&
+      files.length > 1
+    ) {
+      throw new Error(
+        'Only one video can be uploaded at a time.'
+      );
+    }
+
     if (
       files.length > 1 &&
-      (
-        videoFiles.length > 0 ||
-        imageFiles.length !== files.length
-      )
+      imageFiles.length !==
+        files.length
     ) {
       throw new Error(
-        'Instagram carousel supports multiple images only. Select one video or 2-10 images.'
+        'Multiple files are allowed only for image carousels.'
       );
     }
 
-    /*
-     * Individual file validation.
-     */
-    for (const file of files) {
-      const isImage =
-        file.type.startsWith('image/');
+    if (
+      files.length > 1 &&
+      files.length < 2
+    ) {
+      throw new Error(
+        'Select at least 2 images for a carousel.'
+      );
+    }
 
-      const isVideo =
-        file.type.startsWith('video/');
-
-      if (!isImage && !isVideo) {
-        throw new Error(
-          `${file.name} is not a supported image or video file.`
-        );
-      }
-
+    for (
+      const file of files
+    ) {
       if (
         file.size >
-        50 * 1024 * 1024
+        50 *
+          1024 *
+          1024
       ) {
         throw new Error(
-          `${file.name} is larger than 50MB.`
+          `${file.name} is larger than 50 MB.`
         );
       }
     }
 
-    /*
-     * A single video is allowed.
-     */
-    if (
-      files.length === 1 &&
-      videoFiles.length === 1
-    ) {
-      return;
-    }
-
-    /*
-     * A single image is allowed.
-     */
-    if (
-      files.length === 1 &&
-      imageFiles.length === 1
-    ) {
-      return;
-    }
-
-    /*
-     * Multiple images must be 2-10.
-     */
-    if (
-      files.length >= 2 &&
-      files.length <= 10 &&
-      imageFiles.length === files.length
-    ) {
-      return;
-    }
-
-    throw new Error(
-      'Please select one image/video or 2-10 images for an Instagram carousel.'
+    validateMediaAgainstPlatforms(
+      files
     );
   };
 
-  /*
-   * Handle image/video selection.
-   *
-   * Supports:
-   *
-   * 1 image
-   * 1 video
-   * 2-10 images
-   */
-  const handleFileSelect = async (
-    files: FileList | null
-  ) => {
-    if (!files || files.length === 0) {
-      return;
-    }
+  const handleFileSelect =
+    async (
+      files: FileList | null
+    ) => {
+      if (
+        !files ||
+        files.length === 0
+      ) {
+        return;
+      }
 
-    if (selectedAccountIds.length === 0) {
-      setError(
-        'Please select at least one connected social account before uploading media.'
-      );
-      return;
-    }
+      const selectedFiles =
+        Array.from(files);
 
-    const selectedFiles =
-      Array.from(files);
+      try {
+        setError('');
+        setSuccess(false);
 
-    try {
-      setError('');
-      setSuccess(false);
-
-      validateFiles(
-        selectedFiles
-      );
-
-      /*
-       * Clear existing media before
-       * adding the new selection.
-       */
-      media.forEach((item) => {
-        if (item.url) {
-          URL.revokeObjectURL(item.url);
-        }
-      });
-
-      setMedia([]);
-      setUploadedMedia([]);
-
-      setUploading(true);
-
-      /*
-       * Create local previews.
-       */
-      const previewItems =
-        selectedFiles.map(
-          (file) => ({
-            type: file.type.startsWith(
-              'video/'
-            )
-              ? ('video' as const)
-              : ('image' as const),
-
-            url: URL.createObjectURL(
-              file
-            ),
-
-            name: file.name,
-
-            file,
-          })
+        validateFiles(
+          selectedFiles
         );
 
-      setMedia(
-        previewItems
-      );
+        media.forEach(
+          (item) => {
+            if (item.url) {
+              URL.revokeObjectURL(
+                item.url
+              );
+            }
+          }
+        );
 
-      /*
-       * Upload every selected file.
-       */
-      const uploadedItems: UploadedMedia[] =
-        [];
+        setMedia([]);
+        setUploadedMedia([]);
 
-      for (
-        let index = 0;
-        index <
-        selectedFiles.length;
-        index++
-      ) {
-        const file =
-          selectedFiles[index];
+        setUploading(true);
+
+        const previewItems =
+          selectedFiles.map(
+            (file) => ({
+              type:
+                file.type.startsWith(
+                  'video/'
+                )
+                  ? ('video' as const)
+                  : ('image' as const),
+
+              url:
+                URL.createObjectURL(
+                  file
+                ),
+
+              name:
+                file.name,
+
+              file,
+            })
+          );
+
+        setMedia(
+          previewItems
+        );
+
+        const uploadedItems:
+          UploadedMedia[] =
+          [];
+
+        for (
+          let index = 0;
+          index <
+          selectedFiles.length;
+          index++
+        ) {
+          const file =
+            selectedFiles[
+              index
+            ];
+
+          console.log(
+            `>>> UPLOADING ${index + 1}/${selectedFiles.length}`,
+            file.name
+          );
+
+          const uploaded =
+            await uploadMediaToBackend(
+              file
+            );
+
+          if (
+            !isValidRemoteUrl(
+              uploaded.media_url
+            )
+          ) {
+            throw new Error(
+              `Upload completed but returned an invalid media URL for ${file.name}.`
+            );
+          }
+
+          uploadedItems.push(
+            uploaded
+          );
+        }
+
+        if (
+          uploadedItems.length >=
+          2
+        ) {
+          setUploadedMedia(
+            uploadedItems.map(
+              (item) => ({
+                ...item,
+                media_type:
+                  'carousel',
+              })
+            )
+          );
+        } else {
+          setUploadedMedia(
+            uploadedItems
+          );
+        }
 
         console.log(
-          `Uploading media ${index + 1}/${selectedFiles.length}:`,
-          file.name
-        );
-
-        const uploaded =
-          await uploadMediaToBackend(
-            file
-          );
-
-        uploadedItems.push(
-          uploaded
-        );
-      }
-
-      /*
-       * If multiple images were uploaded,
-       * mark the post as carousel.
-       */
-      if (
-        uploadedItems.length >= 2
-      ) {
-        setUploadedMedia(
-          uploadedItems.map(
-            (item) => ({
-              ...item,
-              media_type:
-                'carousel',
-            })
-          )
-        );
-      } else {
-        setUploadedMedia(
+          '>>> ALL MEDIA UPLOADED',
           uploadedItems
         );
-      }
+      } catch (
+        err: any
+      ) {
+        console.error(
+          'Media upload error:',
+          err
+        );
 
-      console.log(
-        'All media uploaded successfully:',
-        uploadedItems
-      );
-    } catch (err: any) {
-      console.error(
-        'Media upload error:',
-        err
-      );
+        media.forEach(
+          (item) => {
+            if (
+              item.url
+            ) {
+              URL.revokeObjectURL(
+                item.url
+              );
+            }
+          }
+        );
 
-      /*
-       * Clean preview URLs.
-       */
-      media.forEach((item) => {
-        if (item.url) {
-          URL.revokeObjectURL(
-            item.url
+        setMedia([]);
+        setUploadedMedia([]);
+
+        const detail =
+          err.response?.data
+            ?.detail;
+
+        if (
+          Array.isArray(
+            detail
+          )
+        ) {
+          setError(
+            detail
+              .map(
+                (item: any) =>
+                  item.msg ||
+                  'Media upload validation error'
+              )
+              .join(
+                ', '
+              )
+          );
+        } else {
+          setError(
+            detail ||
+              err.message ||
+              'Unable to upload media.'
           );
         }
-      });
-
-      setMedia([]);
-      setUploadedMedia([]);
-
-      const detail =
-        err.response?.data?.detail;
-
-      if (Array.isArray(detail)) {
-        setError(
-          detail
-            .map(
-              (item: any) =>
-                item.msg ||
-                'Media upload validation error'
-            )
-            .join(', ')
-        );
-      } else {
-        setError(
-          detail ||
-            err.message ||
-            'Unable to upload media.'
+      } finally {
+        setUploading(
+          false
         );
       }
-    } finally {
-      setUploading(false);
-    }
-  };
+    };
 
-  /*
-   * Remove one media item.
-   */
   const removeMedia = (
     index: number
   ) => {
     const item =
       media[index];
 
-    if (item?.url) {
+    if (
+      item?.url
+    ) {
       URL.revokeObjectURL(
         item.url
       );
     }
 
-    setMedia((previous) =>
-      previous.filter(
-        (_, itemIndex) =>
-          itemIndex !== index
-      )
+    setMedia(
+      (previous) =>
+        previous.filter(
+          (
+            _,
+            itemIndex
+          ) =>
+            itemIndex !==
+            index
+        )
     );
 
     setUploadedMedia(
       (previous) =>
         previous.filter(
-          (_, itemIndex) =>
-            itemIndex !== index
+          (
+            _,
+            itemIndex
+          ) =>
+            itemIndex !==
+            index
         )
     );
   };
 
-  /*
-   * Remove all media.
-   */
-  const removeAllMedia = () => {
-    media.forEach((item) => {
-      if (item.url) {
-        URL.revokeObjectURL(item.url);
-      }
-    });
-
-    setMedia([]);
-    setUploadedMedia([]);
-  };
-
-  /*
-   * CANCEL CREATE POST
-   *
-   * This does NOT call the backend.
-   *
-   * It simply clears the current form,
-   * removes uploaded previews from the UI,
-   * and returns the page to its initial state.
-   */
-  const handleCancelForm = () => {
-    if (publishing || uploading) {
-      return;
-    }
-
-    media.forEach((item) => {
-      if (item.url) {
-        URL.revokeObjectURL(item.url);
-      }
-    });
-
-    setContent('');
-    setMedia([]);
-    setUploadedMedia([]);
-
-    setScheduleDate('');
-    setScheduleTime('');
-
-    setCampaign('');
-    setIsDraftMode(false);
-
-    setSelectedAccountIds([]);
-
-    setError('');
-    setSuccess(false);
-    setIsDragging(false);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  /*
-   * Create scheduled post or draft.
-   */
-  const handlePostSubmission = async (
-    overrideDraftMode?: boolean
-  ) => {
-    setError('');
-    setSuccess(false);
-
-    const activeDraftMode =
-      overrideDraftMode !== undefined
-        ? overrideDraftMode
-        : isDraftMode;
-
-    /*
-     * Content validation.
-     */
-    if (!content.trim()) {
-      setError(
-        'Please write some content for your post.'
+  const removeAllMedia =
+    () => {
+      media.forEach(
+        (item) => {
+          if (
+            item.url
+          ) {
+            URL.revokeObjectURL(
+              item.url
+            );
+          }
+        }
       );
-      return;
-    }
 
-    if (
-      content.length >
-      maxLength
-    ) {
-      setError(
-        `Post content cannot exceed ${maxLength} characters.`
-      );
-      return;
-    }
-
-    /*
-     * Social account validation.
-     */
-    if (
-      selectedAccountIds.length === 0
-    ) {
-      setError(
-        'Select at least one connected social account.'
-      );
-      return;
-    }
-
-    /*
-     * Schedule validation.
-     */
-    if (
-      !activeDraftMode &&
-      (!scheduleDate ||
-        !scheduleTime)
-    ) {
-      setError(
-        'Please set a schedule date and time.'
-      );
-      return;
-    }
-
-    /*
-     * Media upload validation.
-     */
-    if (
-      media.length > 0 &&
-      uploadedMedia.length !==
-        media.length
-    ) {
-      setError(
-        'Please wait for all media uploads to finish before scheduling the post.'
-      );
-      return;
-    }
-
-    /*
-     * Determine media type.
-     */
-    let mediaType:
-      | 'text'
-      | 'image'
-      | 'video'
-      | 'carousel' =
-      'text';
-
-    if (
-      uploadedMedia.length >= 2
-    ) {
-      mediaType =
-        'carousel';
-    } else if (
-      uploadedMedia.length === 1
-    ) {
-      mediaType =
-        uploadedMedia[0]
-          .media_type as
-          | 'image'
-          | 'video';
-    }
-
-    /*
-     * Determine media URL.
-     *
-     * Single media:
-     *
-     * "https://..."
-     *
-     * Carousel:
-     *
-     * '["https://...", "https://..."]'
-     *
-     * This matches the backend
-     * _parse_media_urls() implementation.
-     */
-    let mediaUrl:
-      | string
-      | null =
-      null;
-
-    if (
-      uploadedMedia.length === 1
-    ) {
-      mediaUrl =
-        uploadedMedia[0]
-          .media_url;
-    }
-
-    if (
-      uploadedMedia.length >= 2
-    ) {
-      mediaUrl =
-        JSON.stringify(
-          uploadedMedia.map(
-            (item) =>
-              item.media_url
-          )
-        );
-    }
-
-    /*
-     * Build scheduled timestamp.
-     *
-     * The UI time is IST.
-     *
-     * Backend receives:
-     *
-     * timezone: Asia/Kolkata
-     */
-    let scheduledTime:
-      | string
-      | null =
-      null;
-
-    if (!activeDraftMode) {
-      scheduledTime =
-        `${scheduleDate}T${scheduleTime}:00`;
-    }
-
-    /*
-     * Build backend request.
-     */
-    const postData = {
-      client_id: null,
-
-      content:
-        content.trim(),
-
-      media_url:
-        mediaUrl,
-
-      media_type:
-        mediaType,
-
-      scheduled_time:
-        scheduledTime,
-
-      timezone:
-        'Asia/Kolkata',
-
-      campaign_id: null,
-
-      social_account_ids:
-        selectedAccountIds.map(
-          Number
-        ),
-
-      save_as_draft:
-        activeDraftMode,
+      setMedia([]);
+      setUploadedMedia([]);
     };
 
-    try {
-      setPublishing(true);
+  const handleCancelForm =
+    () => {
+      if (
+        publishing ||
+        uploading
+      ) {
+        return;
+      }
 
-      console.log(
-        'Creating backend post:',
-        postData
+      media.forEach(
+        (item) => {
+          if (
+            item.url
+          ) {
+            URL.revokeObjectURL(
+              item.url
+            );
+          }
+        }
       );
 
-      const response =
-        await postService.create(
+      setContent('');
+      setMedia([]);
+      setUploadedMedia([]);
+      setScheduleDate('');
+      setScheduleTime('');
+      setCampaign('');
+      setIsDraftMode(false);
+      setSelectedAccountIds([]);
+      setError('');
+      setSuccess(false);
+      setIsDragging(false);
+
+      if (
+        fileInputRef.current
+      ) {
+        fileInputRef.current.value =
+          '';
+      }
+    };
+
+  const handlePostSubmission =
+    async (
+      overrideDraftMode?: boolean
+    ) => {
+      setError('');
+      setSuccess(false);
+
+      const activeDraftMode =
+        overrideDraftMode !==
+        undefined
+          ? overrideDraftMode
+          : isDraftMode;
+
+      if (
+        !content.trim()
+      ) {
+        setError(
+          'Please write some content for your post.'
+        );
+        return;
+      }
+
+      if (
+        content.length >
+        maxLength
+      ) {
+        setError(
+          `Post content cannot exceed ${maxLength} characters.`
+        );
+        return;
+      }
+
+      if (
+        selectedAccountIds.length ===
+        0
+      ) {
+        setError(
+          'Select at least one connected social account.'
+        );
+        return;
+      }
+
+      const selectedPlatforms =
+        getSelectedPlatforms();
+
+      if (
+        selectedPlatforms.length ===
+        0
+      ) {
+        setError(
+          'Unable to determine the selected social platforms.'
+        );
+        return;
+      }
+
+      if (
+        !activeDraftMode &&
+        (
+          !scheduleDate ||
+          !scheduleTime
+        )
+      ) {
+        setError(
+          'Please set a schedule date and time.'
+        );
+        return;
+      }
+
+      if (
+        uploading
+      ) {
+        setError(
+          'Please wait until media upload finishes.'
+        );
+        return;
+      }
+
+      if (
+        media.length > 0
+      ) {
+        if (
+          uploadedMedia.length !==
+          media.length
+        ) {
+          setError(
+            'Media upload is incomplete. Please wait for the upload to finish.'
+          );
+          return;
+        }
+
+        const invalidMedia =
+          uploadedMedia.some(
+            (item) =>
+              !isValidRemoteUrl(
+                item.media_url
+              )
+          );
+
+        if (
+          invalidMedia
+        ) {
+          setError(
+            'One or more media URLs are invalid. Please upload the media again.'
+          );
+          return;
+        }
+      }
+
+      let mediaType:
+        PostMediaType =
+        'text';
+
+      if (
+        uploadedMedia.length >=
+        2
+      ) {
+        mediaType =
+          'carousel';
+      } else if (
+        uploadedMedia.length ===
+        1
+      ) {
+        mediaType =
+          uploadedMedia[0]
+            .media_type as
+            | 'image'
+            | 'video';
+      }
+
+      let mediaUrl:
+        string | null =
+        null;
+
+      if (
+        uploadedMedia.length ===
+        1
+      ) {
+        mediaUrl =
+          uploadedMedia[0]
+            .media_url;
+      } else if (
+        uploadedMedia.length >=
+        2
+      ) {
+        mediaUrl =
+          JSON.stringify(
+            uploadedMedia.map(
+              (
+                item
+              ) =>
+                item.media_url
+            )
+          );
+      }
+
+      if (
+        mediaUrl &&
+        (
+          mediaUrl.startsWith(
+            'blob:'
+          ) ||
+          mediaUrl.includes(
+            'blob:'
+          )
+        )
+      ) {
+        setError(
+          'Cannot schedule this post because the media URL is a browser blob URL. Please upload the media again.'
+        );
+        return;
+      }
+
+      if (
+        mediaUrl &&
+        mediaUrl.length > 0 &&
+        !mediaUrl.startsWith(
+          'http://'
+        ) &&
+        !mediaUrl.startsWith(
+          'https://'
+        )
+      ) {
+        setError(
+          'Cannot schedule this post because the media URL is invalid.'
+        );
+        return;
+      }
+
+      let scheduledTime:
+        string | null =
+        null;
+
+      if (
+        !activeDraftMode
+      ) {
+        scheduledTime =
+          `${scheduleDate}T${scheduleTime}:00`;
+      }
+
+      const postData = {
+        client_id:
+          null,
+
+        content:
+          content.trim(),
+
+        media_url:
+          mediaUrl,
+
+        media_type:
+          mediaType,
+
+        scheduled_time:
+          scheduledTime,
+
+        timezone:
+          'Asia/Kolkata',
+
+        campaign_id:
+          null,
+
+        social_account_ids:
+          selectedAccountIds.map(
+            Number
+          ),
+
+        save_as_draft:
+          activeDraftMode,
+      };
+
+      try {
+        setPublishing(true);
+
+        console.log(
+          '>>> FINAL POST PAYLOAD',
           postData
         );
 
-      console.log(
-        'Backend create post response:',
-        response.data
-      );
-
-      setSuccess(true);
-
-      /*
-       * Clean local preview URLs.
-       */
-      media.forEach((item) => {
-        if (item.url) {
-          URL.revokeObjectURL(item.url);
-        }
-      });
-
-      /*
-       * Reset form.
-       */
-      setContent('');
-
-      setMedia([]);
-
-      setUploadedMedia([]);
-
-      setScheduleDate('');
-
-      setScheduleTime('');
-
-      setCampaign('');
-
-      setIsDraftMode(false);
-
-      setSelectedAccountIds([]);
-
-      /*
-       * Hide success message.
-       */
-      setTimeout(() => {
-        setSuccess(false);
-      }, 3000);
-    } catch (err: any) {
-      console.error(
-        'Create post error:',
-        err
-      );
-
-      const detail =
-        err.response?.data?.detail;
-
-      if (Array.isArray(detail)) {
-        setError(
-          detail
-            .map(
-              (item: any) =>
-                item.msg ||
-                'Validation error'
-            )
-            .join(', ')
+        console.log(
+          '>>> FINAL MEDIA URL',
+          mediaUrl
         );
-      } else {
-        setError(
-          detail ||
-            'Unable to create the post. Please try again.'
+
+        if (
+          mediaUrl &&
+          (
+            mediaUrl.includes(
+              'blob:'
+            ) ||
+            mediaUrl.startsWith(
+              'blob:'
+            )
+          )
+        ) {
+          throw new Error(
+            'Blocked invalid blob media URL before sending request.'
+          );
+        }
+
+        const response =
+          await postService.create(
+            postData
+          );
+
+        console.log(
+          '>>> POST CREATED',
+          response.data
+        );
+
+        if (
+          response.data?.media_url &&
+          (
+            response.data.media_url.startsWith(
+              'blob:'
+            ) ||
+            response.data.media_url.includes(
+              'blob:'
+            )
+          )
+        ) {
+          throw new Error(
+            'Backend stored a blob media URL. This post should not be used for publishing.'
+          );
+        }
+
+        setSuccess(
+          true
+        );
+
+        media.forEach(
+          (item) => {
+            if (
+              item.url
+            ) {
+              URL.revokeObjectURL(
+                item.url
+              );
+            }
+          }
+        );
+
+        setContent('');
+        setMedia([]);
+        setUploadedMedia([]);
+        setScheduleDate('');
+        setScheduleTime('');
+        setCampaign('');
+        setIsDraftMode(false);
+        setSelectedAccountIds([]);
+
+        setTimeout(
+          () => {
+            setSuccess(
+              false
+            );
+          },
+          3000
+        );
+      } catch (
+        err: any
+      ) {
+        console.error(
+          'Create post error:',
+          err
+        );
+
+        const detail =
+          err.response?.data
+            ?.detail;
+
+        if (
+          Array.isArray(
+            detail
+          )
+        ) {
+          setError(
+            detail
+              .map(
+                (item: any) =>
+                  item.msg ||
+                  'Validation error'
+              )
+              .join(
+                ', '
+              )
+          );
+        } else {
+          setError(
+            detail ||
+              err.message ||
+              'Unable to create the post. Please try again.'
+          );
+        }
+      } finally {
+        setPublishing(
+          false
         );
       }
-    } finally {
-      setPublishing(false);
-    }
-  };
+    };
 
-  /*
-   * Determine whether current media
-   * represents a carousel.
-   */
   const isCarousel =
     media.length >= 2;
 
+  const selectedPlatforms =
+    getSelectedPlatforms();
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold text-gray-900">
           Create Post
         </h1>
 
@@ -944,11 +1224,6 @@ export function CreatePostPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-
-          {/* ====================================================== */}
-          {/* CONNECTED SOCIAL ACCOUNTS */}
-          {/* ====================================================== */}
-
           <Card className="p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -957,8 +1232,9 @@ export function CreatePostPage() {
                 </h3>
 
                 <p className="text-xs text-gray-500 mt-1">
-                  Select the connected accounts where
-                  this post should be scheduled.
+                  Images: Instagram, Facebook,
+                  LinkedIn. Videos: Instagram,
+                  Facebook, LinkedIn, YouTube.
                 </p>
               </div>
 
@@ -982,95 +1258,109 @@ export function CreatePostPage() {
                 </p>
 
                 <p className="text-xs text-amber-700 mt-1">
-                  Connect Facebook, Instagram, or
-                  another platform from the Social
-                  Accounts page first.
+                  Connect your social accounts
+                  first.
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {accounts.map((account) => {
-                  const platform =
-                    account.platform?.toLowerCase();
+                {accounts.map(
+                  (account) => {
+                    const platform =
+                      normalizePlatform(
+                        account.platform
+                      );
 
-                  const config =
-                    getPlatformConfig(platform);
+                    const config =
+                      getPlatformConfig(
+                        platform
+                      );
 
-                  const Icon =
-                    config.icon;
+                    const Icon =
+                      config?.icon ||
+                      ImageIcon;
 
-                  const selected =
-                    selectedAccountIds.includes(
-                      account.id
-                    );
+                    const selected =
+                      selectedAccountIds.includes(
+                        account.id
+                      );
 
-                  return (
-                    <button
-                      key={account.id}
-                      type="button"
-                      onClick={() =>
-                        toggleAccount(
-                          account.id
-                        )
-                      }
-                      className={cn(
-                        'relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all',
-                        selected
-                          ? 'border-indigo-500 bg-indigo-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      )}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0"
-                        style={{
-                          backgroundColor:
-                            config.color,
-                        }}
+                    return (
+                      <button
+                        key={account.id}
+                        type="button"
+                        onClick={() =>
+                          toggleAccount(
+                            account.id
+                          )
+                        }
+                        className={cn(
+                          'relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all',
+                          selected
+                            ? 'border-indigo-500 bg-indigo-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        )}
                       >
-                        <Icon className="w-5 h-5" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-gray-500">
-                          {getPlatformName(
-                            platform
-                          )}
-                        </p>
-
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {getAccountDisplayName(
-                            account
-                          )}
-                        </p>
-                      </div>
-
-                      {selected && (
-                        <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white" />
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+                          style={{
+                            backgroundColor:
+                              config?.color ||
+                              '#6366f1',
+                          }}
+                        >
+                          <Icon className="w-5 h-5" />
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-500">
+                            {getPlatformName(
+                              platform
+                            )}
+                          </p>
+
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {getAccountDisplayName(
+                              account
+                            )}
+                          </p>
+                        </div>
+
+                        {selected && (
+                          <div className="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  }
+                )}
               </div>
             )}
 
             {selectedAccountIds.length > 0 && (
-              <p className="text-xs text-indigo-600 mt-3">
-                {selectedAccountIds.length}{' '}
-                account
-                {selectedAccountIds.length >
-                1
-                  ? 's'
-                  : ''}{' '}
-                selected
-              </p>
+              <div className="mt-3 space-y-1">
+                <p className="text-xs text-indigo-600">
+                  {selectedAccountIds.length}{' '}
+                  account
+                  {selectedAccountIds.length >
+                  1
+                    ? 's'
+                    : ''}{' '}
+                  selected
+                </p>
+
+                <p className="text-xs text-gray-500">
+                  Platforms:{' '}
+                  {selectedPlatforms
+                    .map(
+                      getPlatformName
+                    )
+                    .join(', ')}
+                </p>
+              </div>
             )}
           </Card>
-
-          {/* ====================================================== */}
-          {/* POST CONTENT */}
-          {/* ====================================================== */}
 
           <Card className="p-5">
             <div className="flex items-center justify-between mb-3">
@@ -1092,7 +1382,6 @@ export function CreatePostPage() {
               </span>
             </div>
 
-            {/* Toolbar */}
             <div className="flex items-center gap-1 mb-2 p-1.5 bg-gray-50 rounded-xl">
               {[
                 Bold,
@@ -1100,27 +1389,32 @@ export function CreatePostPage() {
                 List,
                 Link2,
                 Smile,
-              ].map((Icon, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
-                  onClick={() => {
-                    if (i === 4) {
-                      setContent(
-                        (prev) =>
-                          prev + '😊'
-                      );
-                    }
-                  }}
-                >
-                  <Icon className="w-4 h-4" />
-                </button>
-              ))}
+              ].map(
+                (Icon, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
+                    onClick={() => {
+                      if (
+                        index ===
+                        4
+                      ) {
+                        setContent(
+                          (prev) =>
+                            prev +
+                            '😊'
+                        );
+                      }
+                    }}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </button>
+                )
+              )}
 
               <div className="w-px h-5 bg-gray-200 mx-1" />
 
-              {/* Image button */}
               <button
                 type="button"
                 onClick={() =>
@@ -1128,15 +1422,16 @@ export function CreatePostPage() {
                 }
                 disabled={
                   uploading ||
-                  publishing
+                  publishing ||
+                  selectedAccountIds.length ===
+                    0
                 }
                 className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                title="Upload image or carousel"
+                title="Upload image"
               >
                 <ImageIcon className="w-4 h-4" />
               </button>
 
-              {/* Video button */}
               <button
                 type="button"
                 onClick={() =>
@@ -1144,7 +1439,9 @@ export function CreatePostPage() {
                 }
                 disabled={
                   uploading ||
-                  publishing
+                  publishing ||
+                  selectedAccountIds.length ===
+                    0
                 }
                 className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700 disabled:opacity-50"
                 title="Upload video"
@@ -1152,7 +1449,6 @@ export function CreatePostPage() {
                 <Video className="w-4 h-4" />
               </button>
 
-              {/* Hashtag */}
               <button
                 type="button"
                 onClick={() =>
@@ -1162,18 +1458,16 @@ export function CreatePostPage() {
                   )
                 }
                 className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
-                title="Add hashtag"
               >
                 <Hash className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Content textarea */}
             <textarea
               value={content}
-              onChange={(e) =>
+              onChange={(event) =>
                 setContent(
-                  e.target.value
+                  event.target.value
                 )
               }
               placeholder="What's on your mind? Write your post content here..."
@@ -1181,46 +1475,39 @@ export function CreatePostPage() {
               className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
             />
 
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
               multiple
               accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-msvideo,video/webm"
               className="hidden"
-              onChange={(e) => {
+              onChange={(event) => {
                 handleFileSelect(
-                  e.target.files
+                  event.target.files
                 );
 
-                e.target.value = '';
+                event.target.value =
+                  '';
               }}
             />
 
-            {/* Uploading indicator */}
             {uploading && (
               <div className="mt-3 flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                 <Upload className="w-4 h-4 text-indigo-600 animate-pulse" />
 
                 <div>
                   <span className="text-sm text-indigo-700">
-                    Uploading media to backend...
+                    Uploading media...
                   </span>
 
                   <p className="text-xs text-indigo-500 mt-0.5">
-                    Uploading{' '}
-                    {media.length}{' '}
-                    media item
-                    {media.length !== 1
-                      ? 's'
-                      : ''}.
-                    Please wait.
+                    The actual file is being
+                    uploaded to the backend.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Upload success */}
             {uploadedMedia.length > 0 &&
               !uploading && (
                 <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl">
@@ -1234,15 +1521,12 @@ export function CreatePostPage() {
                     <p className="text-xs text-green-600 mt-0.5">
                       {isCarousel
                         ? `Instagram carousel • ${uploadedMedia.length} images`
-                        : `${uploadedMedia[0].media_type}`}
+                        : uploadedMedia[0]
+                            ?.media_type}
                     </p>
                   </div>
                 </div>
               )}
-
-            {/* ====================================================== */}
-            {/* MEDIA PREVIEW */}
-            {/* ====================================================== */}
 
             {media.length > 0 && (
               <div className="mt-3">
@@ -1256,7 +1540,7 @@ export function CreatePostPage() {
 
                     <p className="text-xs text-gray-400">
                       {isCarousel
-                        ? 'These images will be published as one Instagram carousel.'
+                        ? 'Multiple images will be sent as an Instagram carousel.'
                         : 'Your selected media.'}
                     </p>
                   </div>
@@ -1279,7 +1563,8 @@ export function CreatePostPage() {
                 <div
                   className={cn(
                     'grid gap-3',
-                    media.length === 1
+                    media.length ===
+                      1
                       ? 'grid-cols-1 max-w-sm'
                       : 'grid-cols-2 sm:grid-cols-3'
                   )}
@@ -1322,7 +1607,6 @@ export function CreatePostPage() {
                           />
                         )}
 
-                        {/* Remove individual media */}
                         <button
                           type="button"
                           onClick={() =>
@@ -1339,7 +1623,6 @@ export function CreatePostPage() {
                           <X className="w-4 h-4 text-white" />
                         </button>
 
-                        {/* Item number */}
                         {isCarousel && (
                           <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center">
                             {index +
@@ -1347,7 +1630,6 @@ export function CreatePostPage() {
                           </div>
                         )}
 
-                        {/* Upload status */}
                         <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-black/60 text-white text-[10px]">
                           {uploadedMedia[
                             index
@@ -1359,34 +1641,16 @@ export function CreatePostPage() {
                     )
                   )}
                 </div>
-
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs text-gray-500 truncate">
-                    {media.length ===
-                    1
-                      ? media[0]
-                          .name
-                      : `${media.length} images selected`}
-                  </p>
-
-                  {isCarousel && (
-                    <span className="text-xs text-indigo-600 font-medium">
-                      Instagram Carousel
-                    </span>
-                  )}
-                </div>
               </div>
             )}
-
-            {/* ====================================================== */}
-            {/* DRAG AND DROP */}
-            {/* ====================================================== */}
 
             {media.length ===
               0 && (
               <div
-                onDragOver={(e) => {
-                  e.preventDefault();
+                onDragOver={(
+                  event
+                ) => {
+                  event.preventDefault();
                   setIsDragging(
                     true
                   );
@@ -1396,22 +1660,29 @@ export function CreatePostPage() {
                     false
                   )
                 }
-                onDrop={(e) => {
-                  e.preventDefault();
+                onDrop={(
+                  event
+                ) => {
+                  event.preventDefault();
 
                   setIsDragging(
                     false
                   );
 
                   handleFileSelect(
-                    e.dataTransfer
+                    event
+                      .dataTransfer
                       .files
                   );
                 }}
-                onClick={() =>
-                  !uploading &&
-                  fileInputRef.current?.click()
-                }
+                onClick={() => {
+                  if (
+                    !uploading &&
+                    !publishing
+                  ) {
+                    fileInputRef.current?.click();
+                  }
+                }}
                 className={cn(
                   'mt-3 border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all',
                   isDragging
@@ -1430,17 +1701,18 @@ export function CreatePostPage() {
                 </p>
 
                 <p className="text-xs text-gray-400 mt-1">
-                  1 image/video or
-                  2-10 images for
-                  Instagram carousel
+                  Image: Instagram,
+                  Facebook, LinkedIn
+                  <br />
+                  Video: Instagram,
+                  Facebook, LinkedIn,
+                  YouTube
+                  <br />
+                  Carousel: 2–10 images
                 </p>
               </div>
             )}
           </Card>
-
-          {/* ====================================================== */}
-          {/* SCHEDULE CONFIGURATION */}
-          {/* ====================================================== */}
 
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">
@@ -1448,7 +1720,6 @@ export function CreatePostPage() {
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Date
@@ -1466,9 +1737,12 @@ export function CreatePostPage() {
                     value={
                       scheduleDate
                     }
-                    onChange={(e) =>
+                    onChange={(
+                      event
+                    ) =>
                       setScheduleDate(
-                        e.target
+                        event
+                          .target
                           .value
                       )
                     }
@@ -1477,7 +1751,6 @@ export function CreatePostPage() {
                 </div>
               </div>
 
-              {/* Time */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Time (IST)
@@ -1495,9 +1768,12 @@ export function CreatePostPage() {
                     value={
                       scheduleTime
                     }
-                    onChange={(e) =>
+                    onChange={(
+                      event
+                    ) =>
                       setScheduleTime(
-                        e.target
+                        event
+                          .target
                           .value
                       )
                     }
@@ -1507,7 +1783,6 @@ export function CreatePostPage() {
               </div>
             </div>
 
-            {/* Campaign */}
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Campaign (optional)
@@ -1516,24 +1791,22 @@ export function CreatePostPage() {
               <input
                 type="text"
                 placeholder="Campaign integration will be connected later..."
-                value={campaign}
-                onChange={(e) =>
+                value={
+                  campaign
+                }
+                onChange={(
+                  event
+                ) =>
                   setCampaign(
-                    e.target
+                    event
+                      .target
                       .value
                   )
                 }
                 className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
               />
-
-              <p className="text-xs text-gray-400 mt-1">
-                Campaign selection is
-                not sent to the
-                backend yet.
-              </p>
             </div>
 
-            {/* Draft */}
             <label className="flex items-center gap-2 mt-4 cursor-pointer select-none">
               <button
                 type="button"
@@ -1563,10 +1836,6 @@ export function CreatePostPage() {
               </span>
             </label>
           </Card>
-
-          {/* ====================================================== */}
-          {/* ALERTS */}
-          {/* ====================================================== */}
 
           <AnimatePresence>
             {error && (
@@ -1618,12 +1887,7 @@ export function CreatePostPage() {
             )}
           </AnimatePresence>
 
-          {/* ====================================================== */}
-          {/* ACTIONS */}
-          {/* ====================================================== */}
-
           <div className="flex gap-3">
-            {/* Cancel Create Post */}
             <Button
               variant="secondary"
               fullWidth
@@ -1641,7 +1905,6 @@ export function CreatePostPage() {
               Cancel
             </Button>
 
-            {/* Save Draft */}
             <Button
               variant="secondary"
               fullWidth
@@ -1666,7 +1929,6 @@ export function CreatePostPage() {
               Save Draft
             </Button>
 
-            {/* Schedule */}
             <Button
               variant="primary"
               fullWidth
@@ -1688,10 +1950,36 @@ export function CreatePostPage() {
                 loadingAccounts
               }
             >
-              {isDraftMode
-                ? 'Confirm Draft'
-                : 'Schedule Post'}
+              Schedule Post
             </Button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="sticky top-6">
+            <ContentPreview
+              content={
+                content
+              }
+              mediaUrl={
+                media.length >
+                0
+                  ? media[0]
+                      .url
+                  : null
+              }
+              mediaType={
+                media.length >
+                0
+                  ? media[0]
+                      .type
+                  : 'text'
+              }
+              platform={
+                getSelectedPlatform() ||
+                'facebook'
+              }
+            />
           </div>
         </div>
       </div>
@@ -1699,3 +1987,4 @@ export function CreatePostPage() {
   );
 }
 
+export default CreatePostPage;

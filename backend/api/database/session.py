@@ -1,32 +1,22 @@
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from api.database.base import Base
 from api.core.config import settings
 
 
-# ---------------------------------------------------------
-# DATABASE URL
-# ---------------------------------------------------------
-
 DATABASE_URL = settings.DATABASE_URL
-
-
-# ---------------------------------------------------------
-# DATABASE ENGINE
-# ---------------------------------------------------------
 
 engine = create_engine(
     DATABASE_URL,
+    pool_size=5,
+    max_overflow=0,
+    pool_pre_ping=True,
+    pool_recycle=1800,
     connect_args={
         "check_same_thread": False
     } if DATABASE_URL.startswith("sqlite") else {},
 )
-
-
-# ---------------------------------------------------------
-# SESSION FACTORY
-# ---------------------------------------------------------
 
 SessionLocal = sessionmaker(
     autocommit=False,
@@ -35,10 +25,6 @@ SessionLocal = sessionmaker(
 )
 
 
-# ---------------------------------------------------------
-# DATABASE DEPENDENCY
-# ---------------------------------------------------------
-
 def get_db():
     db = SessionLocal()
 
@@ -46,3 +32,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

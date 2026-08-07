@@ -7,22 +7,19 @@ const api = axios.create({
   timeout: 120000,
 });
 
-/* =========================================================
-   REQUEST INTERCEPTOR
-========================================================= */
-
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
 
     if (token) {
       config.headers = config.headers || {};
-      config.headers.Authorization =
-        `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
     if (config.data instanceof FormData) {
-      delete config.headers?.['Content-Type'];
+      if (config.headers) {
+        delete config.headers['Content-Type'];
+      }
     } else if (
       config.data instanceof URLSearchParams
     ) {
@@ -40,21 +37,13 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) =>
-    Promise.reject(error)
+  (error) => Promise.reject(error)
 );
-
-/* =========================================================
-   RESPONSE INTERCEPTOR
-========================================================= */
 
 api.interceptors.response.use(
   (response) => response,
-
   (error) => {
-    if (
-      error.response?.status === 401
-    ) {
+    if (error.response?.status === 401) {
       console.warn(
         'API returned 401:',
         error.config?.url
@@ -65,18 +54,9 @@ api.interceptors.response.use(
   }
 );
 
-/* =========================================================
-   HEALTH
-========================================================= */
-
 export const healthService = {
-  check: () =>
-    api.get('/health'),
+  check: () => api.get('/health'),
 };
-
-/* =========================================================
-   AUTH
-========================================================= */
 
 export const authService = {
   register: (data: {
@@ -85,8 +65,7 @@ export const authService = {
     password: string;
     full_name: string;
     role: string;
-  }) =>
-    api.post('/users/', data),
+  }) => api.post('/users/', data),
 
   checkAdministratorExists: () =>
     api.get('/users/admin-exists'),
@@ -95,18 +74,10 @@ export const authService = {
     username: string,
     password: string
   ) => {
-    const formData =
-      new URLSearchParams();
+    const formData = new URLSearchParams();
 
-    formData.append(
-      'username',
-      username
-    );
-
-    formData.append(
-      'password',
-      password
-    );
+    formData.append('username', username);
+    formData.append('password', password);
 
     return api.post(
       '/users/login',
@@ -141,47 +112,22 @@ export const authService = {
     website?: string;
     bio?: string;
   }) =>
-    api.put(
-      '/users/me',
-      data
-    ),
+    api.put('/users/me', data),
 };
-
-/* =========================================================
-   USERS
-========================================================= */
 
 export const userService = {
   getAll: () =>
     api.get('/users/all'),
 };
 
-/* =========================================================
-   MEDIA UPLOAD
-========================================================= */
-
 export const uploadService = {
-
-  /*
-   * IMPORTANT:
-   *
-   * Backend endpoint is:
-   *
-   * POST /uploads/?platform=facebook
-   *
-   * Therefore platform MUST be sent.
-   */
   uploadMedia: (
     file: File,
     platform: string
   ) => {
-    const formData =
-      new FormData();
+    const formData = new FormData();
 
-    formData.append(
-      'file',
-      file
-    );
+    formData.append('file', file);
 
     return api.post(
       '/uploads/',
@@ -196,56 +142,60 @@ export const uploadService = {
   },
 };
 
-/* =========================================================
-   POSTS
-========================================================= */
+export type PostPayload = {
+  client_id?: number | null;
+  content?: string | null;
+  media_url?: string | null;
+  media_type: string;
+  scheduled_time?: string | null;
+  timezone?: string;
+  campaign_id?: number | null;
+  social_account_ids: number[];
+  save_as_draft: boolean;
+};
+
+export type PostUpdatePayload = {
+  content?: string | null;
+  media_url?: string | null;
+  media_type?: string;
+  scheduled_time?: string | null;
+  timezone?: string;
+  campaign_id?: number | null;
+  social_account_ids?: number[];
+  save_as_draft?: boolean;
+};
 
 export const postService = {
-
   getAll: (
     status?: string,
     clientId?: number
   ) => {
-    const params: Record<
-      string,
-      any
-    > = {};
+    const params: Record<string, any> = {};
 
     if (status) {
       params.status = status;
     }
 
-    if (clientId) {
-      params.client_id =
-        clientId;
+    if (
+      clientId !== undefined &&
+      clientId !== null
+    ) {
+      params.client_id = clientId;
     }
 
-    return api.get(
-      '/posts/',
-      {
-        params,
-      }
-    );
+    return api.get('/posts/', {
+      params,
+    });
   },
 
   getById: (
     id: string | number
   ) =>
-    api.get(
-      `/posts/${id}`
-    ),
+    api.get(`/posts/${id}`),
 
-  create: (data: {
-    client_id?: number | null;
-    content?: string | null;
-    media_url?: string | null;
-    media_type: string;
-    scheduled_time?: string | null;
-    timezone?: string;
-    campaign_id?: number | null;
-    social_account_ids: number[];
-    save_as_draft: boolean;
-  }) =>
+  create: (
+    data: PostPayload
+  ) =>
     api.post(
       '/posts/',
       data
@@ -253,15 +203,7 @@ export const postService = {
 
   update: (
     id: string | number,
-    data: {
-      content?: string;
-      media_url?: string | null;
-      media_type?: string;
-      scheduled_time?: string;
-      timezone?: string;
-      campaign_id?: number | null;
-      social_account_ids?: number[];
-    }
+    data: PostUpdatePayload
   ) =>
     api.put(
       `/posts/${id}`,
@@ -285,70 +227,56 @@ export const postService = {
   getCalendar: (
     clientId?: number
   ) => {
-    const params: Record<
-      string,
-      any
-    > = {};
+    const params: Record<string, any> = {};
 
-    if (clientId) {
-      params.client_id =
-        clientId;
+    if (
+      clientId !== undefined &&
+      clientId !== null
+    ) {
+      params.client_id = clientId;
     }
 
     return api.get(
       '/posts/calendar',
-      {
-        params,
-      }
+      { params }
     );
   },
 
   getQueue: (
     clientId?: number
   ) => {
-    const params: Record<
-      string,
-      any
-    > = {};
+    const params: Record<string, any> = {};
 
-    if (clientId) {
-      params.client_id =
-        clientId;
+    if (
+      clientId !== undefined &&
+      clientId !== null
+    ) {
+      params.client_id = clientId;
     }
 
     return api.get(
       '/posts/queue',
-      {
-        params,
-      }
+      { params }
     );
   },
 };
 
-/* =========================================================
-   CAMPAIGNS
-========================================================= */
-
 export const campaignService = {
-
   getAll: (
     clientId?: number
   ) => {
-    const params: Record<
-      string,
-      any
-    > = {};
+    const params: Record<string, any> = {};
 
-    if (clientId) {
-      params.client_id =
-        clientId;
+    if (
+      clientId !== undefined &&
+      clientId !== null
+    ) {
+      params.client_id = clientId;
     }
 
     return api.get(
       '/campaigns/',
-      {
-        params,
-      }
+      { params }
     );
   },
 
@@ -389,18 +317,27 @@ export const campaignService = {
     api.get(
       `/campaigns/${campaignId}/posts`
     ),
+
+  assignPostToCampaign: (
+    campaignId: string | number,
+    postId: string | number
+  ) =>
+    api.post(
+      `/campaigns/${campaignId}/posts/${postId}`
+    ),
+
+  removePostFromCampaign: (
+    campaignId: string | number,
+    postId: string | number
+  ) =>
+    api.delete(
+      `/campaigns/${campaignId}/posts/${postId}`
+    ),
 };
 
-/* =========================================================
-   SOCIAL ACCOUNTS
-========================================================= */
-
 export const accountService = {
-
   getAll: () =>
-    api.get(
-      '/social-accounts/'
-    ),
+    api.get('/social-accounts/'),
 
   getById: (
     id: string | number
@@ -427,14 +364,10 @@ export const accountService = {
     ),
 
   linkedinLogin: () =>
-    api.get(
-      '/linkedin/login'
-    ),
+    api.get('/linkedin/login'),
 
   youtubeLogin: () =>
-    api.get(
-      '/youtube/login'
-    ),
+    api.get('/youtube/login'),
 
   twitterLogin: () =>
     api.get(
@@ -447,12 +380,7 @@ export const accountService = {
     ),
 };
 
-/* =========================================================
-   BUSINESS ASSIGNMENT
-========================================================= */
-
 export const businessAssignmentService = {
-
   getMarketingTeams: () =>
     api.get(
       '/business-assignment/marketing-teams'
@@ -483,16 +411,9 @@ export const businessAssignmentService = {
     ),
 };
 
-/* =========================================================
-   NOTIFICATIONS
-========================================================= */
-
 export const notificationService = {
-
   getAll: () =>
-    api.get(
-      '/notifications'
-    ),
+    api.get('/notifications'),
 
   markAsRead: (
     id: string | number
@@ -514,15 +435,7 @@ export const notificationService = {
     ),
 
   clearAll: () =>
-    api.delete(
-      '/notifications'
-    ),
-
-  clearAll: () =>
-    api.delete(
-      '/notifications'
-    ),
+    api.delete('/notifications'),
 };
 
 export default api;
-

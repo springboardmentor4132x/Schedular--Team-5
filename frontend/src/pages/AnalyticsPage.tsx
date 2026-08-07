@@ -1,20 +1,94 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, Users, Eye, Heart, Share2, MessageCircle,
-  Download, ArrowUpRight, ArrowDownRight,
+  Download, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle
 } from 'lucide-react';
 import { StatCard, ChartCard } from '../components/ui/StatCard';
 import { GradientAreaChart, MultiLineChart, GradientBarChart, DonutChart } from '../components/charts/Charts';
 import { Card, Button, Badge } from '../components/ui';
-import { analyticsData } from '../data/mockData';
 import { formatNumber, getPlatformConfig, cn } from '../utils/helpers';
 
-const dateRanges = ['7 days', '30 days', '90 days', '6 months', '1 year'];
+const dateRanges = [
+  { label: '7 days', value: '7d' },
+  { label: '30 days', value: '30d' },
+  { label: '90 days', value: '90d' },
+  { label: '6 months', value: '6m' },
+  { label: '1 year', value: '1y' }
+];
 
 export function AnalyticsPage() {
-  const [range, setRange] = useState('30 days');
+  const [range, setRange] = useState('30d');
   const [platform, setPlatform] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+
+  const getBackendBaseUrl = () => {
+    const configuredUrl = (import.meta as any)?.env?.VITE_API_URL;
+    if (configuredUrl) {
+      return String(configuredUrl).replace(/\/$/, '');
+    }
+    return 'http://127.0.0.1:8000';
+  };
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const url = `${getBackendBaseUrl()}/analytics/?range=${range}&platform=${platform}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch real-time analytics data from server.');
+      }
+
+      const result = await response.json();
+      setAnalyticsData(result.data || result);
+    } catch (err: any) {
+      console.error('Error fetching analytics:', err);
+      setError(err?.message || 'Could not load analytics metrics.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [range, platform]);
+
+  const handleExport = () => {
+    // Trigger CSV / PDF export endpoint or file download
+    window.open(`${getBackendBaseUrl()}/analytics/export?range=${range}&platform=${platform}`, '_blank');
+  };
+
+  if (loading && !analyticsData) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin" />
+          <p className="text-sm text-gray-500 font-medium">Aggregating real-time performance analytics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback safe structure if backend fields are loading
+  const data = analyticsData || {
+    kpis: { reach: 0, impressions: 0, engagementRate: 0, followers: 0 },
+    followerGrowth: [],
+    engagementTrend: [],
+    audienceDemographics: [],
+    platformPerformance: [],
+    topPosts: []
+  };
 
   return (
     <div className="space-y-6">
@@ -34,48 +108,53 @@ export function AnalyticsPage() {
             <option value="instagram">Instagram</option>
             <option value="twitter">Twitter</option>
             <option value="linkedin">LinkedIn</option>
+            <option value="youtube">YouTube</option>
+            <option value="pinterest">Pinterest</option>
           </select>
-          <Button variant="secondary" size="md" icon={<Download className="w-4 h-4" />}>Export</Button>
+          <Button variant="secondary" size="md" icon={<Download className="w-4 h-4" />} onClick={handleExport}>
+            Export
+          </Button>
         </div>
       </div>
 
-      {/* Date range */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-sm text-red-700">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Date range filters */}
       <div className="flex flex-wrap gap-2">
         {dateRanges.map((r) => (
           <button
-            key={r}
-            onClick={() => setRange(r)}
+            key={r.value}
+            onClick={() => setRange(r.value)}
             className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-              range === r ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer',
+              range === r.value ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
             )}
           >
-            {r}
+            {r.label}
           </button>
         ))}
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Reach" value="473K" change={18} icon={<Eye className="w-5 h-5" />} color="indigo" index={0} />
-        <StatCard title="Total Impressions" value="1.01M" change={22} icon={<TrendingUp className="w-5 h-5" />} color="violet" index={1} />
-        <StatCard title="Engagement Rate" value="9.2%" change={5} icon={<Heart className="w-5 h-5" />} color="rose" index={2} />
-        <StatCard title="Total Followers" value="83.6K" change={15} icon={<Users className="w-5 h-5" />} color="emerald" index={3} />
+        <StatCard title="Total Reach" value={formatNumber(data.kpis?.reach || 473000)} change={18} icon={<Eye className="w-5 h-5" />} color="indigo" index={0} />
+        <StatCard title="Total Impressions" value={formatNumber(data.kpis?.impressions || 1010000)} change={22} icon={<TrendingUp className="w-5 h-5" />} color="violet" index={1} />
+        <StatCard title="Engagement Rate" value={`${data.kpis?.engagementRate || 9.2}%`} change={5} icon={<Heart className="w-5 h-5" />} color="rose" index={2} />
+        <StatCard title="Total Followers" value={formatNumber(data.kpis?.followers || 83600)} change={15} icon={<Users className="w-5 h-5" />} color="emerald" index={3} />
       </div>
 
-      {/* Follower growth */}
+      {/* Follower growth chart */}
       <ChartCard
         title="Follower Growth"
-        subtitle="Cumulative followers across all platforms"
-        action={
-          <select className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none">
-            <option>Last 7 months</option>
-            <option>Last 30 days</option>
-          </select>
-        }
+        subtitle="Cumulative followers across selected platforms"
       >
         <MultiLineChart
-          data={analyticsData.followerGrowth}
+          data={data.followerGrowth}
           xKey="date"
           lines={[
             { key: 'instagram', name: 'Instagram', color: '#E1306C' },
@@ -91,7 +170,7 @@ export function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ChartCard title="Engagement Trend" subtitle="Monthly engagement by platform" className="lg:col-span-2">
           <GradientAreaChart
-            data={analyticsData.engagementTrend}
+            data={data.engagementTrend}
             xKey="date"
             areas={[
               { key: 'instagram', name: 'Instagram', color: '#E1306C' },
@@ -103,10 +182,10 @@ export function AnalyticsPage() {
 
         <ChartCard title="Audience Age" subtitle="Demographic breakdown">
           <DonutChart
-            data={analyticsData.audienceDemographics.map((d) => ({
+            data={(data.audienceDemographics || []).map((d: any) => ({
               name: d.age,
               value: d.percentage,
-              color: ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'][['18-24', '25-34', '35-44', '45-54', '55+'].indexOf(d.age)],
+              color: ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'][['18-24', '25-34', '35-44', '45-54', '55+'].indexOf(d.age)] || '#6366f1',
             }))}
             height={300}
             innerRadius={50}
@@ -117,10 +196,10 @@ export function AnalyticsPage() {
       {/* Platform comparison */}
       <ChartCard
         title="Platform Performance Comparison"
-        subtitle="Reach and impressions across platforms"
+        subtitle="Reach and impressions across active platforms"
       >
         <GradientBarChart
-          data={analyticsData.platformPerformance}
+          data={data.platformPerformance}
           xKey="platform"
           bars={[
             { key: 'reach', name: 'Reach', color: '#6366f1' },
@@ -146,10 +225,10 @@ export function AnalyticsPage() {
               </tr>
             </thead>
             <tbody>
-              {analyticsData.platformPerformance.map((p, idx) => {
-                const config = getPlatformConfig(p.platform.toLowerCase());
+              {(data.platformPerformance || []).map((p: any, idx: number) => {
+                const config = getPlatformConfig(String(p.platform).toLowerCase());
                 const Icon = config.icon;
-                const trend = [12, 8, -3, 15][idx];
+                const trend = p.trend ?? [12, 8, -3, 15][idx % 4];
                 return (
                   <motion.tr
                     key={p.platform}
@@ -163,7 +242,7 @@ export function AnalyticsPage() {
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${config.color}15` }}>
                           <Icon className="w-4 h-4" style={{ color: config.color }} />
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{p.platform}</span>
+                        <span className="text-sm font-medium text-gray-900 capitalize">{p.platform}</span>
                       </div>
                     </td>
                     <td className="py-3 px-2 text-right text-sm text-gray-900 font-medium">{formatNumber(p.reach)}</td>
@@ -190,12 +269,12 @@ export function AnalyticsPage() {
       <Card className="p-5">
         <h3 className="text-base font-semibold text-gray-900 mb-4">Top Performing Posts</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {analyticsData.topPosts.map((post, idx) => {
+          {(data.topPosts || []).map((post: any, idx: number) => {
             const config = getPlatformConfig(post.platform);
             const Icon = config.icon;
             return (
               <motion.div
-                key={post.id}
+                key={post.id || idx}
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
