@@ -16,7 +16,6 @@ from api.roles.post_social_account import PublishStatus
 
 
 class PostSocialAccount(Base):
-
     __tablename__ = "post_social_accounts"
 
     __table_args__ = (
@@ -51,9 +50,7 @@ class PostSocialAccount(Base):
             name="publish_status",
             native_enum=False,
             length=20,
-            values_callable=lambda enum_cls: [
-                e.value for e in enum_cls
-            ],
+            values_callable=lambda e: [i.value for i in e],
         ),
         nullable=False,
         default=PublishStatus.SCHEDULED,
@@ -76,13 +73,11 @@ class PostSocialAccount(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
         server_default=func.now(),
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
     )
@@ -93,10 +88,9 @@ class PostSocialAccount(Base):
 
     social_account: Mapped["SocialAccount"] = relationship()
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return (
             f"<PostSocialAccount "
             f"post_id={self.post_id} "
-            f"account_id={self.social_account_id} "
-            f"status={self.publish_status}>"
+            f"account_id={self.social_account_id}>"
         )

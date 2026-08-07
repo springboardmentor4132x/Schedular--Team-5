@@ -14,9 +14,9 @@ class Settings(BaseSettings):
     YOUTUBE_CLIENT_ID: str
     YOUTUBE_CLIENT_SECRET: str
 
-    X_CLIENT_ID: str
-    X_CLIENT_SECRET: str
-    X_REDIRECT_URI: str
+    X_CONSUMER_KEY: str
+    X_CONSUMER_SECRET: str
+    X_CALLBACK_URL: str
       
     PINTEREST_CLIENT_ID: str
     PINTEREST_CLIENT_SECRET: str

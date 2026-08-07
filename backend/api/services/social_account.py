@@ -25,7 +25,11 @@ DEFAULT_PERMISSIONS = {
     "linkedin": [
         "w_member_social",
     ],
-    "x": [
+    "twitter": [
+        "tweet.read",
+        "tweet.write",
+    ],
+    "twitter": [
         "tweet.read",
         "tweet.write",
     ],

@@ -7,11 +7,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-
-# ============================================================
-# ENVIRONMENT
-# ============================================================
-
+# Environment
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -26,70 +22,55 @@ if not SECRET_KEY:
 if not ALGORITHM:
     raise RuntimeError("ALGORITHM is not configured.")
 
-
-# ============================================================
-# PASSWORD HASHING
-# ============================================================
-
+# Password hashing
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
 
-
-# ============================================================
-# OAUTH2
-# ============================================================
-
+# OAuth2
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/users/login"
 )
 
-
-# ============================================================
-# PASSWORD HELPERS
-# ============================================================
-
+# Password helpers
 def hash_password(password: str):
     return pwd_context.hash(password)
 
 
 def verify_password(
     plain_password: str,
-    hashed_password: str
+    hashed_password: str,
 ):
     return pwd_context.verify(
         plain_password,
-        hashed_password
+        hashed_password,
     )
 
 
-# ============================================================
-# CREATE ACCESS TOKEN
-# ============================================================
-
+# Create access token
 def create_access_token(data: dict):
     to_encode = data.copy()
 
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+    expire = (
+        datetime.now(timezone.utc)
+        + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
 
-    to_encode.update({
-        "exp": expire
-    })
+    to_encode.update(
+        {
+            "exp": expire
+        }
+    )
 
     return jwt.encode(
         to_encode,
         SECRET_KEY,
-        algorithm=ALGORITHM
+        algorithm=ALGORITHM,
     )
 
 
-# ============================================================
-# GET CURRENT USER
-# ============================================================
-
+# Get current user
 def get_current_user(
     token: str = Depends(oauth2_scheme)
 ):
@@ -97,7 +78,7 @@ def get_current_user(
         payload = jwt.decode(
             token,
             SECRET_KEY,
-            algorithms=[ALGORITHM]
+            algorithms=[ALGORITHM],
         )
 
         username = payload.get("sub")
@@ -107,42 +88,39 @@ def get_current_user(
         if username is None:
             raise HTTPException(
                 status_code=401,
-                detail="Invalid token"
+                detail="Invalid token",
             )
 
         if user_id is None:
             raise HTTPException(
                 status_code=401,
-                detail="Authenticated user ID is not available in the access token."
+                detail="Authenticated user ID is not available in the access token.",
             )
 
         return {
             "id": user_id,
             "username": username,
-            "role": role
+            "role": role,
         }
 
     except JWTError:
         raise HTTPException(
             status_code=401,
-            detail="Invalid token"
+            detail="Invalid token",
         )
 
 
-# ============================================================
-# ROLE CHECK
-# ============================================================
-
-def require_role(*allowed_roles: str):
-    def role_checker(
+# Role checker
+def role_checker(allowed_roles):
+    def checker(
         current_user=Depends(get_current_user)
     ):
         if current_user["role"] not in allowed_roles:
             raise HTTPException(
                 status_code=403,
-                detail="Access denied"
+                detail="Access denied",
             )
 
         return current_user
 
-    return role_checker
+    return checker

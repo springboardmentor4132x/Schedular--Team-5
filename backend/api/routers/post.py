@@ -1,3 +1,4 @@
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -108,26 +109,6 @@ def _resolve_view_target_id(
     )
 
 
-@router.get(
-    "/",
-    response_model=list[PostResponse],
-)
-def list_posts(
-    status_filter: Optional[str] = None,
-    client_id: Optional[int] = None,
-    current_user=Depends(get_current_user),
-):
-    target_id = _resolve_view_target_id(
-        current_user,
-        client_id,
-    )
-
-    return service.list_posts(
-        target_id,
-        status_filter,
-    )
-
-
 @router.post(
     "/",
     response_model=PostResponse,
@@ -191,6 +172,26 @@ def get_queue(
 
 
 @router.get(
+    "/",
+    response_model=list[PostResponse],
+)
+def list_posts(
+    client_id: Optional[int] = None,
+    status_filter: Optional[str] = None,
+    current_user=Depends(get_current_user),
+):
+    target_id = _resolve_view_target_id(
+        current_user,
+        client_id,
+    )
+
+    return service.list_posts(
+        target_id,
+        status_filter,
+    )
+
+
+@router.get(
     "/{post_id}",
     response_model=PostResponse,
 )
@@ -228,6 +229,36 @@ def get_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
+
+
+@router.get(
+    "/{post_id}/preview",
+)
+def preview_post(
+    post_id: int,
+    current_user=Depends(get_current_user),
+):
+    post = service.get_post(
+        _get_user(current_user).id,
+        post_id,
+    )
+
+    if not post:
+        return {"message": "Post not found"}
+
+    return {
+        "id": post.id,
+        "content": post.content,
+        "media_url": post.media_url,
+        "media_type": post.media_type,
+        "status": post.status,
+        "scheduled_time": post.scheduled_time,
+        "preview": {
+            "caption": post.content,
+            "media": post.media_url,
+            "type": post.media_type,
+        },
+    }
 
 
 @router.put(
@@ -365,3 +396,4 @@ def delete_post(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
+
