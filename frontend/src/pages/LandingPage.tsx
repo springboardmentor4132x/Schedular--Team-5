@@ -2,9 +2,15 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Zap, Calendar, BarChart3, Megaphone, Share2, Bell, Check,
-  ArrowRight, Star, Twitter, Linkedin, Facebook, Instagram,
-  Sparkles, Shield, Clock, Users, TrendingUp,
+  ArrowRight, Star, Sparkles, Shield, Clock, Users, TrendingUp,
 } from 'lucide-react';
+
+import {
+  FaFacebook, 
+  FaTwitter,
+  FaLinkedin,
+  FaInstagram
+} from 'react-icons/fa';
 import { Button } from '../components/ui';
 
 const features = [
@@ -182,7 +188,7 @@ export function LandingPage() {
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    {[Facebook, Instagram, Twitter, Linkedin].map((Icon, i) => (
+                    {[FaFacebook, FaInstagram, FaTwitter, FaLinkedin].map((Icon, i) => (
                       <div key={i} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
                         <Icon className="w-4 h-4 text-gray-500" />
                       </div>
@@ -402,7 +408,7 @@ export function LandingPage() {
                 The all-in-one social media management platform for modern marketing teams.
               </p>
               <div className="flex gap-3 mt-4">
-                {[Twitter, Facebook, Instagram, Linkedin].map((Icon, i) => (
+                {[FaTwitter, FaFacebook, FaInstagram, FaLinkedin].map((Icon, i) => (
                   <a key={i} href="#" className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
                     <Icon className="w-4 h-4 text-gray-600" />
                   </a>

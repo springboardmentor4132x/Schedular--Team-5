@@ -219,7 +219,82 @@ export function DashboardPage() {
           })}
         </div>
       </Card>
+{/* Campaign ROI */}
+<Card className="p-5">
+  <h3 className="text-lg font-semibold mb-4">Campaign ROI</h3>
 
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    <div className="rounded-xl border p-4">
+      <p className="text-gray-500 text-sm">Total Investment</p>
+      <h2 className="text-2xl font-bold mt-2">$4,500</h2>
+    </div>
+
+    <div className="rounded-xl border p-4">
+      <p className="text-gray-500 text-sm">Revenue</p>
+      <h2 className="text-2xl font-bold mt-2 text-green-600">$9,850</h2>
+    </div>
+
+    <div className="rounded-xl border p-4">
+      <p className="text-gray-500 text-sm">ROI</p>
+      <h2 className="text-2xl font-bold mt-2 text-blue-600">
+        +118%
+      </h2>
+    </div>
+
+  </div>
+</Card>
+<Card className="p-5">
+<h3 className="text-lg font-semibold mb-4">
+Audience Device Analytics
+</h3>
+
+<div className="space-y-4">
+
+<div>
+<div className="flex justify-between">
+<span>Mobile</span>
+<span>72%</span>
+</div>
+
+<div className="w-full h-2 bg-gray-200 rounded-full">
+<div
+className="h-2 rounded-full bg-blue-600"
+style={{width:"72%"}}
+/>
+</div>
+</div>
+
+<div>
+<div className="flex justify-between">
+<span>Desktop</span>
+<span>21%</span>
+</div>
+
+<div className="w-full h-2 bg-gray-200 rounded-full">
+<div
+className="h-2 rounded-full bg-green-600"
+style={{width:"21%"}}
+/>
+</div>
+</div>
+
+<div>
+<div className="flex justify-between">
+<span>Tablet</span>
+<span>7%</span>
+</div>
+
+<div className="w-full h-2 bg-gray-200 rounded-full">
+<div
+className="h-2 rounded-full bg-purple-600"
+style={{width:"7%"}}
+/>
+</div>
+</div>
+
+</div>
+</Card>
       {/* Top Posts */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-5">

@@ -23,6 +23,11 @@ export function CreatePostPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const suggestions = [
+  "🚀 Boost your brand with our latest update!",
+  "✨ Stay connected for exciting news.",
+  "🔥 Don't miss today's special offer!",
+];
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const maxLength = 280;
@@ -288,7 +293,23 @@ export function CreatePostPage() {
               <span className="text-sm text-gray-600">Save as draft (don't schedule)</span>
             </label>
           </Card>
+<Card className="p-5">
+  <h3 className="text-sm font-semibold mb-3">
+    AI Caption Suggestions
+  </h3>
 
+  <div className="space-y-2">
+    {suggestions.map((text, index) => (
+      <button
+        key={index}
+        onClick={() => setContent(text)}
+        className="w-full text-left border rounded-lg p-3 hover:bg-indigo-50 transition"
+      >
+        {text}
+      </button>
+    ))}
+  </div>
+</Card>
           {/* Error */}
           <AnimatePresence>
             {error && (

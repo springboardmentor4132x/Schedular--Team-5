@@ -1,19 +1,33 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, Trash2, RefreshCw, Check, X, Users, FileText,
-  Facebook, Instagram, Twitter, Linkedin, Youtube, Globe, AlertCircle,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Check,
+  X, 
+  Users, 
+  FileText,
+  Globe,
+  AlertCircle,
 } from 'lucide-react';
+import {
+  FaFacebook,
+  FaInstagram,
+  FaTwitter,
+  FaLinkedin,
+  FaYoutube,
+} from 'react-icons/fa';
 import { Card, Badge, Modal, Button, EmptyState } from '../components/ui';
 import { socialAccounts as initialAccounts } from '../data/mockData';
 import { formatNumber, getPlatformConfig, cn } from '../utils/helpers';
 
 const availablePlatforms = [
-  { id: 'facebook', name: 'Facebook', icon: Facebook, color: '#1877F2', desc: 'Connect your Facebook Pages' },
-  { id: 'instagram', name: 'Instagram', icon: Instagram, color: '#E1306C', desc: 'Connect your Instagram Business' },
-  { id: 'twitter', name: 'Twitter', icon: Twitter, color: '#1DA1F2', desc: 'Connect your Twitter account' },
-  { id: 'linkedin', name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', desc: 'Connect your LinkedIn Pages' },
-  { id: 'youtube', name: 'YouTube', icon: Youtube, color: '#FF0000', desc: 'Connect your YouTube channel' },
+  { id: 'facebook', name: 'Facebook', icon: FaFacebook, color: '#1877F2', desc: 'Connect your Facebook Pages' },
+  { id: 'instagram', name: 'Instagram', icon: FaInstagram, color: '#E1306C', desc: 'Connect your Instagram Business' },
+  { id: 'twitter', name: 'Twitter', icon: FaTwitter, color: '#1DA1F2', desc: 'Connect your Twitter account' },
+  { id: 'linkedin', name: 'LinkedIn', icon: FaLinkedin, color: '#0A66C2', desc: 'Connect your LinkedIn Pages' },
+  { id: 'youtube', name: 'YouTube', icon: FaYoutube, color: '#FF0000', desc: 'Connect your YouTube channel' },
   { id: 'pinterest', name: 'Pinterest', icon: Globe, color: '#E60023', desc: 'Connect your Pinterest account' },
 ];
 
@@ -95,7 +109,40 @@ export function SocialAccountsPage() {
           </motion.div>
         ))}
       </div>
+<Card className="p-5">
+  <h2 className="text-lg font-semibold mb-4">
+    Platform Status
+  </h2>
 
+  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+
+    {availablePlatforms.map((platform) => {
+
+      const connected = accounts.some(
+        (a) => a.platform === platform.id && a.status === "connected"
+      );
+
+      return (
+        <div
+          key={platform.id}
+          className="border rounded-xl p-4 flex items-center justify-between"
+        >
+          <span className="font-medium">
+            {platform.name}
+          </span>
+
+          {connected ? (
+            <Badge variant="success">Connected</Badge>
+          ) : (
+            <Badge variant="danger">Disconnected</Badge>
+          )}
+        </div>
+      );
+
+    })}
+
+  </div>
+</Card>
       {/* Connected accounts */}
       <div>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Connected Accounts</h2>

@@ -72,7 +72,43 @@ export function NotificationsPage() {
           </Button>
         </div>
       </div>
+<Card className="p-5">
+  <h2 className="text-lg font-semibold mb-4">
+    Notification Summary
+  </h2>
 
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+    <div>
+      <p className="text-sm text-gray-500">Total</p>
+      <h2 className="text-2xl font-bold">
+        {notifications.length}
+      </h2>
+    </div>
+
+    <div>
+      <p className="text-sm text-gray-500">Unread</p>
+      <h2 className="text-2xl font-bold text-red-600">
+        {unreadCount}
+      </h2>
+    </div>
+
+    <div>
+      <p className="text-sm text-gray-500">Read</p>
+      <h2 className="text-2xl font-bold text-green-600">
+        {notifications.length - unreadCount}
+      </h2>
+    </div>
+
+    <div>
+      <p className="text-sm text-gray-500">Alerts</p>
+      <h2 className="text-2xl font-bold">
+        {notifications.filter(n => n.type === "alert").length}
+      </h2>
+    </div>
+
+  </div>
+</Card>
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         {filters.map((f) => (

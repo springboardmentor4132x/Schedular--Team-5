@@ -9,6 +9,11 @@ import { CreatePostPage } from './pages/CreatePostPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { CampaignsPage } from './pages/CampaignsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ContentAnalyticsPage } from './pages/ContentAnalyticsPage';
+import { AudienceAnalyticsPage } from './pages/AudienceAnalyticsPage';
+import { CampaignAnalyticsPage } from './pages/CampaignAnalyticsPage';
+import { PlatformComparisonPage } from './pages/PlatformComparisonPage';
+import { PerformanceTrendsPage } from './pages/PerformanceTrendsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -27,6 +32,11 @@ function App() {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="campaigns" element={<CampaignsPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="analytics/content" element={<ContentAnalyticsPage />} />
+          <Route path="analytics/audience" element={<AudienceAnalyticsPage />} />
+          <Route path="analytics/campaigns" element={<CampaignAnalyticsPage />} />
+          <Route path="analytics/platforms" element={<PlatformComparisonPage />} />
+          <Route path="analytics/trends" element={<PerformanceTrendsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

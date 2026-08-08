@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Check } from 'lucide-react';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { Button, Input } from '../components/ui';
-import { Facebook, Twitter, Github } from 'lucide-react';
-
+import { FaGithub,  FaFacebook } from 'react-icons/fa';
 export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -117,13 +116,13 @@ export function LoginPage() {
 
             <div className="grid grid-cols-3 gap-3">
               {[
-                { icon: Facebook, label: 'Facebook' },
-                { icon: Twitter, label: 'Twitter' },
-                { icon: Github, label: 'GitHub' },
-              ].map((provider) => (
+               { icon: FaGithub, label: 'GitHub' },
+               { icon: FaFacebook, label: 'Facebook' },
+               ].map((provider) => (
                 <button
                   key={provider.label}
                   type="button"
+
                   className="flex items-center justify-center py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors group"
                 >
                   <provider.icon className="w-5 h-5 text-gray-600 group-hover:text-gray-900" />

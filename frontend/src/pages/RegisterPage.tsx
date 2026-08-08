@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Check } from 'lucide-react';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { Button, Input } from '../components/ui';
-import { Facebook, Twitter, Github } from 'lucide-react';
+import { FaGithub } from 'react-icons/fa';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -167,9 +167,8 @@ export function RegisterPage() {
 
             <div className="grid grid-cols-3 gap-3">
               {[
-                { icon: Facebook, label: 'Facebook' },
-                { icon: Twitter, label: 'Twitter' },
-                { icon: Github, label: 'GitHub' },
+                {icon: FaGithub, label: 'Github'}
+
               ].map((provider) => (
                 <button
                   key={provider.label}
