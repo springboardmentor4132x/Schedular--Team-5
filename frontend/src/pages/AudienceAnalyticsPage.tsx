@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Users,
   UserPlus,
@@ -8,10 +9,45 @@ import {
 } from 'lucide-react';
 
 export function AudienceAnalyticsPage() {
+  const [period, setPeriod] = useState('Last 7 months');
+
+  const chartData = {
+    'Last 7 months': {
+      labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+      values: [45, 52, 58, 61, 68, 76, 84],
+    },
+
+    'Last 30 days': {
+      labels: ['1', '5', '10', '15', '20', '25', '30'],
+      values: [42, 48, 51, 57, 63, 70, 78],
+    },
+
+    'Last year': {
+      labels: [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ],
+      values: [35, 38, 42, 46, 49, 53, 58, 63, 67, 72, 78, 84],
+    },
+  };
+
+  const selectedChart =
+    chartData[period as keyof typeof chartData];
+
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* HEADER */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
           Audience Analytics
@@ -22,16 +58,20 @@ export function AudienceAnalyticsPage() {
         </p>
       </div>
 
-      {/* Summary Cards */}
+      {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Followers</p>
+              <p className="text-sm text-gray-500">
+                Total Followers
+              </p>
+
               <h2 className="text-2xl font-bold text-gray-900 mt-1">
                 83.6K
               </h2>
+
               <p className="text-xs text-emerald-600 mt-2">
                 +15% vs last month
               </p>
@@ -46,10 +86,14 @@ export function AudienceAnalyticsPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">New Followers</p>
+              <p className="text-sm text-gray-500">
+                New Followers
+              </p>
+
               <h2 className="text-2xl font-bold text-gray-900 mt-1">
                 4,820
               </h2>
+
               <p className="text-xs text-emerald-600 mt-2">
                 +12% this month
               </p>
@@ -64,10 +108,14 @@ export function AudienceAnalyticsPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Lost Followers</p>
+              <p className="text-sm text-gray-500">
+                Lost Followers
+              </p>
+
               <h2 className="text-2xl font-bold text-gray-900 mt-1">
                 1,240
               </h2>
+
               <p className="text-xs text-red-500 mt-2">
                 -4% this month
               </p>
@@ -82,10 +130,14 @@ export function AudienceAnalyticsPage() {
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Net Growth</p>
+              <p className="text-sm text-gray-500">
+                Net Growth
+              </p>
+
               <h2 className="text-2xl font-bold text-gray-900 mt-1">
                 +3,580
               </h2>
+
               <p className="text-xs text-emerald-600 mt-2">
                 +8.4% growth
               </p>
@@ -99,52 +151,144 @@ export function AudienceAnalyticsPage() {
 
       </div>
 
-      {/* Followers Growth */}
+      {/* FOLLOWERS GROWTH */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
 
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-6">
+
           <div>
             <h3 className="text-base font-semibold text-gray-900">
               Followers Growth
             </h3>
 
             <p className="text-sm text-gray-500 mt-1">
-              Audience growth over the last 7 months
+              Audience growth based on the selected period
             </p>
           </div>
 
-          <select className="text-xs border border-gray-200 rounded-lg px-3 py-2">
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-3 py-2"
+          >
             <option>Last 7 months</option>
             <option>Last 30 days</option>
             <option>Last year</option>
           </select>
+
         </div>
 
-        <div className="h-64 flex items-end gap-5 px-4">
+        {/* CHART */}
+        <div
+          style={{
+            width: '100%',
+            height: '350px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+          }}
+        >
 
-          {[45, 52, 58, 61, 68, 76, 84].map((height, index) => (
-            <div
-              key={index}
-              className="flex-1 flex flex-col items-center justify-end gap-2"
-            >
+          {/* BARS AREA */}
+          <div
+            style={{
+              width: '100%',
+              height: '290px',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-around',
+              gap: '6px',
+              borderBottom: '1px solid #e5e7eb',
+              paddingLeft: '10px',
+              paddingRight: '10px',
+            }}
+          >
+
+            {selectedChart.values.map((value, index) => (
+
               <div
-                className="w-full max-w-12 bg-indigo-500 rounded-t-lg"
-                style={{ height: `${height * 2.3}px` }}
-              />
+                key={index}
+                style={{
+                  height: '100%',
+                  flex: '1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  flexDirection: 'column',
+                  minWidth: '20px',
+                }}
+              >
 
-              <span className="text-xs text-gray-500">
-                {['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'][index]}
-              </span>
-            </div>
-          ))}
+                {/* VALUE */}
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    marginBottom: '5px',
+                  }}
+                >
+                  {value}
+                </span>
+
+                {/* BAR */}
+                <div
+                  style={{
+                    width: '70%',
+                    maxWidth: '42px',
+                    height: `${value * 2.5}px`,
+                    minHeight: '20px',
+                    backgroundColor: '#6366f1',
+                    borderRadius: '6px 6px 0 0',
+                    display: 'block',
+                  }}
+                />
+
+              </div>
+
+            ))}
+
+          </div>
+
+          {/* MONTH LABELS */}
+          <div
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-around',
+              gap: '6px',
+              paddingTop: '10px',
+              paddingLeft: '10px',
+              paddingRight: '10px',
+            }}
+          >
+
+            {selectedChart.labels.map((label, index) => (
+
+              <div
+                key={index}
+                style={{
+                  flex: '1',
+                  textAlign: 'center',
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  minWidth: '20px',
+                }}
+              >
+                {label}
+              </div>
+
+            ))}
+
+          </div>
 
         </div>
+
       </div>
 
-      {/* Demographics */}
+      {/* DEMOGRAPHICS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Age */}
+        {/* AGE DISTRIBUTION */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <h3 className="text-base font-semibold text-gray-900">
@@ -168,17 +312,26 @@ export function AudienceAnalyticsPage() {
               <div key={age}>
 
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">{age}</span>
+
+                  <span className="text-gray-600">
+                    {age}
+                  </span>
+
                   <span className="font-semibold text-gray-900">
                     {percentage}%
                   </span>
+
                 </div>
 
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+
                   <div
                     className="h-full bg-indigo-500 rounded-full"
-                    style={{ width: `${percentage}%` }}
+                    style={{
+                      width: `${percentage}%`,
+                    }}
                   />
+
                 </div>
 
               </div>
@@ -186,9 +339,10 @@ export function AudienceAnalyticsPage() {
             ))}
 
           </div>
+
         </div>
 
-        {/* Gender */}
+        {/* GENDER DISTRIBUTION */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <h3 className="text-base font-semibold text-gray-900">
@@ -210,17 +364,26 @@ export function AudienceAnalyticsPage() {
               <div key={gender}>
 
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">{gender}</span>
+
+                  <span className="text-gray-600">
+                    {gender}
+                  </span>
+
                   <span className="font-semibold text-gray-900">
                     {percentage}%
                   </span>
+
                 </div>
 
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+
                   <div
                     className="h-full bg-violet-500 rounded-full"
-                    style={{ width: `${percentage}%` }}
+                    style={{
+                      width: `${percentage}%`,
+                    }}
                   />
+
                 </div>
 
               </div>
@@ -228,17 +391,19 @@ export function AudienceAnalyticsPage() {
             ))}
 
           </div>
+
         </div>
 
       </div>
 
-      {/* Location and Activity */}
+      {/* LOCATIONS AND ACTIVE HOURS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Locations */}
+        {/* LOCATIONS */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <div className="flex items-center gap-2 mb-5">
+
             <MapPin className="w-5 h-5 text-indigo-600" />
 
             <div>
@@ -250,6 +415,7 @@ export function AudienceAnalyticsPage() {
                 Countries and cities
               </p>
             </div>
+
           </div>
 
           <div className="space-y-4">
@@ -268,6 +434,7 @@ export function AudienceAnalyticsPage() {
               >
 
                 <div>
+
                   <p className="text-sm font-medium text-gray-900">
                     {country}
                   </p>
@@ -275,6 +442,7 @@ export function AudienceAnalyticsPage() {
                   <p className="text-xs text-gray-500">
                     {city}
                   </p>
+
                 </div>
 
                 <span className="text-sm font-semibold text-indigo-600">
@@ -286,12 +454,14 @@ export function AudienceAnalyticsPage() {
             ))}
 
           </div>
+
         </div>
 
-        {/* Active Hours */}
+        {/* ACTIVE HOURS */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <div className="flex items-center gap-2 mb-5">
+
             <Clock className="w-5 h-5 text-violet-600" />
 
             <div>
@@ -303,6 +473,7 @@ export function AudienceAnalyticsPage() {
                 When your audience is online
               </p>
             </div>
+
           </div>
 
           <div className="space-y-4">
@@ -317,6 +488,7 @@ export function AudienceAnalyticsPage() {
               <div key={time}>
 
                 <div className="flex justify-between mb-1">
+
                   <span className="text-sm text-gray-700">
                     {time}
                   </span>
@@ -324,13 +496,18 @@ export function AudienceAnalyticsPage() {
                   <span className="text-xs font-semibold text-gray-500">
                     {level}
                   </span>
+
                 </div>
 
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+
                   <div
                     className="h-full bg-violet-500 rounded-full"
-                    style={{ width: percentage }}
+                    style={{
+                      width: percentage,
+                    }}
                   />
+
                 </div>
 
               </div>
@@ -338,6 +515,7 @@ export function AudienceAnalyticsPage() {
             ))}
 
           </div>
+
         </div>
 
       </div>

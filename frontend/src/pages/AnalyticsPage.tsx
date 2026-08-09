@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import {
   TrendingUp,
   Users,
@@ -8,22 +7,76 @@ import {
   Share2,
   MessageCircle,
   Download,
-  ArrowUpRight,
-  ArrowDownRight,
 } from 'lucide-react';
 
-import { StatCard, ChartCard } from '../components/ui/StatCard';
-import {
-  GradientAreaChart,
-  MultiLineChart,
-  GradientBarChart,
-  DonutChart,
-} from '../components/charts/Charts';
-import { Card, Button, Badge } from '../components/ui';
-import { analyticsData } from '../data/mockData';
-import { formatNumber, getPlatformConfig, cn } from '../utils/helpers';
+const platforms = [
+  {
+    platform: 'Facebook',
+    reach: 145000,
+    impressions: 312000,
+    clicks: 8600,
+    engagement: 6.8,
+    followers: 42500,
+  },
+  {
+    platform: 'Instagram',
+    reach: 198000,
+    impressions: 445000,
+    clicks: 18600,
+    engagement: 9.2,
+    followers: 83600,
+  },
+  {
+    platform: 'Twitter',
+    reach: 78000,
+    impressions: 156000,
+    clicks: 6200,
+    engagement: 4.1,
+    followers: 24800,
+  },
+  {
+    platform: 'LinkedIn',
+    reach: 52000,
+    impressions: 98000,
+    clicks: 4800,
+    engagement: 11.4,
+    followers: 18200,
+  },
+];
 
-const dateRanges = ['7 days', '30 days', '90 days', '6 months', '1 year'];
+const campaignFactors: Record<string, number> = {
+  'Product Launch Q3': 1,
+  'Brand Awareness': 0.82,
+  'Summer Sale': 0.64,
+  'Content Marketing': 0.48,
+};
+
+const contentFactors: Record<string, number> = {
+  Image: 1,
+  Video: 0.88,
+  Carousel: 0.72,
+  Text: 0.56,
+};
+
+const rangeFactors: Record<string, number> = {
+  '7 days': 0.25,
+  '30 days': 1,
+  '90 days': 2.6,
+  '6 months': 5.2,
+  '1 year': 10.5,
+};
+
+function formatNumber(value: number) {
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(2)}M`;
+  }
+
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K`;
+  }
+
+  return Math.round(value).toLocaleString();
+}
 
 export function AnalyticsPage() {
   const [range, setRange] = useState('30 days');
@@ -31,13 +84,68 @@ export function AnalyticsPage() {
   const [campaign, setCampaign] = useState('all');
   const [contentType, setContentType] = useState('all');
 
+  const selectedPlatforms =
+    platform === 'all'
+      ? platforms
+      : platforms.filter(
+          (item) => item.platform.toLowerCase() === platform
+        );
+
+  const campaignFactor =
+    campaign === 'all'
+      ? 1
+      : campaignFactors[campaign] ?? 1;
+
+  const contentFactor =
+    contentType === 'all'
+      ? 1
+      : contentFactors[contentType] ?? 1;
+
+  const rangeFactor = rangeFactors[range] ?? 1;
+
+  const combinedFactor =
+    campaignFactor * contentFactor * rangeFactor;
+
+  const totalReach = selectedPlatforms.reduce(
+    (sum, item) => sum + item.reach,
+    0
+  ) * combinedFactor;
+
+  const totalImpressions = selectedPlatforms.reduce(
+    (sum, item) => sum + item.impressions,
+    0
+  ) * combinedFactor;
+
+  const totalClicks = selectedPlatforms.reduce(
+    (sum, item) => sum + item.clicks,
+    0
+  ) * combinedFactor;
+
+  const totalFollowers = selectedPlatforms.reduce(
+    (sum, item) => sum + item.followers,
+    0
+  );
+
+  const averageEngagement =
+    selectedPlatforms.length > 0
+      ? selectedPlatforms.reduce(
+          (sum, item) => sum + item.engagement,
+          0
+        ) / selectedPlatforms.length
+      : 0;
+
+  const displayReach = totalReach;
+  const displayImpressions = totalImpressions;
+  const displayClicks = totalClicks;
+
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* HEADER */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-gray-900">
             Analytics
           </h1>
 
@@ -46,13 +154,14 @@ export function AnalyticsPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* FILTERS */}
+        <div className="flex flex-wrap gap-2">
 
-          {/* Platform Filter */}
+          {/* PLATFORM */}
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none"
+            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700"
           >
             <option value="all">All Platforms</option>
             <option value="facebook">Facebook</option>
@@ -61,286 +170,375 @@ export function AnalyticsPage() {
             <option value="linkedin">LinkedIn</option>
           </select>
 
-          {/* Campaign Filter */}
+          {/* CAMPAIGN */}
           <select
             value={campaign}
             onChange={(e) => setCampaign(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none"
+            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700"
           >
             <option value="all">All Campaigns</option>
-            <option value="product-launch">Product Launch Q3</option>
-            <option value="brand-awareness">Brand Awareness</option>
-            <option value="summer-sale">Summer Sale</option>
-            <option value="content-marketing">Content Marketing</option>
+            <option value="Product Launch Q3">
+              Product Launch Q3
+            </option>
+            <option value="Brand Awareness">
+              Brand Awareness
+            </option>
+            <option value="Summer Sale">
+              Summer Sale
+            </option>
+            <option value="Content Marketing">
+              Content Marketing
+            </option>
           </select>
 
-          {/* Content Type Filter */}
+          {/* CONTENT TYPE */}
           <select
             value={contentType}
             onChange={(e) => setContentType(e.target.value)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none"
+            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700"
           >
             <option value="all">All Content Types</option>
-            <option value="image">Image</option>
-            <option value="video">Video</option>
-            <option value="carousel">Carousel</option>
-            <option value="text">Text</option>
+            <option value="Image">Image</option>
+            <option value="Video">Video</option>
+            <option value="Carousel">Carousel</option>
+            <option value="Text">Text</option>
           </select>
 
-          <Button
-            variant="secondary"
-            size="md"
-            icon={<Download className="w-4 h-4" />}
+          {/* EXPORT */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
+            <Download className="w-4 h-4" />
             Export
-          </Button>
+          </button>
 
         </div>
       </div>
 
-      {/* Date Range */}
+      {/* DATE RANGE */}
       <div className="flex flex-wrap gap-2">
-        {dateRanges.map((r) => (
+
+        {[
+          '7 days',
+          '30 days',
+          '90 days',
+          '6 months',
+          '1 year',
+        ].map((item) => (
+
           <button
-            key={r}
-            onClick={() => setRange(r)}
-            className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-              range === r
+            type="button"
+            key={item}
+            onClick={() => setRange(item)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              range === item
                 ? 'bg-indigo-600 text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            )}
+                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
           >
-            {r}
+            {item}
           </button>
+
         ))}
+
       </div>
 
-      {/* KPI Cards */}
+      {/* ACTIVE FILTER */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+
+        <p className="text-sm text-indigo-700">
+
+          Showing data for{' '}
+
+          <strong>
+            {platform === 'all'
+              ? 'All Platforms'
+              : platform.charAt(0).toUpperCase() +
+                platform.slice(1)}
+          </strong>
+
+          {' • '}
+
+          <strong>
+            {campaign === 'all'
+              ? 'All Campaigns'
+              : campaign}
+          </strong>
+
+          {' • '}
+
+          <strong>
+            {contentType === 'all'
+              ? 'All Content Types'
+              : contentType}
+          </strong>
+
+          {' • '}
+
+          <strong>{range}</strong>
+
+        </p>
+
+      </div>
+
+      {/* KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        <StatCard
-          title="Total Published Posts"
-          value="128"
-          change={12}
-          icon={<Share2 className="w-5 h-5" />}
-          color="indigo"
-          index={0}
-        />
+        {/* REACH */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
 
-        <StatCard
-          title="Total Scheduled Posts"
-          value="43"
-          change={8}
-          icon={<TrendingUp className="w-5 h-5" />}
-          color="violet"
-          index={1}
-        />
+          <div className="flex justify-between">
 
-        <StatCard
-          title="Total Impressions"
-          value="1.01M"
-          change={22}
-          icon={<Eye className="w-5 h-5" />}
-          color="rose"
-          index={2}
-        />
+            <div>
 
-        <StatCard
-          title="Total Reach"
-          value="473K"
-          change={18}
-          icon={<Users className="w-5 h-5" />}
-          color="emerald"
-          index={3}
-        />
+              <p className="text-sm text-gray-500">
+                Total Reach
+              </p>
 
-        <StatCard
-          title="Total Engagement"
-          value="42.8K"
-          change={14}
-          icon={<Heart className="w-5 h-5" />}
-          color="rose"
-          index={4}
-        />
+              <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                {formatNumber(displayReach)}
+              </h2>
 
-        <StatCard
-          title="Total Likes"
-          value="28.4K"
-          change={16}
-          icon={<Heart className="w-5 h-5" />}
-          color="rose"
-          index={5}
-        />
+              <p className="text-xs text-emerald-600 mt-2">
+                +18% growth
+              </p>
 
-        <StatCard
-          title="Total Comments"
-          value="6.2K"
-          change={9}
-          icon={<MessageCircle className="w-5 h-5" />}
-          color="indigo"
-          index={6}
-        />
+            </div>
 
-        <StatCard
-          title="Total Shares"
-          value="8.2K"
-          change={11}
-          icon={<Share2 className="w-5 h-5" />}
-          color="emerald"
-          index={7}
-        />
+            <Users className="w-5 h-5 text-emerald-600" />
 
-        <StatCard
-          title="Total Clicks"
-          value="18.6K"
-          change={13}
-          icon={<ArrowUpRight className="w-5 h-5" />}
-          color="violet"
-          index={8}
-        />
+          </div>
 
-        <StatCard
-          title="Total Followers"
-          value="83.6K"
-          change={15}
-          icon={<Users className="w-5 h-5" />}
-          color="emerald"
-          index={9}
-        />
+        </div>
 
-        <StatCard
-          title="Engagement Rate"
-          value="9.2%"
-          change={5}
-          icon={<TrendingUp className="w-5 h-5" />}
-          color="indigo"
-          index={10}
-        />
+        {/* IMPRESSIONS */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
 
-      </div>
+          <div className="flex justify-between">
 
-      {/* Follower Growth */}
-      <ChartCard
-        title="Follower Growth"
-        subtitle="Cumulative followers across all platforms"
-        action={
-          <select className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none">
-            <option>Last 7 months</option>
-            <option>Last 30 days</option>
-          </select>
-        }
-      >
-        <MultiLineChart
-          data={analyticsData.followerGrowth}
-          xKey="date"
-          lines={[
-            {
-              key: 'instagram',
-              name: 'Instagram',
-              color: '#E1306C',
-            },
-            {
-              key: 'facebook',
-              name: 'Facebook',
-              color: '#1877F2',
-            },
-            {
-              key: 'twitter',
-              name: 'Twitter',
-              color: '#1DA1F2',
-            },
-            {
-              key: 'linkedin',
-              name: 'LinkedIn',
-              color: '#0A66C2',
-            },
-          ]}
-          height={320}
-        />
-      </ChartCard>
+            <div>
 
-      {/* Engagement + Audience */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <p className="text-sm text-gray-500">
+                Total Impressions
+              </p>
 
-        <ChartCard
-          title="Engagement Trend"
-          subtitle="Monthly engagement by platform"
-          className="lg:col-span-2"
-        >
-          <GradientAreaChart
-            data={analyticsData.engagementTrend}
-            xKey="date"
-            areas={[
-              {
-                key: 'instagram',
-                name: 'Instagram',
-                color: '#E1306C',
-              },
-              {
-                key: 'facebook',
-                name: 'Facebook',
-                color: '#1877F2',
-              },
-            ]}
-            height={300}
-          />
-        </ChartCard>
+              <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                {formatNumber(displayImpressions)}
+              </h2>
 
-        <ChartCard
-          title="Audience Age"
-          subtitle="Demographic breakdown"
-        >
-          <DonutChart
-            data={analyticsData.audienceDemographics.map((d) => ({
-              name: d.age,
-              value: d.percentage,
-              color:
-                [
-                  '#6366f1',
-                  '#8b5cf6',
-                  '#ec4899',
-                  '#f59e0b',
-                  '#10b981',
-                ][
-                  ['18-24', '25-34', '35-44', '45-54', '55+'].indexOf(
-                    d.age
-                  )
-                ],
-            }))}
-            height={300}
-            innerRadius={50}
-          />
-        </ChartCard>
+              <p className="text-xs text-emerald-600 mt-2">
+                +22% growth
+              </p>
+
+            </div>
+
+            <Eye className="w-5 h-5 text-violet-600" />
+
+          </div>
+
+        </div>
+
+        {/* CLICKS */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+
+          <div className="flex justify-between">
+
+            <div>
+
+              <p className="text-sm text-gray-500">
+                Total Clicks
+              </p>
+
+              <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                {formatNumber(displayClicks)}
+              </h2>
+
+              <p className="text-xs text-emerald-600 mt-2">
+                +13% growth
+              </p>
+
+            </div>
+
+            <Share2 className="w-5 h-5 text-indigo-600" />
+
+          </div>
+
+        </div>
+
+        {/* ENGAGEMENT */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+
+          <div className="flex justify-between">
+
+            <div>
+
+              <p className="text-sm text-gray-500">
+                Engagement Rate
+              </p>
+
+              <h2 className="text-2xl font-bold text-gray-900 mt-2">
+                {averageEngagement.toFixed(1)}%
+              </h2>
+
+              <p className="text-xs text-emerald-600 mt-2">
+                +5% growth
+              </p>
+
+            </div>
+
+            <TrendingUp className="w-5 h-5 text-rose-500" />
+
+          </div>
+
+        </div>
 
       </div>
 
-      {/* Platform Comparison */}
-      <ChartCard
-        title="Platform Performance Comparison"
-        subtitle="Reach and impressions across platforms"
-      >
-        <GradientBarChart
-          data={analyticsData.platformPerformance}
-          xKey="platform"
-          bars={[
-            {
-              key: 'reach',
-              name: 'Reach',
-              color: '#6366f1',
-            },
-            {
-              key: 'impressions',
-              name: 'Impressions',
-              color: '#8b5cf6',
-            },
-          ]}
-          height={300}
-        />
-      </ChartCard>
+      {/* FOLLOWER GROWTH */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
 
-      {/* Platform Breakdown */}
-      <Card className="p-5">
+        <div className="flex items-center justify-between mb-5">
+
+          <div>
+
+            <h3 className="text-base font-semibold text-gray-900">
+              Follower Growth
+            </h3>
+
+            <p className="text-sm text-gray-500 mt-1">
+              Followers across selected platforms
+            </p>
+
+          </div>
+
+          <span className="text-sm font-semibold text-indigo-600">
+            {formatNumber(totalFollowers)}
+          </span>
+
+        </div>
+
+        <div className="space-y-4">
+
+          {selectedPlatforms.map((item) => {
+
+            const maxFollowers = Math.max(
+              ...selectedPlatforms.map(
+                (x) => x.followers
+              ),
+              1
+            );
+
+            return (
+
+              <div
+                key={item.platform}
+                className="flex items-center gap-3"
+              >
+
+                <span className="w-20 text-sm font-medium text-gray-700">
+                  {item.platform}
+                </span>
+
+                <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden">
+
+                  <div
+                    className="h-full bg-indigo-500 rounded-lg transition-all duration-500"
+                    style={{
+                      width: `${
+                        (item.followers /
+                          maxFollowers) *
+                        100
+                      }%`,
+                    }}
+                  />
+
+                </div>
+
+                <span className="w-16 text-right text-sm font-semibold">
+                  {formatNumber(item.followers)}
+                </span>
+
+              </div>
+
+            );
+          })}
+
+        </div>
+
+      </div>
+
+      {/* PLATFORM PERFORMANCE */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+
+        <h3 className="text-base font-semibold text-gray-900">
+          Platform Performance
+        </h3>
+
+        <p className="text-sm text-gray-500 mt-1 mb-5">
+          Reach across selected platforms
+        </p>
+
+        <div className="space-y-5">
+
+          {selectedPlatforms.map((item) => {
+
+            const maxReach = Math.max(
+              ...selectedPlatforms.map(
+                (x) => x.reach
+              ),
+              1
+            );
+
+            const adjustedReach =
+              item.reach *
+              campaignFactor *
+              contentFactor *
+              rangeFactor;
+
+            return (
+
+              <div key={item.platform}>
+
+                <div className="flex justify-between mb-2">
+
+                  <span className="text-sm font-semibold text-gray-800">
+                    {item.platform}
+                  </span>
+
+                  <span className="text-sm text-gray-500">
+                    {formatNumber(adjustedReach)}
+                  </span>
+
+                </div>
+
+                <div className="h-8 bg-gray-100 rounded-lg overflow-hidden">
+
+                  <div
+                    className="h-full bg-violet-500 rounded-lg transition-all duration-500"
+                    style={{
+                      width: `${
+                        (item.reach /
+                          maxReach) *
+                        100
+                      }%`,
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+            );
+          })}
+
+        </div>
+
+      </div>
+
+      {/* PLATFORM BREAKDOWN */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
 
         <h3 className="text-base font-semibold text-gray-900 mb-4">
           Platform Breakdown
@@ -351,124 +549,88 @@ export function AnalyticsPage() {
           <table className="w-full">
 
             <thead>
+
               <tr className="border-b border-gray-200">
 
-                <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500 uppercase">
+                <th className="text-left py-3 px-2 text-xs font-semibold text-gray-500">
                   Platform
                 </th>
 
-                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500 uppercase">
+                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500">
                   Reach
                 </th>
 
-                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500 uppercase">
+                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500">
                   Impressions
                 </th>
 
-                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500 uppercase">
+                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500">
                   Clicks
                 </th>
 
-                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500 uppercase">
+                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500">
                   Engagement
                 </th>
 
-                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500 uppercase">
-                  Trend
+                <th className="text-right py-3 px-2 text-xs font-semibold text-gray-500">
+                  Followers
                 </th>
 
               </tr>
+
             </thead>
 
             <tbody>
 
-              {analyticsData.platformPerformance.map((p, idx) => {
+              {selectedPlatforms.map((item) => (
 
-                const config = getPlatformConfig(
-                  p.platform.toLowerCase()
-                );
+                <tr
+                  key={item.platform}
+                  className="border-b border-gray-100"
+                >
 
-                const Icon = config.icon;
+                  <td className="py-3 px-2 font-medium text-gray-900">
+                    {item.platform}
+                  </td>
 
-                const trend = [12, 8, -3, 15][idx];
+                  <td className="text-right py-3 px-2">
+                    {formatNumber(
+                      item.reach *
+                        campaignFactor *
+                        contentFactor *
+                        rangeFactor
+                    )}
+                  </td>
 
-                return (
-                  <motion.tr
-                    key={p.platform}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.08 }}
-                    className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
-                  >
+                  <td className="text-right py-3 px-2">
+                    {formatNumber(
+                      item.impressions *
+                        campaignFactor *
+                        contentFactor *
+                        rangeFactor
+                    )}
+                  </td>
 
-                    <td className="py-3 px-2">
+                  <td className="text-right py-3 px-2">
+                    {formatNumber(
+                      item.clicks *
+                        campaignFactor *
+                        contentFactor *
+                        rangeFactor
+                    )}
+                  </td>
 
-                      <div className="flex items-center gap-2">
+                  <td className="text-right py-3 px-2 text-emerald-600 font-semibold">
+                    {item.engagement.toFixed(1)}%
+                  </td>
 
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
-                          style={{
-                            backgroundColor: `${config.color}15`,
-                          }}
-                        >
-                          <Icon
-                            className="w-4 h-4"
-                            style={{ color: config.color }}
-                          />
-                        </div>
+                  <td className="text-right py-3 px-2">
+                    {formatNumber(item.followers)}
+                  </td>
 
-                        <span className="text-sm font-medium text-gray-900">
-                          {p.platform}
-                        </span>
+                </tr>
 
-                      </div>
-
-                    </td>
-
-                    <td className="py-3 px-2 text-right text-sm text-gray-900 font-medium">
-                      {formatNumber(p.reach)}
-                    </td>
-
-                    <td className="py-3 px-2 text-right text-sm text-gray-900 font-medium">
-                      {formatNumber(p.impressions)}
-                    </td>
-
-                    <td className="py-3 px-2 text-right text-sm text-gray-900 font-medium">
-                      {formatNumber(p.clicks)}
-                    </td>
-
-                    <td className="py-3 px-2 text-right">
-                      <span className="text-sm font-semibold text-emerald-600">
-                        {p.engagement}%
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-2 text-right">
-
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-0.5 text-xs font-semibold',
-                          trend >= 0
-                            ? 'text-emerald-600'
-                            : 'text-red-500'
-                        )}
-                      >
-
-                        {trend >= 0 ? (
-                          <ArrowUpRight className="w-3 h-3" />
-                        ) : (
-                          <ArrowDownRight className="w-3 h-3" />
-                        )}
-
-                        {Math.abs(trend)}%
-
-                      </span>
-
-                    </td>
-
-                  </motion.tr>
-                );
-              })}
+              ))}
 
             </tbody>
 
@@ -476,10 +638,10 @@ export function AnalyticsPage() {
 
         </div>
 
-      </Card>
+      </div>
 
-      {/* AI Insights */}
-      <Card className="p-5">
+      {/* AI INSIGHTS */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
 
         <h3 className="text-base font-semibold text-gray-900 mb-4">
           AI Insights
@@ -489,13 +651,19 @@ export function AnalyticsPage() {
 
           <div className="rounded-xl border border-green-200 bg-green-50 p-4">
 
-            <h4 className="font-semibold text-green-700">
-              Best Performing Platform
-            </h4>
+            <div className="flex items-center gap-2">
+
+              <Heart className="w-5 h-5 text-green-600" />
+
+              <h4 className="font-semibold text-green-700">
+                Best Performing Platform
+              </h4>
+
+            </div>
 
             <p className="text-sm text-gray-700 mt-2">
-              Instagram generated the highest engagement this month with
-              <strong> 9.2% engagement rate</strong>.
+              LinkedIn currently has the highest engagement
+              rate at 11.4%.
             </p>
 
           </div>
@@ -507,10 +675,7 @@ export function AnalyticsPage() {
             </h4>
 
             <p className="text-sm text-gray-700 mt-2">
-              Posts published between
-              <strong> 6 PM - 8 PM </strong>
-              receive approximately
-              <strong> 32% </strong>
+              Posts published between 6 PM and 8 PM receive
               higher engagement.
             </p>
 
@@ -523,8 +688,8 @@ export function AnalyticsPage() {
             </h4>
 
             <p className="text-sm text-gray-700 mt-2">
-              Increase LinkedIn posting frequency to improve professional
-              audience reach.
+              Increase LinkedIn posting frequency to improve
+              professional audience reach.
             </p>
 
           </div>
@@ -536,114 +701,101 @@ export function AnalyticsPage() {
             </h4>
 
             <p className="text-sm text-gray-700 mt-2">
-              Launch your next campaign during weekends for maximum reach
-              based on previous campaign performance.
+              Continue monitoring campaign performance and
+              focus on high-performing content.
             </p>
 
           </div>
 
         </div>
 
-      </Card>
+      </div>
 
-      {/* Top Performing Posts */}
-      <Card className="p-5">
+      {/* SUMMARY */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-        <h3 className="text-base font-semibold text-gray-900 mb-4">
-          Top Performing Posts
-        </h3>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-center gap-3">
 
-          {analyticsData.topPosts.map((post, idx) => {
+            <Share2 className="w-5 h-5 text-indigo-600" />
 
-            const config = getPlatformConfig(post.platform);
-            const Icon = config.icon;
+            <div>
 
-            return (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="p-4 rounded-xl bg-gray-50 border border-gray-100"
-              >
+              <p className="text-xs text-gray-500">
+                Total Shares
+              </p>
 
-                <div className="flex items-center gap-2 mb-3">
+              <p className="text-xl font-bold">
+                {formatNumber(
+                  8200 *
+                    campaignFactor *
+                    contentFactor *
+                    rangeFactor
+                )}
+              </p>
 
-                  <Icon
-                    className="w-4 h-4"
-                    style={{ color: config.color }}
-                  />
+            </div>
 
-                  <span className="text-xs font-medium text-gray-500 capitalize">
-                    {post.platform}
-                  </span>
-
-                  <Badge
-                    variant="success"
-                    className="ml-auto !py-0.5"
-                  >
-                    Top Post
-                  </Badge>
-
-                </div>
-
-                <p className="text-sm text-gray-900 line-clamp-2 mb-3">
-                  {post.content}
-                </p>
-
-                <div className="grid grid-cols-4 gap-2">
-
-                  {[
-                    {
-                      icon: Heart,
-                      label: formatNumber(post.likes),
-                      color: 'text-rose-500',
-                    },
-                    {
-                      icon: MessageCircle,
-                      label: formatNumber(post.comments),
-                      color: 'text-blue-500',
-                    },
-                    {
-                      icon: Share2,
-                      label: formatNumber(post.shares),
-                      color: 'text-emerald-500',
-                    },
-                    {
-                      icon: Eye,
-                      label: formatNumber(post.reach),
-                      color: 'text-violet-500',
-                    },
-                  ].map((stat, i) => (
-
-                    <div
-                      key={i}
-                      className="flex flex-col items-center gap-1"
-                    >
-
-                      <stat.icon
-                        className={`w-4 h-4 ${stat.color}`}
-                      />
-
-                      <span className="text-xs font-semibold text-gray-900">
-                        {stat.label}
-                      </span>
-
-                    </div>
-
-                  ))}
-
-                </div>
-
-              </motion.div>
-            );
-          })}
+          </div>
 
         </div>
 
-      </Card>
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+
+          <div className="flex items-center gap-3">
+
+            <MessageCircle className="w-5 h-5 text-blue-600" />
+
+            <div>
+
+              <p className="text-xs text-gray-500">
+                Total Comments
+              </p>
+
+              <p className="text-xl font-bold">
+                {formatNumber(
+                  6200 *
+                    campaignFactor *
+                    contentFactor *
+                    rangeFactor
+                )}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+
+          <div className="flex items-center gap-3">
+
+            <Heart className="w-5 h-5 text-rose-500" />
+
+            <div>
+
+              <p className="text-xs text-gray-500">
+                Total Likes
+              </p>
+
+              <p className="text-xl font-bold">
+                {formatNumber(
+                  28400 *
+                    campaignFactor *
+                    contentFactor *
+                    rangeFactor
+                )}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
   );

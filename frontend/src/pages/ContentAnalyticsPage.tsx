@@ -1,15 +1,26 @@
 import { useState } from 'react';
-import { Search, Filter, Heart, MessageCircle, Share2, Eye } from 'lucide-react';
+import {
+  Search,
+  Filter,
+  Heart,
+  MessageCircle,
+  Share2,
+  Eye,
+} from 'lucide-react';
 
 export function ContentAnalyticsPage() {
   const [search, setSearch] = useState('');
+  const [platform, setPlatform] = useState('All Platforms');
+  const [campaign, setCampaign] = useState('All Campaigns');
+  const [contentType, setContentType] = useState('All Content Types');
 
   const posts = [
     {
       id: 1,
       platform: 'Instagram',
       campaign: 'Product Launch Q3',
-      caption: 'We hit 100K followers! Thank you for your incredible support.',
+      caption:
+        'We hit 100K followers! Thank you for your incredible support.',
       date: 'Aug 5, 2026',
       type: 'Image',
       likes: 4821,
@@ -39,7 +50,8 @@ export function ContentAnalyticsPage() {
       id: 3,
       platform: 'Twitter',
       campaign: 'Product Launch Q3',
-      caption: 'New feature alert: Auto-scheduling is now smarter than ever!',
+      caption:
+        'New feature alert: Auto-scheduling is now smarter than ever!',
       date: 'Aug 3, 2026',
       type: 'Text',
       likes: 1892,
@@ -54,7 +66,8 @@ export function ContentAnalyticsPage() {
       id: 4,
       platform: 'LinkedIn',
       campaign: 'Social Proof',
-      caption: 'Customer spotlight: How ClientCo increased engagement by 300%.',
+      caption:
+        'Customer spotlight: How ClientCo increased engagement by 300%.',
       date: 'Aug 2, 2026',
       type: 'Article',
       likes: 1204,
@@ -67,15 +80,18 @@ export function ContentAnalyticsPage() {
     },
   ];
 
-  const filteredPosts = posts.filter((post) =>
-    post.caption.toLowerCase().includes(search.toLowerCase()) ||
-    post.platform.toLowerCase().includes(search.toLowerCase()) ||
-    post.campaign.toLowerCase().includes(search.toLowerCase())
+  const filteredPosts = posts.filter(
+    (post) =>
+      (post.caption.toLowerCase().includes(search.toLowerCase()) ||
+        post.platform.toLowerCase().includes(search.toLowerCase()) ||
+        post.campaign.toLowerCase().includes(search.toLowerCase())) &&
+      (platform === 'All Platforms' || post.platform === platform) &&
+      (campaign === 'All Campaigns' || post.campaign === campaign) &&
+      (contentType === 'All Content Types' || post.type === contentType)
   );
 
   return (
     <div className="space-y-6">
-
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
@@ -89,9 +105,7 @@ export function ContentAnalyticsPage() {
 
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
-
         <div className="flex flex-col lg:flex-row gap-3">
-
           {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -106,7 +120,11 @@ export function ContentAnalyticsPage() {
           </div>
 
           {/* Platform */}
-          <select className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
+          <select
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value)}
+            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+          >
             <option>All Platforms</option>
             <option>Instagram</option>
             <option>Facebook</option>
@@ -115,7 +133,11 @@ export function ContentAnalyticsPage() {
           </select>
 
           {/* Campaign */}
-          <select className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
+          <select
+            value={campaign}
+            onChange={(e) => setCampaign(e.target.value)}
+            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+          >
             <option>All Campaigns</option>
             <option>Product Launch Q3</option>
             <option>Brand Awareness</option>
@@ -123,32 +145,30 @@ export function ContentAnalyticsPage() {
           </select>
 
           {/* Content Type */}
-          <select className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
+          <select
+            value={contentType}
+            onChange={(e) => setContentType(e.target.value)}
+            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+          >
             <option>All Content Types</option>
             <option>Image</option>
             <option>Video</option>
             <option>Text</option>
             <option>Article</option>
           </select>
-
         </div>
       </div>
 
       {/* Posts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-
         {filteredPosts.map((post) => (
-
           <div
             key={post.id}
             className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-sm transition-shadow"
           >
-
             {/* Top */}
             <div className="flex items-center justify-between mb-3">
-
               <div className="flex items-center gap-2">
-
                 <span className="text-sm font-semibold text-gray-900">
                   {post.platform}
                 </span>
@@ -156,13 +176,11 @@ export function ContentAnalyticsPage() {
                 <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-600">
                   {post.type}
                 </span>
-
               </div>
 
               <span className="text-xs text-gray-500">
                 {post.date}
               </span>
-
             </div>
 
             {/* Caption */}
@@ -172,14 +190,14 @@ export function ContentAnalyticsPage() {
 
             {/* Campaign */}
             <p className="text-xs text-gray-500 mb-4">
-              Campaign: <span className="font-medium text-gray-700">
+              Campaign:{' '}
+              <span className="font-medium text-gray-700">
                 {post.campaign}
               </span>
             </p>
 
             {/* Metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-
               <div className="bg-gray-50 rounded-lg p-3 text-center">
                 <Heart className="w-4 h-4 mx-auto text-rose-500 mb-1" />
                 <p className="text-sm font-semibold">{post.likes}</p>
@@ -203,12 +221,10 @@ export function ContentAnalyticsPage() {
                 <p className="text-sm font-semibold">{post.reach}</p>
                 <p className="text-xs text-gray-500">Reach</p>
               </div>
-
             </div>
 
             {/* Bottom Metrics */}
             <div className="flex justify-between mt-4 pt-4 border-t border-gray-100 text-xs">
-
               <span>
                 Impressions:
                 <strong className="ml-1">{post.impressions}</strong>
@@ -222,25 +238,21 @@ export function ContentAnalyticsPage() {
               <span className="text-emerald-600 font-semibold">
                 {post.engagement}% Engagement
               </span>
-
             </div>
-
           </div>
-
         ))}
-
       </div>
 
-      {/* No results */}
+      {/* No Results */}
       {filteredPosts.length === 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
           <Filter className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+
           <p className="text-sm text-gray-500">
             No posts found
           </p>
         </div>
       )}
-
     </div>
   );
 }
