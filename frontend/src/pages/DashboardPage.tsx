@@ -219,6 +219,89 @@ export function DashboardPage() {
           })}
         </div>
       </Card>
+      {/* Module 6 Analytics */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">
+              Analytics
+            </h3>
+            <p className="text-sm text-gray-500">
+              Explore your complete social media performance
+            </p>
+          </div>
+
+          <Link to="/app/analytics">
+            <Button variant="ghost" size="sm">
+              View Analytics <ArrowUpRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+
+          <Link to="/app/analytics/content">
+            <div className="p-4 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all cursor-pointer">
+              <FileText className="w-5 h-5 text-indigo-600 mb-3" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Content Analytics
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                Analyze content performance
+              </p>
+            </div>
+          </Link>
+
+          <Link to="/app/analytics/audience">
+            <div className="p-4 rounded-xl border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50 transition-all cursor-pointer">
+              <Users className="w-5 h-5 text-emerald-600 mb-3" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Audience Analytics
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                Understand your audience
+              </p>
+            </div>
+          </Link>
+
+          <Link to="/app/analytics/campaigns">
+            <div className="p-4 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer">
+              <Campaign className="w-5 h-5 text-violet-600 mb-3" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Campaign Analytics
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                Track campaign performance
+              </p>
+            </div>
+          </Link>
+
+          <Link to="/app/analytics/platforms">
+            <div className="p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer">
+              <TrendingUp className="w-5 h-5 text-blue-600 mb-3" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Platform Comparison
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                Compare social platforms
+              </p>
+            </div>
+          </Link>
+
+          <Link to="/app/analytics/trends">
+            <div className="p-4 rounded-xl border border-gray-100 hover:border-rose-200 hover:bg-rose-50 transition-all cursor-pointer">
+              <TrendingUp className="w-5 h-5 text-rose-600 mb-3" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                Performance Trends
+              </h4>
+              <p className="text-xs text-gray-500 mt-1">
+                Track growth over time
+              </p>
+            </div>
+          </Link>
+
+        </div>
+      </Card>
 {/* Campaign ROI */}
 <Card className="p-5">
   <h3 className="text-lg font-semibold mb-4">Campaign ROI</h3>
