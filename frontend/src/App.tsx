@@ -15,6 +15,10 @@ import { CampaignAnalyticsPage } from './pages/CampaignAnalyticsPage';
 import { PlatformComparisonPage } from './pages/PlatformComparisonPage';
 import { PerformanceTrendsPage } from './pages/PerformanceTrendsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { NotificationSettingsPage } from './pages/NotificationSettingsPage';
+import { EmailPreferencesPage } from './pages/EmailPreferencesPage';
+import { NotificationHistoryPage } from "./pages/NotificationHistoryPage";
+import { TeamActivityPage } from './pages/TeamActivityPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 function App() {
@@ -38,6 +42,10 @@ function App() {
           <Route path="analytics/platforms" element={<PlatformComparisonPage />} />
           <Route path="analytics/trends" element={<PerformanceTrendsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="notifications/settings" element={<NotificationSettingsPage/>} />
+          <Route path="notifications/email-preferences" element={<EmailPreferencesPage />} />
+          <Route path="notifications/history" element={<NotificationHistoryPage />} />
+          <Route path="notifications/team-activity" element={<TeamActivityPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
