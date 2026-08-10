@@ -1,426 +1,837 @@
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
-  Calendar, Megaphone, Users, TrendingUp, ArrowUpRight,
-  FileText, Eye, Heart, MessageCircle, Share2, Plus,
-  CheckCircle2, Clock, AlertCircle, Megaphone as Campaign,
-} from 'lucide-react';
-import { StatCard, ChartCard } from '../components/ui/StatCard';
-import { GradientAreaChart, DonutChart } from '../components/charts/Charts';
-import { Card, Badge, Button } from '../components/ui';
-import { currentUser, analyticsData, recentActivities, scheduledPosts } from '../data/mockData';
-import { formatNumber, getPlatformConfig, formatTime } from '../utils/helpers';
-
-const platformIcons: Record<string, any> = {};
-['facebook', 'instagram', 'twitter', 'linkedin'].forEach((p) => {
-  platformIcons[p] = getPlatformConfig(p);
-});
+  LayoutDashboard,
+  Share2,
+  FileText,
+  CalendarDays,
+  Bell,
+  Megaphone,
+  BarChart3,
+  Search,
+  Plus,
+} from "lucide-react";
 
 export function DashboardPage() {
-  const upcomingPosts = scheduledPosts.filter((p) => p.status === 'scheduled').slice(0, 4);
-  const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
-  })();
+  const username = "anika_123";
 
   return (
-    <div className="space-y-6">
-      {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            {greeting}, {currentUser.name.split(' ')[0]}! 👋
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Here's what's happening with your social media today.
-          </p>
+    <div className="dashboard-page">
+
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+
+        <div className="brand">
+          <div className="brand-logo">⚡</div>
+
+          <div>
+            <div className="brand-name">SocialPilot</div>
+            <div className="brand-subtitle">Campaign Manager</div>
+          </div>
         </div>
-        <Link to="/app/create-post">
-          <Button icon={<Plus className="w-4 h-4" />}>Create Post</Button>
-        </Link>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Scheduled Posts" value={43} change={12} icon={<Calendar className="w-5 h-5" />} color="indigo" index={0} />
-        <StatCard title="Active Campaigns" value={5} change={8} icon={<Megaphone className="w-5 h-5" />} color="violet" index={1} />
-        <StatCard title="Total Followers" value="83.6K" change={15} icon={<Users className="w-5 h-5" />} color="emerald" index={2} />
-        <StatCard title="Engagement Rate" value="9.2%" change={-2} icon={<TrendingUp className="w-5 h-5" />} color="amber" index={3} />
-      </div>
+        <div className="menu-title">
+          MENU
+        </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard
-          title="Engagement Overview"
-          subtitle="Total engagement across all platforms"
-          className="lg:col-span-2"
-          action={
-            <select className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none">
-              <option>Last 7 months</option>
-              <option>Last 30 days</option>
-              <option>Last 90 days</option>
-            </select>
-          }
-        >
-          <GradientAreaChart
-            data={analyticsData.engagementTrend}
-            xKey="date"
-            areas={[
-              { key: 'instagram', name: 'Instagram', color: '#E1306C' },
-              { key: 'facebook', name: 'Facebook', color: '#1877F2' },
-              { key: 'twitter', name: 'Twitter', color: '#1DA1F2' },
-              { key: 'linkedin', name: 'LinkedIn', color: '#0A66C2' },
-            ]}
-            height={300}
-          />
-        </ChartCard>
+        <nav className="sidebar-menu">
 
-        <ChartCard title="Post Status" subtitle="Distribution of all posts">
-          <DonutChart data={analyticsData.postsByStatus} height={300} innerRadius={50} />
-        </ChartCard>
-      </div>
+          <div className="menu-item active">
+            <LayoutDashboard size={21} />
+            <span>Dashboard</span>
+            <span className="active-dot"></span>
+          </div>
 
-      {/* Upcoming posts + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Upcoming Posts */}
-        <Card className="lg:col-span-2 p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="menu-item">
+            <Share2 size={21} />
+            <span>Social Accounts</span>
+          </div>
+
+          <div className="menu-item">
+            <FileText size={21} />
+            <span>Create Post</span>
+          </div>
+
+          <div className="menu-item">
+            <CalendarDays size={21} />
+            <span>Calendar</span>
+          </div>
+
+          <div className="menu-item">
+            <Bell size={21} />
+            <span>Notifications</span>
+          </div>
+
+          <div className="menu-item">
+            <Megaphone size={21} />
+            <span>Campaigns</span>
+          </div>
+           <div
+  className="menu-item"
+  onClick={() => {
+    window.location.assign("/app/analytics");
+  }}
+>
+  <BarChart3 size={21} />
+  <span>Analytics</span>
+</div>
+
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="upgrade-box">
+            <div className="upgrade-title">
+              Upgrade your plan
+            </div>
+
+            <div className="upgrade-text">
+              Get more features and grow faster.
+            </div>
+
+            <button className="upgrade-button">
+              Upgrade
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      {/* MAIN AREA */}
+      <main className="main-area">
+
+        {/* TOP BAR */}
+        <header className="top-bar">
+
+          <div className="search-box">
+            <Search size={20} />
+
+            <input
+              type="text"
+              placeholder="Search posts, campaigns, accounts..."
+            />
+          </div>
+
+          <div className="top-right">
+
+            <button className="create-button">
+              <Plus size={18} />
+              Create Post
+            </button>
+
+            <button className="notification-button">
+              <Bell size={20} />
+              <span className="notification-dot"></span>
+            </button>
+
+            <div className="profile">
+              <div className="profile-avatar">
+                A
+              </div>
+
+              <div className="profile-info">
+                <div className="profile-name">
+                  {username}
+                </div>
+
+                <div className="profile-role">
+                  Team Member
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </header>
+
+        {/* CONTENT */}
+        <div className="content-area">
+
+          {/* WELCOME */}
+          <section className="welcome-section">
+
             <div>
-              <h3 className="text-base font-semibold text-gray-900">Upcoming Posts</h3>
-              <p className="text-sm text-gray-500">Scheduled content going live soon</p>
-            </div>
-            <Link to="/app/calendar" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
-              View calendar <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {upcomingPosts.map((post, idx) => (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.08 }}
-                whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900 line-clamp-1">{post.content}</p>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {formatTime(post.scheduledAt)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {post.platforms.map((p) => {
-                        const config = getPlatformConfig(p);
-                        const Icon = config.icon;
-                        return <Icon key={p} className="w-3.5 h-3.5" style={{ color: config.color }} />;
-                      })}
-                    </div>
-                    {post.campaign && <Badge variant="purple" className="!py-0.5">{post.campaign}</Badge>}
-                  </div>
-                </div>
-                <Badge variant={post.status === 'scheduled' ? 'info' : 'default'} dot>
-                  {post.status}
-                </Badge>
-              </motion.div>
-            ))}
-          </div>
-        </Card>
+              <h1>
+                Welcome back, {username} 👋
+              </h1>
 
-        {/* Recent Activity */}
-        <Card className="p-5">
-          <h3 className="text-base font-semibold text-gray-900 mb-1">Recent Activity</h3>
-          <p className="text-sm text-gray-500 mb-4">Latest events across your workspace</p>
-          <div className="space-y-4">
-            {recentActivities.slice(0, 6).map((activity, idx) => {
-              const iconMap = {
-                published: { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-                scheduled: { icon: Clock, color: 'bg-blue-50 text-blue-600' },
-                campaign: { icon: Campaign, color: 'bg-violet-50 text-violet-600' },
-                failed: { icon: AlertCircle, color: 'bg-red-50 text-red-600' },
-              };
-              const config = iconMap[activity.type as keyof typeof iconMap];
-              const Icon = config.icon;
-              return (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.08 }}
-                  className="flex gap-3"
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${config.color}`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.description}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{activity.time}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-
-      {/* Platform performance */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Platform Performance</h3>
-            <p className="text-sm text-gray-500">How your connected accounts are performing</p>
-          </div>
-          <Link to="/app/analytics">
-            <Button variant="ghost" size="sm">View details <ArrowUpRight className="w-4 h-4" /></Button>
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {analyticsData.platformPerformance.map((platform, idx) => {
-            const config = getPlatformConfig(platform.platform.toLowerCase());
-            const Icon = config.icon;
-            return (
-              <motion.div
-                key={platform.platform}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -3 }}
-                className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${config.color}15` }}>
-                      <Icon className="w-4 h-4" style={{ color: config.color }} />
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">{platform.platform}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Reach</span>
-                    <span className="font-semibold text-gray-900">{formatNumber(platform.reach)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Impressions</span>
-                    <span className="font-semibold text-gray-900">{formatNumber(platform.impressions)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Engagement</span>
-                    <span className="font-semibold text-emerald-600">{platform.engagement}%</span>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </Card>
-      {/* Module 6 Analytics */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Analytics
-            </h3>
-            <p className="text-sm text-gray-500">
-              Explore your complete social media performance
-            </p>
-          </div>
-
-          <Link to="/app/analytics">
-            <Button variant="ghost" size="sm">
-              View Analytics <ArrowUpRight className="w-4 h-4" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-
-          <Link to="/app/analytics/content">
-            <div className="p-4 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all cursor-pointer">
-              <FileText className="w-5 h-5 text-indigo-600 mb-3" />
-              <h4 className="text-sm font-semibold text-gray-900">
-                Content Analytics
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Analyze content performance
+              <p>
+                Create and manage the content assigned to you.
               </p>
             </div>
-          </Link>
 
-          <Link to="/app/analytics/audience">
-            <div className="p-4 rounded-xl border border-gray-100 hover:border-emerald-200 hover:bg-emerald-50 transition-all cursor-pointer">
-              <Users className="w-5 h-5 text-emerald-600 mb-3" />
-              <h4 className="text-sm font-semibold text-gray-900">
-                Audience Analytics
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Understand your audience
-              </p>
-            </div>
-          </Link>
+          </section>
 
-          <Link to="/app/analytics/campaigns">
-            <div className="p-4 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50 transition-all cursor-pointer">
-              <Campaign className="w-5 h-5 text-violet-600 mb-3" />
-              <h4 className="text-sm font-semibold text-gray-900">
-                Campaign Analytics
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Track campaign performance
-              </p>
-            </div>
-          </Link>
+          {/* STATS */}
+          <section className="stats-grid">
 
-          <Link to="/app/analytics/platforms">
-            <div className="p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all cursor-pointer">
-              <TrendingUp className="w-5 h-5 text-blue-600 mb-3" />
-              <h4 className="text-sm font-semibold text-gray-900">
-                Platform Comparison
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Compare social platforms
-              </p>
-            </div>
-          </Link>
+            {/* DRAFTS */}
+            <div className="stat-card">
 
-          <Link to="/app/analytics/trends">
-            <div className="p-4 rounded-xl border border-gray-100 hover:border-rose-200 hover:bg-rose-50 transition-all cursor-pointer">
-              <TrendingUp className="w-5 h-5 text-rose-600 mb-3" />
-              <h4 className="text-sm font-semibold text-gray-900">
-                Performance Trends
-              </h4>
-              <p className="text-xs text-gray-500 mt-1">
-                Track growth over time
-              </p>
-            </div>
-          </Link>
+              <div className="stat-content">
 
-        </div>
-      </Card>
-{/* Campaign ROI */}
-<Card className="p-5">
-  <h3 className="text-lg font-semibold mb-4">Campaign ROI</h3>
-
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-    <div className="rounded-xl border p-4">
-      <p className="text-gray-500 text-sm">Total Investment</p>
-      <h2 className="text-2xl font-bold mt-2">$4,500</h2>
-    </div>
-
-    <div className="rounded-xl border p-4">
-      <p className="text-gray-500 text-sm">Revenue</p>
-      <h2 className="text-2xl font-bold mt-2 text-green-600">$9,850</h2>
-    </div>
-
-    <div className="rounded-xl border p-4">
-      <p className="text-gray-500 text-sm">ROI</p>
-      <h2 className="text-2xl font-bold mt-2 text-blue-600">
-        +118%
-      </h2>
-    </div>
-
-  </div>
-</Card>
-<Card className="p-5">
-<h3 className="text-lg font-semibold mb-4">
-Audience Device Analytics
-</h3>
-
-<div className="space-y-4">
-
-<div>
-<div className="flex justify-between">
-<span>Mobile</span>
-<span>72%</span>
-</div>
-
-<div className="w-full h-2 bg-gray-200 rounded-full">
-<div
-className="h-2 rounded-full bg-blue-600"
-style={{width:"72%"}}
-/>
-</div>
-</div>
-
-<div>
-<div className="flex justify-between">
-<span>Desktop</span>
-<span>21%</span>
-</div>
-
-<div className="w-full h-2 bg-gray-200 rounded-full">
-<div
-className="h-2 rounded-full bg-green-600"
-style={{width:"21%"}}
-/>
-</div>
-</div>
-
-<div>
-<div className="flex justify-between">
-<span>Tablet</span>
-<span>7%</span>
-</div>
-
-<div className="w-full h-2 bg-gray-200 rounded-full">
-<div
-className="h-2 rounded-full bg-purple-600"
-style={{width:"7%"}}
-/>
-</div>
-</div>
-
-</div>
-</Card>
-      {/* Top Posts */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Top Performing Posts</h3>
-            <p className="text-sm text-gray-500">Your best content this month</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {analyticsData.topPosts.map((post, idx) => {
-            const config = getPlatformConfig(post.platform);
-            const Icon = config.icon;
-            return (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="p-4 rounded-xl bg-gray-50 border border-gray-100"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon className="w-4 h-4" style={{ color: config.color }} />
-                  <span className="text-xs font-medium text-gray-500 capitalize">{post.platform}</span>
+                <div className="stat-label">
+                  My Drafts
                 </div>
-                <p className="text-sm text-gray-900 line-clamp-2 mb-3">{post.content}</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { icon: Heart, label: post.likes, color: 'text-rose-500' },
-                    { icon: MessageCircle, label: post.comments, color: 'text-blue-500' },
-                    { icon: Share2, label: post.shares, color: 'text-emerald-500' },
-                    { icon: Eye, label: formatNumber(post.reach), color: 'text-violet-500' },
-                  ].map((stat, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1">
-                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                      <span className="text-xs font-semibold text-gray-900">{stat.label}</span>
-                    </div>
-                  ))}
+
+                <div className="stat-number">
+                  0
                 </div>
-              </motion.div>
-            );
-          })}
+
+                <div className="stat-description">
+                  Posts waiting to be published
+                </div>
+
+              </div>
+
+              <div className="stat-icon purple">
+                <FileText size={22} />
+              </div>
+
+            </div>
+
+            {/* SCHEDULED */}
+            <div className="stat-card">
+
+              <div className="stat-content">
+
+                <div className="stat-label">
+                  Scheduled Posts
+                </div>
+
+                <div className="stat-number">
+                  0
+                </div>
+
+                <div className="stat-description">
+                  Posts scheduled for later
+                </div>
+
+              </div>
+
+              <div className="stat-icon blue">
+                <CalendarDays size={22} />
+              </div>
+
+            </div>
+
+            {/* SOCIAL ACCOUNTS */}
+            <div className="stat-card">
+
+              <div className="stat-content">
+
+                <div className="stat-label">
+                  Social Accounts
+                </div>
+
+                <div className="stat-number">
+                  0
+                </div>
+
+                <div className="stat-description">
+                  Connected social accounts
+                </div>
+
+              </div>
+
+              <div className="stat-icon green">
+                <Share2 size={22} />
+              </div>
+
+            </div>
+
+          </section>
+
+          {/* MY CONTENT */}
+
+          <section className="content-card">
+
+            <div className="content-card-header">
+
+              <div>
+                <div className="content-title-row">
+                  <FileText size={21} />
+
+                  <h2>
+                    My Content
+                  </h2>
+                </div>
+
+                <p>
+                  Your assigned and scheduled content will appear here.
+                </p>
+              </div>
+
+              <button className="content-create-button">
+                <Plus size={17} />
+                Create Post
+              </button>
+
+            </div>
+
+            <div className="empty-content">
+
+              <div className="empty-icon">
+                <FileText size={30} />
+              </div>
+
+              <h3>
+                No content yet
+              </h3>
+
+              <p>
+                Create your first post to get started.
+              </p>
+
+              <button className="empty-button">
+                <Plus size={18} />
+                Create your first post
+              </button>
+
+            </div>
+
+          </section>
+
         </div>
-      </Card>
+
+      </main>
+
     </div>
   );
+}
+/* ================================
+   DASHBOARD STYLES
+================================ */
+
+const dashboardStyles = `
+  * {
+    box-sizing: border-box;
+  }
+
+  .dashboard-page {
+    min-height: 100vh;
+    display: flex;
+    background: #f7f9fc;
+    color: #172033;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  /* SIDEBAR */
+
+  .sidebar {
+    width: 250px;
+    min-height: 100vh;
+    background: #ffffff;
+    border-right: 1px solid #e6eaf0;
+    padding: 25px 18px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 5px 8px 28px;
+  }
+
+  .brand-logo {
+    width: 43px;
+    height: 43px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: bold;
+  }
+
+  .brand-name {
+    font-size: 19px;
+    font-weight: 750;
+    color: #172033;
+  }
+
+  .brand-subtitle {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #8a93a3;
+  }
+
+  .menu-title {
+    padding: 10px 13px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #9aa2b1;
+  }
+
+  .sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .menu-item {
+    position: relative;
+    height: 47px;
+    padding: 0 13px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #697386;
+    font-size: 14px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+
+  .menu-item:hover {
+    background: #f5f7fb;
+    color: #2563eb;
+  }
+
+  .menu-item.active {
+    background: #eaf3ff;
+    color: #1670df;
+    font-weight: 650;
+  }
+
+  .active-dot {
+    margin-left: auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1670df;
+  }
+
+  .sidebar-bottom {
+    margin-top: auto;
+  }
+
+  .upgrade-box {
+    margin: 20px 4px 5px;
+    padding: 15px;
+    border-radius: 13px;
+    background: #f4f7ff;
+    border: 1px solid #e2e9ff;
+  }
+
+  .upgrade-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #29334a;
+  }
+
+  .upgrade-text {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #7d8799;
+  }
+
+  .upgrade-button {
+    margin-top: 12px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    padding: 9px;
+    background: #2563eb;
+    color: white;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  /* MAIN */
+
+  .main-area {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .top-bar {
+    height: 76px;
+    background: #ffffff;
+    border-bottom: 1px solid #e6eaf0;
+    padding: 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .search-box {
+    width: min(520px, 50%);
+    height: 42px;
+    border: 1px solid #e1e6ee;
+    border-radius: 10px;
+    background: #f9fafc;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    color: #8c95a5;
+  }
+
+  .search-box input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #30394c;
+    font-size: 13px;
+  }
+
+  .search-box input::placeholder {
+    color: #9aa3b2;
+  }
+
+  .top-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .create-button {
+    border: none;
+    border-radius: 9px;
+    background: #2563eb;
+    color: white;
+    height: 40px;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .notification-button {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #e4e8ef;
+    border-radius: 9px;
+    background: white;
+    color: #667085;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .notification-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 6px;
+    height: 6px;
+    background: #ef4444;
+    border-radius: 50%;
+    border: 1px solid white;
+  }
+
+  .profile {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .profile-avatar {
+    width: 37px;
+    height: 37px;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .profile-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #30394c;
+  }
+
+  .profile-role {
+    margin-top: 2px;
+    font-size: 10px;
+    color: #98a0af;
+  }
+
+  /* CONTENT */
+
+  .content-area {
+    padding: 32px;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+
+  .welcome-section {
+    margin-bottom: 27px;
+  }
+
+  .welcome-section h1 {
+    margin: 0;
+    font-size: 29px;
+    line-height: 1.2;
+    color: #172033;
+  }
+
+  .welcome-section p {
+    margin: 8px 0 0;
+    color: #7b8494;
+    font-size: 14px;
+  }
+
+  /* STATS */
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    min-height: 145px;
+    background: white;
+    border: 1px solid #e6eaf0;
+    border-radius: 15px;
+    padding: 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: #737d8e;
+  }
+
+  .stat-number {
+    margin-top: 13px;
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 750;
+    color: #172033;
+  }
+
+  .stat-description {
+    margin-top: 10px;
+    color: #a0a7b4;
+    font-size: 11px;
+  }
+
+  .stat-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stat-icon.purple {
+    background: #f0edff;
+    color: #6d4aff;
+  }
+
+  .stat-icon.blue {
+    background: #eaf5ff;
+    color: #2588df;
+  }
+
+  .stat-icon.green {
+    background: #e9faf1;
+    color: #16a765;
+  }
+
+  /* CONTENT CARD */
+
+  .content-card {
+    background: white;
+    border: 1px solid #e6eaf0;
+    border-radius: 15px;
+    min-height: 390px;
+    overflow: hidden;
+  }
+
+  .content-card-header {
+    padding: 22px 25px;
+    border-bottom: 1px solid #edf0f4;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .content-title-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #2563eb;
+  }
+
+  .content-title-row h2 {
+    margin: 0;
+    font-size: 17px;
+    color: #202a3d;
+  }
+
+  .content-card-header p {
+    margin: 7px 0 0;
+    font-size: 12px;
+    color: #8b94a3;
+  }
+
+  .content-create-button {
+    height: 38px;
+    padding: 0 13px;
+    border: 1px solid #dfe5ee;
+    border-radius: 8px;
+    background: white;
+    color: #344054;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .content-create-button:hover {
+    background: #f7f9fc;
+  }
+
+  .empty-content {
+    min-height: 290px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .empty-icon {
+    width: 65px;
+    height: 65px;
+    border-radius: 17px;
+    background: #f4f6f9;
+    color: #aeb6c3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-content h3 {
+    margin: 15px 0 0;
+    font-size: 15px;
+    color: #525c6d;
+  }
+
+  .empty-content p {
+    margin: 6px 0 0;
+    color: #9ba3b1;
+    font-size: 12px;
+  }
+
+  .empty-button {
+    margin-top: 18px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: white;
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* RESPONSIVE */
+
+  @media (max-width: 1000px) {
+
+    .sidebar {
+      width: 215px;
+    }
+
+    .content-area {
+      padding: 24px;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .stats-grid .stat-card:last-child {
+      grid-column: span 2;
+    }
+
+    .profile-info {
+      display: none;
+    }
+
+  }
+
+  @media (max-width: 750px) {
+
+    .sidebar {
+      display: none;
+    }
+
+    .top-bar {
+      padding: 0 15px;
+    }
+
+    .search-box {
+      width: 100%;
+    }
+
+    .create-button {
+      display: none;
+    }
+
+    .content-area {
+      padding: 20px 15px;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stats-grid .stat-card:last-child {
+      grid-column: auto;
+    }
+
+    .content-card-header {
+      align-items: flex-start;
+      gap: 15px;
+    }
+
+    .content-create-button {
+      display: none;
+    }
+
+  }
+`;
+
+/* Inject styles */
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("socialpilot-dashboard-styles")
+) {
+  const style = document.createElement("style");
+
+  style.id = "socialpilot-dashboard-styles";
+  style.innerHTML = dashboardStyles;
+
+  document.head.appendChild(style);
 }

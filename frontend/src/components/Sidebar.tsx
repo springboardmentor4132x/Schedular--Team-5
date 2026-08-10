@@ -21,24 +21,57 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/app/accounts', label: 'Social Accounts', icon: Share2 },
-  { to: '/app/create-post', label: 'Create Post', icon: FileText },
-  { to: '/app/calendar', label: 'Calendar', icon: Calendar },
-  { to: '/app/campaigns', label: 'Campaigns', icon: Megaphone },
-  { to: '/app/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/app/notifications', label: 'Notifications', icon: Bell },
+  {
+    to: '/app/dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    to: '/app/accounts',
+    label: 'Social Accounts',
+    icon: Share2,
+  },
+  {
+    to: '/app/create-post',
+    label: 'Create Post',
+    icon: FileText,
+  },
+  {
+    to: '/app/calendar',
+    label: 'Calendar',
+    icon: Calendar,
+  },
+  {
+    to: '/app/campaigns',
+    label: 'Campaigns',
+    icon: Megaphone,
+  },
+  {
+    to: '/app/analytics',
+    label: 'Analytics',
+    icon: BarChart3,
+  },
+  {
+    to: '/app/notifications',
+    label: 'Notifications',
+    icon: Bell,
+  },
   {
     to: '/app/notifications/history',
     label: 'Notification History',
     icon: Bell,
   },
-  { to: '/app/settings', label: 'Settings', icon: Settings },
+  {
+    to: '/app/settings',
+    label: 'Settings',
+    icon: Settings,
+  },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
+      {/* Mobile overlay */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -51,18 +84,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
       </AnimatePresence>
 
+      {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ x: open ? 0 : '-100%' }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        animate={{
+          x: open ? 0 : '-100%',
+        }}
+        transition={{
+          type: 'spring',
+          stiffness: 300,
+          damping: 30,
+        }}
         className={cn(
-          'fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-white border-r border-gray-200 flex flex-col',
+          'fixed lg:sticky top-0 left-0 z-40 h-screen w-64',
+          'bg-white border-r border-gray-200',
+          'flex flex-col',
           'lg:translate-x-0 lg:!transform-none'
         )}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-gray-200">
           <div className="flex items-center gap-2">
+
+            {/* Logo icon */}
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200">
               <Zap
                 className="w-5 h-5 text-white"
@@ -70,6 +114,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               />
             </div>
 
+            {/* Logo text */}
             <div>
               <p className="text-sm font-bold text-gray-900 leading-none">
                 SocialPilot
@@ -81,6 +126,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           </div>
 
+          {/* Mobile close button */}
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100"
@@ -91,6 +137,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
+
           <p className="px-3 mb-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Menu
           </p>
@@ -110,6 +157,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 >
                   {({ isActive }) => (
                     <>
+                      {/* Icon */}
                       <item.icon
                         className={cn(
                           'w-5 h-5 transition-colors',
@@ -119,8 +167,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                         )}
                       />
 
+                      {/* Label */}
                       <span>{item.label}</span>
 
+                      {/* Active indicator */}
                       {isActive && (
                         <motion.div
                           layoutId="sidebar-indicator"
@@ -138,10 +188,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Upgrade Card */}
         <div className="p-3 border-t border-gray-200">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 p-4 text-white">
+
+            {/* Background circles */}
             <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10" />
+
             <div className="absolute -right-8 -bottom-8 w-20 h-20 rounded-full bg-white/10" />
 
             <div className="relative">
+
+              {/* Title */}
               <div className="flex items-center gap-2 mb-1">
                 <Sparkles className="w-4 h-4" />
 
@@ -150,13 +205,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 </p>
               </div>
 
+              {/* Description */}
               <p className="text-xs text-white/80 mb-3">
                 Unlock advanced analytics & unlimited scheduling
               </p>
 
-              <button className="w-full bg-white text-indigo-600 text-xs font-semibold py-2 rounded-lg hover:bg-white/90 transition-colors">
+              {/* Button */}
+              <button
+                className="w-full bg-white text-indigo-600 text-xs font-semibold py-2 rounded-lg hover:bg-white/90 transition-colors"
+              >
                 Upgrade Now
               </button>
+
             </div>
           </div>
         </div>
