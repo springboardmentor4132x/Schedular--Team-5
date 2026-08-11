@@ -1,20 +1,25 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export function LoginPage() {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
     if (!email || !password) {
       alert("Please enter email and password");
       return;
     }
 
-    window.location.href = "/app/dashboard";
+    navigate("/app/dashboard");
   };
 
   const goRegister = () => {
-    window.location.href = "/register";
+    navigate("/register");
   };
 
   return (
@@ -38,6 +43,7 @@ export function LoginPage() {
         }}
       >
         <div style={{ width: "100%", maxWidth: "430px" }}>
+
           <div
             style={{
               display: "flex",
@@ -51,8 +57,7 @@ export function LoginPage() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "11px",
-                background:
-                  "linear-gradient(135deg,#6366f1,#7c3aed)",
+                background: "linear-gradient(135deg,#6366f1,#7c3aed)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -97,221 +102,221 @@ export function LoginPage() {
             your social media.
           </p>
 
-          <label
-            style={{
-              display: "block",
-              marginTop: "30px",
-              marginBottom: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Email address
-          </label>
+          <form onSubmit={handleLogin}>
 
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@company.com"
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "9px",
-              outline: "none",
-              fontSize: "14px",
-            }}
-          />
-
-          <label
-            style={{
-              display: "block",
-              marginTop: "20px",
-              marginBottom: "8px",
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Password
-          </label>
-
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: "14px",
-              border: "1px solid #d1d5db",
-              borderRadius: "9px",
-              outline: "none",
-              fontSize: "14px",
-            }}
-          />
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: "15px",
-              fontSize: "14px",
-            }}
-          >
             <label
+              style={{
+                display: "block",
+                marginTop: "30px",
+                marginBottom: "8px",
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#374151",
+              }}
+            >
+              Email address
+            </label>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "14px",
+                border: "1px solid #d1d5db",
+                borderRadius: "9px",
+                outline: "none",
+                fontSize: "14px",
+              }}
+            />
+
+            <label
+              style={{
+                display: "block",
+                marginTop: "20px",
+                marginBottom: "8px",
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#374151",
+              }}
+            >
+              Password
+            </label>
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "14px",
+                border: "1px solid #d1d5db",
+                borderRadius: "9px",
+                outline: "none",
+                fontSize: "14px",
+              }}
+            />
+          <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginTop: "15px",
+                fontSize: "14px",
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  color: "#4b5563",
+                }}
+              >
+                <input type="checkbox" />
+                Remember me
+              </label>
+
+              <button
+                type="button"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#4f46e5",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              style={{
+                width: "100%",
+                marginTop: "25px",
+                padding: "15px",
+                border: "none",
+                borderRadius: "9px",
+                background: "linear-gradient(135deg,#4f46e5,#7c3aed)",
+                color: "#ffffff",
+                fontSize: "15px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Sign in →
+            </button>
+
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "7px",
-                color: "#4b5563",
+                margin: "28px 0 20px",
               }}
             >
-              <input type="checkbox" defaultChecked />
-              Remember me
-            </label>
+              <div
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "#e5e7eb",
+                }}
+              />
 
-            <button
-              type="button"
-              style={{
-                border: "none",
-                background: "transparent",
-                color: "#4f46e5",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Forgot password?
-            </button>
-          </div>
+              <span
+                style={{
+                  padding: "0 14px",
+                  color: "#9ca3af",
+                  fontSize: "12px",
+                }}
+              >
+                OR CONTINUE WITH
+              </span>
 
-          <button
-            type="button"
-            onClick={handleLogin}
-            style={{
-              width: "100%",
-              marginTop: "25px",
-              padding: "15px",
-              border: "none",
-              borderRadius: "9px",
-              background:
-                "linear-gradient(135deg,#4f46e5,#7c3aed)",
-              color: "#ffffff",
-              fontSize: "15px",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Sign in →
-          </button>
-        <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              margin: "28px 0 20px",
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                height: "1px",
-                background: "#e5e7eb",
-              }}
-            />
-
-            <span
-              style={{
-                padding: "0 14px",
-                color: "#9ca3af",
-                fontSize: "12px",
-              }}
-            >
-              OR CONTINUE WITH
-            </span>
+              <div
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "#e5e7eb",
+                }}
+              />
+            </div>
 
             <div
               style={{
-                flex: 1,
-                height: "1px",
-                background: "#e5e7eb",
-              }}
-            />
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "12px",
-            }}
-          >
-            <button
-              type="button"
-              style={{
-                padding: "12px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "9px",
-                background: "#ffffff",
-                cursor: "pointer",
-                fontWeight: 600,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
               }}
             >
-              GitHub
-            </button>
+              <button
+                type="button"
+                style={{
+                  padding: "12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "9px",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                GitHub
+              </button>
 
-            <button
-              type="button"
+              <button
+                type="button"
+                style={{
+                  padding: "12px",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "9px",
+                  background: "#ffffff",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Facebook
+              </button>
+            </div>
+
+            <p
               style={{
-                padding: "12px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "9px",
-                background: "#ffffff",
-                cursor: "pointer",
-                fontWeight: 600,
+                textAlign: "center",
+                marginTop: "25px",
+                color: "#6b7280",
+                fontSize: "14px",
               }}
             >
-              Facebook
-            </button>
-          </div>
+              Don't have an account?{" "}
+              <button
+                type="button"
+                onClick={goRegister}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#4f46e5",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                Sign up free
+              </button>
+            </p>
 
-          <p
-            style={{
-              textAlign: "center",
-              marginTop: "25px",
-              color: "#6b7280",
-              fontSize: "14px",
-            }}
-          >
-            Don't have an account?{" "}
-            <button
-              type="button"
-              onClick={goRegister}
-              style={{
-                border: "none",
-                background: "transparent",
-                color: "#4f46e5",
-                fontWeight: 600,
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
-              Sign up free
-            </button>
-          </p>
+          </form>
         </div>
       </div>
-
       <div
         style={{
           width: "50%",
           minHeight: "100vh",
-          background:
-            "linear-gradient(135deg,#4f46e5,#7c3aed,#6d28d9)",
+          background: "linear-gradient(135deg,#4f46e5,#7c3aed,#6d28d9)",
           color: "#ffffff",
           display: "flex",
           alignItems: "center",
@@ -320,6 +325,7 @@ export function LoginPage() {
         }}
       >
         <div style={{ maxWidth: "540px" }}>
+
           <div
             style={{
               display: "inline-flex",
@@ -360,6 +366,7 @@ export function LoginPage() {
             audience across every platform — all from one
             beautiful dashboard.
           </p>
+
           <div
             style={{
               marginTop: "35px",
@@ -444,9 +451,10 @@ export function LoginPage() {
               </div>
             </div>
           </div>
-        </div>
+       </div>
       </div>
     </div>
   );
-}  
-export default LoginPage;
+}
+
+export default LoginPage;     

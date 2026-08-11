@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Megaphone,
   FileText,
@@ -7,98 +7,254 @@ import {
   MousePointerClick,
   Heart,
   DollarSign,
-} from 'lucide-react';
+  X,
+} from "lucide-react";
+
+type Campaign = {
+  name: string;
+  description: string;
+  duration: string;
+  status: "Active" | "Completed";
+  posts: number;
+  reach: string;
+  impressions: string;
+  engagement: string;
+  clicks: string;
+  likes: string;
+  roi: string;
+};
 
 export function CampaignAnalyticsPage() {
   const [campaignFilter, setCampaignFilter] =
-    useState('All Campaigns');
+    useState("All Campaigns");
 
-  const campaigns = [
+  const [showNewCampaign, setShowNewCampaign] =
+    useState(false);
+
+  const [campaignName, setCampaignName] =
+    useState("");
+
+  const [campaignDescription, setCampaignDescription] =
+    useState("");
+
+  const [campaigns, setCampaigns] = useState<Campaign[]>([
     {
-      name: 'Summer Sale',
-      duration: 'Jul 01 - Aug 05, 2026',
-      status: 'Active',
+      name: "Summer Sale",
+      description: "Summer promotional campaign",
+      duration: "Jul 01 - Aug 05, 2026",
+      status: "Active",
       posts: 18,
-      reach: '145K',
-      impressions: '312K',
-      engagement: '9.8%',
-      clicks: '8.4K',
-      likes: '12.6K',
-      roi: '+118%',
+      reach: "145K",
+      impressions: "312K",
+      engagement: "9.8%",
+      clicks: "8.4K",
+      likes: "12.6K",
+      roi: "+118%",
     },
     {
-      name: 'Product Launch Q3',
-      duration: 'Jul 15 - Aug 10, 2026',
-      status: 'Active',
+      name: "Product Launch Q3",
+      description: "Main product launch campaign",
+      duration: "Jul 15 - Aug 10, 2026",
+      status: "Active",
       posts: 12,
-      reach: '198K',
-      impressions: '445K',
-      engagement: '11.2%',
-      clicks: '10.8K',
-      likes: '18.4K',
-      roi: '+142%',
+      reach: "198K",
+      impressions: "445K",
+      engagement: "11.2%",
+      clicks: "10.8K",
+      likes: "18.4K",
+      roi: "+142%",
     },
     {
-      name: 'Brand Awareness',
-      duration: 'Jun 10 - Jul 30, 2026',
-      status: 'Completed',
+      name: "Brand Awareness",
+      description: "Increase brand visibility",
+      duration: "Jun 10 - Jul 30, 2026",
+      status: "Completed",
       posts: 24,
-      reach: '176K',
-      impressions: '368K',
-      engagement: '8.4%',
-      clicks: '7.2K',
-      likes: '14.1K',
-      roi: '+96%',
+      reach: "176K",
+      impressions: "368K",
+      engagement: "8.4%",
+      clicks: "7.2K",
+      likes: "14.1K",
+      roi: "+96%",
     },
     {
-      name: 'Social Proof',
-      duration: 'Jul 20 - Aug 15, 2026',
-      status: 'Active',
+      name: "Social Proof",
+      description: "Customer stories and testimonials",
+      duration: "Jul 20 - Aug 15, 2026",
+      status: "Active",
       posts: 9,
-      reach: '92K',
-      impressions: '184K',
-      engagement: '10.6%',
-      clicks: '5.1K',
-      likes: '9.2K',
-      roi: '+124%',
+      reach: "92K",
+      impressions: "184K",
+      engagement: "10.6%",
+      clicks: "5.1K",
+      likes: "9.2K",
+      roi: "+124%",
     },
-  ];
+  ]);
 
-  // Filter campaigns based on selected option
-  const filteredCampaigns = campaigns.filter((campaign) => {
-    if (campaignFilter === 'All Campaigns') {
+  const createCampaign = () => {
+    const name = campaignName.trim();
+    const description = campaignDescription.trim();
+
+    if (!name || !description) {
+      return;
+    }
+
+    const newCampaign: Campaign = {
+      name: name,
+      description: description,
+      duration: "New Campaign",
+      status: "Active",
+      posts: 0,
+      reach: "0",
+      impressions: "0",
+      engagement: "0%",
+      clicks: "0",
+      likes: "0",
+      roi: "0%",
+    };
+
+    setCampaigns((currentCampaigns) => [
+      ...currentCampaigns,
+      newCampaign,
+    ]);
+
+    setCampaignName("");
+    setCampaignDescription("");
+    setShowNewCampaign(false);
+  };
+
+  const closeCampaignModal = () => {
+    setShowNewCampaign(false);
+    setCampaignName("");
+    setCampaignDescription("");
+  };
+
+  const filteredCampaigns = campaigns.filter(
+    (campaign) => {
+      if (campaignFilter === "Active Campaigns") {
+        return campaign.status === "Active";
+      }
+
+      if (campaignFilter === "Completed Campaigns") {
+        return campaign.status === "Completed";
+      }
+
       return true;
     }
+  );
 
-    if (campaignFilter === 'Active Campaigns') {
-      return campaign.status === 'Active';
-    }
-
-    if (campaignFilter === 'Completed Campaigns') {
-      return campaign.status === 'Completed';
-    }
-
-    return true;
-  });
+  const totalPosts = campaigns.reduce(
+    (total, campaign) =>
+      total + campaign.posts,
+    0
+  );
 
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Campaign Analytics
-        </h1>
+      {/* HEADER */}
 
-        <p className="text-sm text-gray-500 mt-1">
-          Track and compare the performance of your campaigns
-        </p>
+      <div className="flex items-center justify-between gap-4">
+
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Campaign Analytics
+          </h1>
+
+          <p className="text-sm text-gray-500 mt-1">
+            Track and compare the performance of your campaigns
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowNewCampaign(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold"
+        >
+          + New Campaign
+        </button>
+
       </div>
 
-      {/* Summary Cards */}
+      {/* NEW CAMPAIGN */}
+
+      {showNewCampaign && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+
+          <div className="flex items-center justify-between mb-5">
+
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                New Campaign
+              </h2>
+
+              <p className="text-sm text-gray-500 mt-1">
+                Create a new campaign.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={closeCampaignModal}
+              className="text-gray-500 hover:text-gray-900"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+          </div>
+
+          <div className="space-y-4">
+
+            <input
+              type="text"
+              value={campaignName}
+              onChange={(event) =>
+                setCampaignName(event.target.value)
+              }
+              placeholder="Campaign name"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+            />
+
+            <textarea
+              value={campaignDescription}
+              onChange={(event) =>
+                setCampaignDescription(event.target.value)
+              }
+              placeholder="Campaign description"
+              rows={4}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+            />
+
+            <div className="flex justify-end gap-3">
+
+              <button
+                type="button"
+                onClick={closeCampaignModal}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={createCampaign}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold"
+              >
+                Create Campaign
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* SUMMARY CARDS */}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        {/* Total Campaigns */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
 
@@ -108,11 +264,11 @@ export function CampaignAnalyticsPage() {
               </p>
 
               <h2 className="text-2xl font-bold text-gray-900 mt-1">
-                12
+                {campaigns.length}
               </h2>
 
               <p className="text-xs text-emerald-600 mt-2">
-                +3 this month
+                All campaigns
               </p>
             </div>
 
@@ -123,7 +279,6 @@ export function CampaignAnalyticsPage() {
           </div>
         </div>
 
-        {/* Total Posts */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
 
@@ -133,11 +288,11 @@ export function CampaignAnalyticsPage() {
               </p>
 
               <h2 className="text-2xl font-bold text-gray-900 mt-1">
-                63
+                {totalPosts}
               </h2>
 
               <p className="text-xs text-emerald-600 mt-2">
-                +12% this month
+                Campaign posts
               </p>
             </div>
 
@@ -148,7 +303,6 @@ export function CampaignAnalyticsPage() {
           </div>
         </div>
 
-        {/* Total Reach */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
 
@@ -173,7 +327,6 @@ export function CampaignAnalyticsPage() {
           </div>
         </div>
 
-        {/* Average Engagement */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between">
 
@@ -200,7 +353,8 @@ export function CampaignAnalyticsPage() {
 
       </div>
 
-      {/* Campaign Performance */}
+      {/* CAMPAIGN PERFORMANCE */}
+
       <div className="bg-white border border-gray-200 rounded-xl p-5">
 
         <div className="flex items-center justify-between mb-5">
@@ -215,10 +369,11 @@ export function CampaignAnalyticsPage() {
             </p>
           </div>
 
-          {/* Campaign Filter */}
           <select
             value={campaignFilter}
-            onChange={(e) => setCampaignFilter(e.target.value)}
+            onChange={(event) =>
+              setCampaignFilter(event.target.value)
+            }
             className="text-xs border border-gray-200 rounded-lg px-3 py-2"
           >
             <option>All Campaigns</option>
@@ -268,87 +423,81 @@ export function CampaignAnalyticsPage() {
 
             <tbody>
 
-              {filteredCampaigns.map((campaign) => (
+              {filteredCampaigns.map(
+                (campaign) => (
 
-                <tr
-                  key={campaign.name}
-                  className="border-b border-gray-50 hover:bg-gray-50"
-                >
+                  <tr
+                    key={`${campaign.name}-${campaign.duration}`}
+                    className="border-b border-gray-50 hover:bg-gray-50"
+                  >
 
-                  {/* Campaign */}
-                  <td className="py-4 px-2">
-
-                    <div>
+                    <td className="py-4 px-2">
 
                       <p className="text-sm font-semibold text-gray-900">
                         {campaign.name}
                       </p>
 
                       <p className="text-xs text-gray-500 mt-1">
+                        {campaign.description}
+                      </p>
+
+                      <p className="text-xs text-gray-400 mt-1">
                         {campaign.duration}
                       </p>
 
                       <span
                         className={`inline-block mt-2 px-2 py-1 rounded-full text-xs font-medium ${
-                          campaign.status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : 'bg-gray-100 text-gray-600'
+                          campaign.status === "Active"
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         {campaign.status}
                       </span>
 
-                    </div>
+                    </td>
 
-                  </td>
+                    <td className="py-4 px-2 text-right text-sm font-medium">
+                      {campaign.posts}
+                    </td>
 
-                  {/* Posts */}
-                  <td className="py-4 px-2 text-right text-sm font-medium">
-                    {campaign.posts}
-                  </td>
+                    <td className="py-4 px-2 text-right text-sm font-medium">
+                      {campaign.reach}
+                    </td>
 
-                  {/* Reach */}
-                  <td className="py-4 px-2 text-right text-sm font-medium">
-                    {campaign.reach}
-                  </td>
+                    <td className="py-4 px-2 text-right text-sm font-medium">
+                      {campaign.impressions}
+                    </td>
 
-                  {/* Impressions */}
-                  <td className="py-4 px-2 text-right text-sm font-medium">
-                    {campaign.impressions}
-                  </td>
+                    <td className="py-4 px-2 text-right">
 
-                  {/* Engagement */}
-                  <td className="py-4 px-2 text-right">
+                      <span className="text-sm font-semibold text-emerald-600">
+                        {campaign.engagement}
+                      </span>
 
-                    <span className="text-sm font-semibold text-emerald-600">
-                      {campaign.engagement}
-                    </span>
+                    </td>
 
-                  </td>
+                    <td className="py-4 px-2 text-right text-sm font-medium">
+                      {campaign.clicks}
+                    </td>
 
-                  {/* Clicks */}
-                  <td className="py-4 px-2 text-right text-sm font-medium">
-                    {campaign.clicks}
-                  </td>
+                    <td className="py-4 px-2 text-right">
 
-                  {/* ROI */}
-                  <td className="py-4 px-2 text-right">
+                      <span className="text-sm font-semibold text-indigo-600">
+                        {campaign.roi}
+                      </span>
 
-                    <span className="text-sm font-semibold text-indigo-600">
-                      {campaign.roi}
-                    </span>
+                    </td>
 
-                  </td>
+                  </tr>
 
-                </tr>
-
-              ))}
+                )
+              )}
 
             </tbody>
 
           </table>
 
-          {/* No Results */}
           {filteredCampaigns.length === 0 && (
             <div className="text-center py-8 text-sm text-gray-500">
               No campaigns found
@@ -359,7 +508,8 @@ export function CampaignAnalyticsPage() {
 
       </div>
 
-      {/* Top Campaigns */}
+      {/* TOP CAMPAIGNS */}
+
       <div className="bg-white border border-gray-200 rounded-xl p-5">
 
         <h3 className="text-base font-semibold text-gray-900">
@@ -372,83 +522,85 @@ export function CampaignAnalyticsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {filteredCampaigns.slice(0, 3).map((campaign, index) => (
+          {filteredCampaigns
+            .slice(0, 3)
+            .map((campaign, index) => (
 
-            <div
-              key={campaign.name}
-              className="rounded-xl border border-gray-200 p-4"
-            >
+              <div
+                key={`${campaign.name}-top`}
+                className="rounded-xl border border-gray-200 p-4"
+              >
 
-              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3">
 
-                <span className="text-xs font-semibold text-indigo-600">
-                  #{index + 1}
-                </span>
+                  <span className="text-xs font-semibold text-indigo-600">
+                    #{index + 1}
+                  </span>
 
-                <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+
+                </div>
+
+                <h4 className="text-sm font-semibold text-gray-900">
+                  {campaign.name}
+                </h4>
+
+                <div className="grid grid-cols-2 gap-3 mt-4">
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Reach
+                    </p>
+
+                    <p className="text-sm font-semibold mt-1">
+                      {campaign.reach}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Engagement
+                    </p>
+
+                    <p className="text-sm font-semibold text-emerald-600 mt-1">
+                      {campaign.engagement}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      Clicks
+                    </p>
+
+                    <p className="text-sm font-semibold mt-1">
+                      {campaign.clicks}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500">
+                      ROI
+                    </p>
+
+                    <p className="text-sm font-semibold text-indigo-600 mt-1">
+                      {campaign.roi}
+                    </p>
+                  </div>
+
+                </div>
 
               </div>
 
-              <h4 className="text-sm font-semibold text-gray-900">
-                {campaign.name}
-              </h4>
-
-              <div className="grid grid-cols-2 gap-3 mt-4">
-
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Reach
-                  </p>
-
-                  <p className="text-sm font-semibold mt-1">
-                    {campaign.reach}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Engagement
-                  </p>
-
-                  <p className="text-sm font-semibold text-emerald-600 mt-1">
-                    {campaign.engagement}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">
-                    Clicks
-                  </p>
-
-                  <p className="text-sm font-semibold mt-1">
-                    {campaign.clicks}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-gray-500">
-                    ROI
-                  </p>
-
-                  <p className="text-sm font-semibold text-indigo-600 mt-1">
-                    {campaign.roi}
-                  </p>
-                </div>
-
-              </div>
-
-            </div>
-
-          ))}
+            ))}
 
         </div>
 
       </div>
 
-      {/* Campaign Metrics */}
+      {/* METRICS */}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-        {/* Total Clicks */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <div className="flex items-center gap-3">
@@ -458,7 +610,6 @@ export function CampaignAnalyticsPage() {
             </div>
 
             <div>
-
               <p className="text-xs text-gray-500">
                 Total Clicks
               </p>
@@ -466,14 +617,12 @@ export function CampaignAnalyticsPage() {
               <p className="text-xl font-bold text-gray-900">
                 31.5K
               </p>
-
             </div>
 
           </div>
 
         </div>
 
-        {/* Total Likes */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <div className="flex items-center gap-3">
@@ -483,7 +632,6 @@ export function CampaignAnalyticsPage() {
             </div>
 
             <div>
-
               <p className="text-xs text-gray-500">
                 Total Likes
               </p>
@@ -491,14 +639,12 @@ export function CampaignAnalyticsPage() {
               <p className="text-xl font-bold text-gray-900">
                 54.3K
               </p>
-
             </div>
 
           </div>
 
         </div>
 
-        {/* Total ROI */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
 
           <div className="flex items-center gap-3">
@@ -508,7 +654,6 @@ export function CampaignAnalyticsPage() {
             </div>
 
             <div>
-
               <p className="text-xs text-gray-500">
                 Total ROI
               </p>
@@ -516,7 +661,6 @@ export function CampaignAnalyticsPage() {
               <p className="text-xl font-bold text-gray-900">
                 +118%
               </p>
-
             </div>
 
           </div>

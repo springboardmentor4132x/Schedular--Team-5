@@ -9,8 +9,11 @@ import {
   Search,
   Plus,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function DashboardPage() {
+  const navigate = useNavigate();
+
   const username = "anika_123";
 
   return (
@@ -66,9 +69,7 @@ export function DashboardPage() {
           </div>
            <div
   className="menu-item"
-  onClick={() => {
-    window.location.assign("/app/analytics");
-  }}
+  onClick={() => navigate("/app/analytics")}
 >
   <BarChart3 size={21} />
   <span>Analytics</span>
