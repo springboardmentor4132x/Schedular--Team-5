@@ -1,9 +1,28 @@
 import { useState } from 'react';
 import { Card } from '../components/ui';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 type Period = 'Monthly' | 'Weekly' | 'Quarterly' | 'Yearly';
 
-const monthlyData = [
+type TrendItem = {
+  label: string;
+  engagement: number;
+  reach: number;
+  impressions: number;
+  clicks: number;
+  followers: number;
+};
+
+const monthlyData: TrendItem[] = [
   {
     label: 'Jan',
     engagement: 4200,
@@ -54,7 +73,7 @@ const monthlyData = [
   },
 ];
 
-const weeklyData = [
+const weeklyData: TrendItem[] = [
   {
     label: 'Week 1',
     engagement: 1200,
@@ -89,7 +108,7 @@ const weeklyData = [
   },
 ];
 
-const quarterlyData = [
+const quarterlyData: TrendItem[] = [
   {
     label: 'Q1',
     engagement: 15200,
@@ -124,7 +143,7 @@ const quarterlyData = [
   },
 ];
 
-const yearlyData = [
+const yearlyData: TrendItem[] = [
   {
     label: '2023',
     engagement: 42000,
@@ -162,7 +181,7 @@ const yearlyData = [
 export function PerformanceTrendsPage() {
   const [period, setPeriod] = useState<Period>('Monthly');
 
-  const getData = () => {
+  const getData = (): TrendItem[] => {
     switch (period) {
       case 'Weekly':
         return weeklyData;
@@ -173,26 +192,17 @@ export function PerformanceTrendsPage() {
       case 'Yearly':
         return yearlyData;
 
+      case 'Monthly':
       default:
         return monthlyData;
     }
   };
 
   const trends = getData();
-
-  const maxEngagement = Math.max(
-    ...trends.map((item) => item.engagement)
-  );
-
-  const maxReach = Math.max(
-    ...trends.map((item) => item.reach)
-  );
-
   const latest = trends[trends.length - 1];
 
   return (
     <div className="space-y-6">
-
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
@@ -206,23 +216,22 @@ export function PerformanceTrendsPage() {
 
       {/* Time Period */}
       <div className="flex flex-wrap gap-2">
-
         {(['Monthly', 'Weekly', 'Quarterly', 'Yearly'] as Period[]).map(
           (item) => (
             <button
               key={item}
+              type="button"
               onClick={() => setPeriod(item)}
-              className={`px-4 py-2 rounded-lg text-sm ${
+              className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                 period === item
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-white border border-gray-200 text-gray-700'
+                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
               }`}
             >
               {item}
             </button>
           )
         )}
-
       </div>
 
       {/* Selected Period */}
@@ -235,13 +244,8 @@ export function PerformanceTrendsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-        {/* Engagement */}
         <Card className="p-5">
-
-          <p className="text-sm text-gray-500">
-            Engagement
-          </p>
+          <p className="text-sm text-gray-500">Engagement</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-2">
             {latest.engagement.toLocaleString()}
@@ -250,15 +254,10 @@ export function PerformanceTrendsPage() {
           <p className="text-sm text-emerald-600 mt-1">
             +14% growth
           </p>
-
         </Card>
 
-        {/* Reach */}
         <Card className="p-5">
-
-          <p className="text-sm text-gray-500">
-            Reach
-          </p>
+          <p className="text-sm text-gray-500">Reach</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-2">
             {latest.reach.toLocaleString()}
@@ -267,15 +266,10 @@ export function PerformanceTrendsPage() {
           <p className="text-sm text-emerald-600 mt-1">
             +18% growth
           </p>
-
         </Card>
 
-        {/* Impressions */}
         <Card className="p-5">
-
-          <p className="text-sm text-gray-500">
-            Impressions
-          </p>
+          <p className="text-sm text-gray-500">Impressions</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-2">
             {latest.impressions.toLocaleString()}
@@ -284,15 +278,10 @@ export function PerformanceTrendsPage() {
           <p className="text-sm text-emerald-600 mt-1">
             +22% growth
           </p>
-
         </Card>
 
-        {/* Followers */}
         <Card className="p-5">
-
-          <p className="text-sm text-gray-500">
-            Followers
-          </p>
+          <p className="text-sm text-gray-500">Followers</p>
 
           <h2 className="text-2xl font-bold text-gray-900 mt-2">
             {latest.followers.toLocaleString()}
@@ -301,14 +290,83 @@ export function PerformanceTrendsPage() {
           <p className="text-sm text-emerald-600 mt-1">
             +15% growth
           </p>
-
         </Card>
-
       </div>
+
+      {/* Performance Overview - Actual Bar Chart */}
+      <Card className="p-5">
+        <div className="mb-5">
+          <h3 className="text-base font-semibold text-gray-900">
+            Performance Overview
+          </h3>
+
+          <p className="text-sm text-gray-500 mt-1">
+            {period} engagement and reach performance
+          </p>
+        </div>
+
+        <div className="w-full h-[360px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={trends}
+              margin={{
+                top: 10,
+                right: 20,
+                left: 10,
+                bottom: 10,
+              }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+              />
+
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+              />
+
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value: number) =>
+                  value >= 1000
+                    ? `${Math.round(value / 1000)}K`
+                    : String(value)
+                }
+              />
+
+              <Tooltip
+                formatter={(value: number | undefined) =>
+                  value !== undefined
+                    ? value.toLocaleString()
+                    : ''
+                }
+              />
+
+              <Legend />
+
+              <Bar
+                dataKey="engagement"
+                name="Engagement"
+                fill="#6366f1"
+                radius={[4, 4, 0, 0]}
+              />
+
+              <Bar
+                dataKey="reach"
+                name="Reach"
+                fill="#8b5cf6"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
 
       {/* Engagement Trend */}
       <Card className="p-5">
-
         <h3 className="text-base font-semibold text-gray-900">
           Engagement Trend
         </h3>
@@ -318,44 +376,42 @@ export function PerformanceTrendsPage() {
         </p>
 
         <div className="space-y-4">
-
           {trends.map((item) => (
-
             <div
               key={item.label}
               className="flex items-center gap-4"
             >
-
               <span className="w-16 text-sm font-medium text-gray-600">
                 {item.label}
               </span>
 
               <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden">
-
                 <div
                   className="h-full bg-indigo-500 rounded-lg"
                   style={{
-                    width: `${(item.engagement / maxEngagement) * 100}%`,
+                    width: `${
+                      (item.engagement /
+                        Math.max(
+                          ...trends.map(
+                            (trend) => trend.engagement
+                          )
+                        )) *
+                      100
+                    }%`,
                   }}
                 />
-
               </div>
 
               <span className="w-20 text-right text-sm font-semibold">
                 {item.engagement.toLocaleString()}
               </span>
-
             </div>
-
           ))}
-
         </div>
-
       </Card>
 
       {/* Reach Trend */}
       <Card className="p-5">
-
         <h3 className="text-base font-semibold text-gray-900">
           Reach Trend
         </h3>
@@ -365,57 +421,51 @@ export function PerformanceTrendsPage() {
         </p>
 
         <div className="space-y-4">
-
           {trends.map((item) => (
-
             <div
               key={item.label}
               className="flex items-center gap-4"
             >
-
               <span className="w-16 text-sm font-medium text-gray-600">
                 {item.label}
               </span>
 
               <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden">
-
                 <div
                   className="h-full bg-violet-500 rounded-lg"
                   style={{
-                    width: `${(item.reach / maxReach) * 100}%`,
+                    width: `${
+                      (item.reach /
+                        Math.max(
+                          ...trends.map(
+                            (trend) => trend.reach
+                          )
+                        )) *
+                      100
+                    }%`,
                   }}
                 />
-
               </div>
 
               <span className="w-24 text-right text-sm font-semibold">
                 {item.reach.toLocaleString()}
               </span>
-
             </div>
-
           ))}
-
         </div>
-
       </Card>
 
       {/* Historical Performance */}
       <Card className="p-5">
-
         <h3 className="text-base font-semibold text-gray-900 mb-4">
           Historical Performance
         </h3>
 
         <div className="overflow-x-auto">
-
-          <table className="w-full">
-
+          <table className="w-full min-w-[700px]">
             <thead>
-
               <tr className="border-b border-gray-200">
-
-                <th className="text-left py-3">
+                <th className="text-left py-3 px-2">
                   {period === 'Monthly'
                     ? 'Month'
                     : period === 'Weekly'
@@ -425,75 +475,63 @@ export function PerformanceTrendsPage() {
                     : 'Year'}
                 </th>
 
-                <th className="text-right py-3">
+                <th className="text-right py-3 px-2">
                   Engagement
                 </th>
 
-                <th className="text-right py-3">
+                <th className="text-right py-3 px-2">
                   Reach
                 </th>
 
-                <th className="text-right py-3">
+                <th className="text-right py-3 px-2">
                   Impressions
                 </th>
 
-                <th className="text-right py-3">
+                <th className="text-right py-3 px-2">
                   Clicks
                 </th>
 
-                <th className="text-right py-3">
+                <th className="text-right py-3 px-2">
                   Followers
                 </th>
-
               </tr>
-
             </thead>
 
             <tbody>
-
               {trends.map((item) => (
-
                 <tr
                   key={item.label}
-                  className="border-b border-gray-100"
+                  className="border-b border-gray-100 last:border-b-0"
                 >
-
-                  <td className="py-3 font-medium">
+                  <td className="py-3 px-2 font-medium">
                     {item.label}
                   </td>
 
-                  <td className="text-right py-3">
+                  <td className="text-right py-3 px-2">
                     {item.engagement.toLocaleString()}
                   </td>
 
-                  <td className="text-right py-3">
+                  <td className="text-right py-3 px-2">
                     {item.reach.toLocaleString()}
                   </td>
 
-                  <td className="text-right py-3">
+                  <td className="text-right py-3 px-2">
                     {item.impressions.toLocaleString()}
                   </td>
 
-                  <td className="text-right py-3">
+                  <td className="text-right py-3 px-2">
                     {item.clicks.toLocaleString()}
                   </td>
 
-                  <td className="text-right py-3">
+                  <td className="text-right py-3 px-2">
                     {item.followers.toLocaleString()}
                   </td>
-
                 </tr>
-
               ))}
-
             </tbody>
-
           </table>
-
         </div>
-
       </Card>
-
     </div>
   );
 }

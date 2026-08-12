@@ -167,7 +167,64 @@ export default function AnalyticsPage() {
 
   const [performancePeriod, setPerformancePeriod] =
     useState("Last 30 days");
+   const [trendPeriod, setTrendPeriod] =
+  useState("Daily");
 
+const trendData: Record<string, number[]> = {
+  Daily: [32, 44, 39, 55, 48, 63, 58, 72, 68, 81, 76, 92],
+  Weekly: [42, 51, 47, 64, 58, 72, 68, 84, 79, 91, 86, 96],
+  Monthly: [35, 48, 52, 61, 57, 70, 76, 82, 78, 88, 91, 97],
+  Quarterly: [45, 55, 49, 68, 62, 74, 71, 85, 80, 90, 87, 95],
+  Yearly: [30, 42, 50, 58, 54, 69, 73, 81, 77, 89, 93, 98],
+}; 
+const performanceData: Record<
+  string,
+  {
+    engagement: string;
+    engagementGrowth: string;
+    reach: string;
+    reachGrowth: string;
+    impressions: string;
+    impressionsGrowth: string;
+    followers: string;
+    followersGrowth: string;
+  }
+> = {
+  "Last 30 days": {
+    engagement: "42,871",
+    engagementGrowth: "+14.8%",
+    reach: "482.7K",
+    reachGrowth: "+18.4%",
+    impressions: "721.9K",
+    impressionsGrowth: "+21.6%",
+    followers: "+18.6K",
+    followersGrowth: "+12.8%",
+  },
+
+  "Last 90 days": {
+    engagement: "118,642",
+    engagementGrowth: "+22.6%",
+    reach: "1.24M",
+    reachGrowth: "+27.8%",
+    impressions: "1.86M",
+    impressionsGrowth: "+31.4%",
+    followers: "+42.8K",
+    followersGrowth: "+19.7%",
+  },
+
+  "Last year": {
+    engagement: "486,215",
+    engagementGrowth: "+38.9%",
+    reach: "5.82M",
+    reachGrowth: "+42.5%",
+    impressions: "8.74M",
+    impressionsGrowth: "+46.8%",
+    followers: "+164.2K",
+    followersGrowth: "+28.6%",
+  },
+};
+
+const currentPerformance = performanceData[performancePeriod];
   /* CAMPAIGN STATE */
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([
@@ -824,7 +881,7 @@ export default function AnalyticsPage() {
                     {currentAudience.chart.map(
                       (height, index) => (
 
-                       <div key={index} className="growth-bar-item">
+                        <div key={index} className="growth-bar-item">
 
           <i
             style={{
@@ -982,16 +1039,11 @@ export default function AnalyticsPage() {
     <div className="analytics-panel-header">
 
       <div>
-
-        <h2>
-          Platform Analytics
-        </h2>
+        <h2>Platform Comparison</h2>
 
         <p>
-          Compare performance across
-          your social platforms.
+          Compare performance across all connected social platforms.
         </p>
-
       </div>
 
     </div>
@@ -999,159 +1051,190 @@ export default function AnalyticsPage() {
     <div className="analytics-stat-grid">
 
       <div className="analytics-stat-card">
-
-        <span>
-          Instagram
-        </span>
-
-        <strong>
-          48.2K
-        </strong>
-
-        <small className="positive">
-          +18.4% engagement
-        </small>
-
+        <span>Total Followers</span>
+        <strong>186.4K</strong>
+        <small className="positive">+12.8%</small>
       </div>
 
       <div className="analytics-stat-card">
-
-        <span>
-          Facebook
-        </span>
-
-        <strong>
-          36.1K
-        </strong>
-
-        <small className="positive">
-          +12.8% engagement
-        </small>
-
+        <span>Total Reach</span>
+        <strong>482.7K</strong>
+        <small className="positive">+18.4%</small>
       </div>
 
       <div className="analytics-stat-card">
-
-        <span>
-          LinkedIn
-        </span>
-
-        <strong>
-          28.4K
-        </strong>
-
-        <small className="positive">
-          +15.2% engagement
-        </small>
-
+        <span>Total Impressions</span>
+        <strong>721.9K</strong>
+        <small className="positive">+21.6%</small>
       </div>
 
       <div className="analytics-stat-card">
-
-        <span>
-          Total Reach
-        </span>
-
-        <strong>
-          112.7K
-        </strong>
-
-        <small className="positive">
-          +16.1% from last period
-        </small>
-
+        <span>Total Engagement</span>
+        <strong>{currentPerformance.engagement}</strong>
+        <small className="positive">+16.2%</small>
       </div>
 
     </div>
 
-    <div className="analytics-chart-card">
+    <div className="platform-comparison-grid">
 
-      <div className="chart-header">
+      {[
+        {
+          name: "Instagram",
+          followers: "72.4K",
+          reach: "184.2K",
+          impressions: "286.5K",
+          engagement: "18.4K",
+          likes: "12.8K",
+          comments: "2.4K",
+          shares: "1.8K",
+          clicks: "1.4K",
+          growth: "+18.4%",
+          icon: "◎",
+          className: "instagram-bg",
+        },
+        {
+          name: "Facebook",
+          followers: "48.6K",
+          reach: "126.8K",
+          impressions: "194.2K",
+          engagement: "11.6K",
+          likes: "7.8K",
+          comments: "1.6K",
+          shares: "1.1K",
+          clicks: "1.1K",
+          growth: "+12.8%",
+          icon: "f",
+          className: "facebook-bg",
+        },
+        {
+          name: "LinkedIn",
+          followers: "31.2K",
+          reach: "82.4K",
+          impressions: "124.8K",
+          engagement: "7.2K",
+          likes: "4.8K",
+          comments: "1.2K",
+          shares: "720",
+          clicks: "480",
+          growth: "+15.2%",
+          icon: "in",
+          className: "linkedin-bg",
+        },
+        {
+          name: "X (Twitter)",
+          followers: "18.7K",
+          reach: "42.6K",
+          impressions: "68.4K",
+          engagement: "3.4K",
+          likes: "2.1K",
+          comments: "520",
+          shares: "410",
+          clicks: "370",
+          growth: "+9.6%",
+          icon: "𝕏",
+          className: "twitter-bg",
+        },
+        {
+          name: "YouTube",
+          followers: "9.8K",
+          reach: "31.4K",
+          impressions: "38.2K",
+          engagement: "1.8K",
+          likes: "1.2K",
+          comments: "280",
+          shares: "160",
+          clicks: "160",
+          growth: "+14.1%",
+          icon: "▶",
+          className: "youtube-bg",
+        },
+        {
+          name: "Pinterest",
+          followers: "5.7K",
+          reach: "15.3K",
+          impressions: "9.8K",
+          engagement: "620",
+          likes: "420",
+          comments: "84",
+          shares: "66",
+          clicks: "50",
+          growth: "+7.8%",
+          icon: "P",
+          className: "pinterest-bg",
+        },
+      ].map((platform) => (
 
-        <div>
+        <div
+          className="platform-comparison-card"
+          key={platform.name}
+        >
 
-          <h3>
-            Platform Performance
-          </h3>
+          <div className="platform-comparison-header">
 
-          <p>
-            Average reach generated by each
-            social platform.
-          </p>
+            <div
+              className={`large-platform-icon ${platform.className}`}
+            >
+              {platform.icon}
+            </div>
 
-        </div>
+            <div>
+              <h3>{platform.name}</h3>
 
-      </div>
-
-      <div className="platform-bars">
-
-        <div className="platform-row">
-
-          <span>
-            Instagram
-          </span>
-
-          <div className="platform-track">
-
-            <i
-              style={{
-                width: "88%",
-              }}
-            />
+              <span className="positive">
+                {platform.growth} growth
+              </span>
+            </div>
 
           </div>
 
-          <strong>
-            88%
-          </strong>
+          <div className="platform-metric-grid">
 
-        </div>
+            <div>
+              <span>Followers</span>
+              <strong>{platform.followers}</strong>
+            </div>
 
-        <div className="platform-row">
+            <div>
+              <span>Reach</span>
+              <strong>{platform.reach}</strong>
+            </div>
 
-          <span>
-            Facebook
-          </span>
+            <div>
+              <span>Impressions</span>
+              <strong>{platform.impressions}</strong>
+            </div>
 
-          <div className="platform-track">
+            <div>
+              <span>Engagement</span>
+              <strong>{platform.engagement}</strong>
+            </div>
 
-            <i
-              style={{
-                width: "72%",
-              }}
-            />
+            <div>
+              <span>Likes</span>
+              <strong>{platform.likes}</strong>
+            </div>
+
+            <div>
+              <span>Comments</span>
+              <strong>{platform.comments}</strong>
+            </div>
+
+            <div>
+              <span>Shares</span>
+              <strong>{platform.shares}</strong>
+            </div>
+
+            <div>
+              <span>Clicks</span>
+              <strong>{platform.clicks}</strong>
+            </div>
 
           </div>
 
-          <strong>
-            72%
-          </strong>
-
         </div>
 
-        <div className="platform-row">
-
-          <span>
-            LinkedIn
-          </span>
-
-          <div className="platform-track">
-
-            <i
-              style={{
-                width: "64%",
-              }}
-            />
-
-          </div>
-
-          <strong>
-            64%
-          </strong>
-
-        </div>
-
-      </div>
+      ))}
 
     </div>
 
@@ -1169,13 +1252,11 @@ export default function AnalyticsPage() {
 
       <div>
 
-        <h2>
-          Performance Trends
-        </h2>
+        <h2>Performance Trends</h2>
 
         <p>
-          Monitor how your overall social
-          performance changes over time.
+          Analyze daily, weekly, monthly,
+          quarterly and yearly performance.
         </p>
 
       </div>
@@ -1188,17 +1269,9 @@ export default function AnalyticsPage() {
         }
       >
 
-        <option>
-          Last 30 days
-        </option>
-
-        <option>
-          Last 90 days
-        </option>
-
-        <option>
-          Last year
-        </option>
+        <option value="Last 30 days">Last 30 days</option>
+        <option value="Last 90 days">Last 90 days</option>
+        <option value="Last year">Last year</option>
 
       </select>
 
@@ -1207,114 +1280,131 @@ export default function AnalyticsPage() {
     <div className="analytics-stat-grid">
 
       <div className="analytics-stat-card">
-
-        <span>
-          Total Engagement
-        </span>
-
-        <strong>
-          18,621
-        </strong>
-
-        <small className="positive">
-          +14.8% from last period
-        </small>
-
+        <span>Total Engagement</span>
+        <strong>{currentPerformance.engagement}</strong>
+        <small className="positive">+14.8%</small>
       </div>
 
       <div className="analytics-stat-card">
-
-        <span>
-          Total Reach
-        </span>
-
-        <strong>
-          112.7K
-        </strong>
-
-        <small className="positive">
-          +16.1% from last period
-        </small>
-
+        <span>Total Reach</span>
+        <strong>{currentPerformance.reach}</strong>
+        <small className="positive">+18.4%</small>
       </div>
 
       <div className="analytics-stat-card">
-
-        <span>
-          Engagement Rate
-        </span>
-
-        <strong>
-          8.42%
-        </strong>
-
-        <small className="positive">
-          +2.1% from last period
-        </small>
-
+        <span>Total Impressions</span>
+        <strong>{currentPerformance.impressions}</strong>
+    
+        <small className="positive">+21.6%</small>
       </div>
 
       <div className="analytics-stat-card">
-
-        <span>
-          Published Posts
-        </span>
-
-        <strong>
-          54
-        </strong>
-
-        <small className="positive">
-          +9.6% from last period
-        </small>
-
+        <span>Follower Growth</span>
+        <strong>{currentPerformance.followers}</strong>
+        <small className="positive">+12.8%</small>
       </div>
 
     </div>
+
+    <div className="trend-filter-row">
+
+  
+      {["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"].map(
+  (period) => (
+    <button
+      key={period}
+      type="button"
+      className={
+        trendPeriod === period
+          ? "trend-period active"
+          : "trend-period"
+      }
+      onClick={() => setTrendPeriod(period)}
+    >
+      {period}
+    </button>
+  )
+)}
+</div>
+
+
+    
 
     <div className="analytics-chart-card">
 
       <div className="chart-header">
 
-        <div>
+        <h3>Engagement Trend</h3>
 
-          <h3>
-            Performance Overview
-          </h3>
-
-          <p>
-            Overall performance during{" "}
-            {performancePeriod.toLowerCase()}.
-          </p>
-
-        </div>
+        <p>
+          Engagement performance for{" "}
+          {performancePeriod.toLowerCase()}.
+        </p>
 
       </div>
 
-      <div className="trend-chart">
+      <div className="performance-chart">
 
-        <div className="trend-line">
+  {trendData[trendPeriod].map((height, index) => (
 
-          <span style={{ height: "32%" }} />
-          <span style={{ height: "45%" }} />
-          <span style={{ height: "40%" }} />
-          <span style={{ height: "58%" }} />
-          <span style={{ height: "52%" }} />
-          <span style={{ height: "71%" }} />
-          <span style={{ height: "88%" }} />
+    <div
+      className="performance-bar"
+      key={`${trendPeriod}-${index}`}
+    >
+      <i
+        style={{
+          height: `${height}%`,
+        }}
+      />
 
+      <small>
+        {index + 1}
+      </small>
+
+    </div>
+
+  ))}
+
+</div>
+
+    </div>
+
+    <div className="analytics-chart-card performance-metrics-card">
+
+      <div className="chart-header">
+
+        <h3>Performance Metrics</h3>
+
+        <p>
+          Reach, impressions, clicks and follower growth.
+        </p>
+
+      </div>
+
+      <div className="performance-metric-list">
+
+        <div className="performance-metric-row">
+          <span>Reach</span>
+          <strong>482.7K</strong>
+          <b className="positive">+18.4%</b>
         </div>
 
-        <div className="trend-labels">
+        <div className="performance-metric-row">
+          <span>Impressions</span>
+          <strong>721.9K</strong>
+          <b className="positive">+21.6%</b>
+        </div>
 
-          <small>Week 1</small>
-          <small>Week 2</small>
-          <small>Week 3</small>
-          <small>Week 4</small>
-          <small>Week 5</small>
-          <small>Week 6</small>
-          <small>Week 7</small>
+        <div className="performance-metric-row">
+          <span>Clicks</span>
+          <strong>18.4K</strong>
+          <b className="positive">+11.2%</b>
+        </div>
 
+        <div className="performance-metric-row">
+          <span>Follower Growth</span>
+          <strong>+18.6K</strong>
+          <b className="positive">+12.8%</b>
         </div>
 
       </div>
@@ -1431,6 +1521,4 @@ export default function AnalyticsPage() {
 
     </div>
   );
-} 
-
-                          
+}

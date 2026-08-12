@@ -810,3 +810,225 @@
 .campaign-modal .blue-action:hover {
   background: #0d47b5;
 }
+
+
+/* PLATFORM COMPARISON */
+
+.platform-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.platform-comparison-card {
+  background: #ffffff;
+  border: 1px solid #e3e8f0;
+  border-radius: 15px;
+  padding: 20px;
+}
+
+.platform-comparison-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.platform-comparison-header h3 {
+  margin: 0 0 5px;
+  font-size: 16px;
+  color: #172033;
+}
+
+.platform-comparison-header span {
+  font-size: 11px;
+}
+
+.platform-comparison-card .large-platform-icon {
+  flex-shrink: 0;
+}
+
+.platform-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.platform-metric-grid div {
+  background: #f8faff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.platform-metric-grid span {
+  display: block;
+  color: #8791a1;
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+
+.platform-metric-grid strong {
+  display: block;
+  color: #172033;
+  font-size: 15px;
+}
+
+/* PLATFORM ICON COLORS */
+
+.youtube-bg {
+  background: #ff0000;
+}
+
+.pinterest-bg {
+  background: #e60023;
+}
+
+
+/* =========================================================
+   PERFORMANCE TRENDS
+   ========================================================= */
+
+.trend-filter-row {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.trend-period {
+  border: 1px solid #dce3ee;
+  background: white;
+  color: #657084;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trend-period:hover,
+.trend-period.active {
+  background: #1764df;
+  border-color: #1764df;
+  color: white;
+}
+
+.performance-chart {
+  height: 300px;
+  margin-top: 25px;
+  padding: 20px 10px 0;
+  border-top: 1px solid #edf0f5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 10px;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 59px,
+      #edf0f5 60px
+    );
+}
+
+.performance-bar {
+  height: 100%;
+  flex: 1;
+  max-width: 55px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.performance-bar i {
+  display: block;
+  width: 100%;
+  max-width: 38px;
+  min-height: 8px;
+  background: linear-gradient(
+    180deg,
+    #1764df,
+    #5b9aff
+  );
+  border-radius: 7px 7px 2px 2px;
+}
+
+.performance-bar small {
+  color: #8791a1;
+  font-size: 10px;
+}
+
+.performance-metrics-card {
+  margin-top: 20px;
+}
+
+.performance-metric-list {
+  margin-top: 18px;
+}
+
+.performance-metric-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 100px;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 8px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.performance-metric-row:last-child {
+  border-bottom: 0;
+}
+
+.performance-metric-row span {
+  color: #657084;
+  font-size: 13px;
+}
+
+.performance-metric-row strong {
+  color: #172033;
+  font-size: 15px;
+}
+
+.performance-metric-row b {
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+  .platform-comparison-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+@media (max-width: 700px) {
+
+  .platform-comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-metric-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .performance-chart {
+    height: 240px;
+    gap: 5px;
+  }
+
+  .performance-bar i {
+    max-width: 25px;
+  }
+
+}

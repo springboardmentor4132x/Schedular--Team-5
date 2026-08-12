@@ -6,75 +6,76 @@ import { DashboardPage } from "./pages/DashboardPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 
 function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
+return (
+<BrowserRouter>
+<Routes>
 
-        {/* FIRST PAGE — CREATE ACCOUNT */}
-        <Route
-          path="/"
-          element={<Navigate to="/register" replace />}
-        />
+{/* FIRST PAGE — CREATE ACCOUNT */}  
+    <Route  
+      path="/"  
+      element={<Navigate to="/register" replace />}  
+    />  
 
-        {/* CREATE ACCOUNT — DON'T CHANGE */}
-        <Route
-          path="/register"
-          element={<RegisterPage />}
-        />
+    {/* CREATE ACCOUNT — DON'T CHANGE */}  
+    <Route  
+      path="/register"  
+      element={<RegisterPage />}  
+    />  
 
-        {/* LOGIN / SIGN IN — DON'T CHANGE */}
-        <Route
-          path="/login"
-          element={<LoginPage />}
-        />
+    {/* LOGIN / SIGN IN — DON'T CHANGE */}  
+    <Route  
+      path="/login"  
+      element={<LoginPage />}  
+    />  
 
-        {/* DASHBOARD */}
-        <Route
-          path="/app/dashboard"
-          element={<DashboardPage />}
-        />
+    {/* DASHBOARD */}  
+    <Route  
+      path="/app/dashboard"  
+      element={<DashboardPage />}  
+    />  
 
-        {/* DASHBOARD SECTIONS */}
-        <Route
-          path="/app/social-accounts"
-          element={<DashboardPage />}
-        />
+    {/* DASHBOARD SECTIONS */}  
+    <Route  
+      path="/app/social-accounts"  
+      element={<DashboardPage />}  
+    />  
 
-        <Route
-          path="/app/create-post"
-          element={<DashboardPage />}
-        />
+    <Route  
+      path="/app/create-post"  
+      element={<DashboardPage />}  
+    />  
 
-        <Route
-          path="/app/calendar"
-          element={<DashboardPage />}
-        />
+    <Route  
+      path="/app/calendar"  
+      element={<DashboardPage />}  
+    />  
 
-        <Route
-          path="/app/notifications"
-          element={<DashboardPage />}
-        />
+    <Route  
+      path="/app/notifications"  
+      element={<DashboardPage />}  
+    />  
 
-        <Route
-          path="/app/campaigns"
-          element={<DashboardPage />}
-        />
+    <Route  
+      path="/app/campaigns"  
+      element={<DashboardPage />}  
+    />  
 
-        {/* ANALYTICS */}
-        <Route
-          path="/app/analytics"
-          element={<AnalyticsPage />}
-        />
+    {/* ANALYTICS */}  
+    <Route  
+      path="/app/analytics"  
+      element={<AnalyticsPage />}  
+    />  
 
-        {/* UNKNOWN URL */}
-        <Route
-          path="*"
-          element={<Navigate to="/register" replace />}
-        />
+    {/* UNKNOWN URL */}  
+    <Route  
+      path="*"  
+      element={<Navigate to="/register" replace />}  
+    />  
 
-      </Routes>
-    </BrowserRouter>
-  );
+  </Routes>  
+</BrowserRouter>
+
+);
 }
 
 export default App;

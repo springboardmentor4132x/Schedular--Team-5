@@ -1,6 +1,23 @@
 import { Card } from '../components/ui';
+import {
+  FaFacebook,
+  FaInstagram,
+  FaLinkedin,
+} from 'react-icons/fa';
 
-const platforms = [
+type Platform = {
+  name: string;
+  followers: string;
+  reach: string;
+  impressions: string;
+  engagement: string;
+  likes: string;
+  comments: string;
+  shares: string;
+  clicks: string;
+};
+
+const platforms: Platform[] = [
   {
     name: 'Facebook',
     followers: '42.5K',
@@ -24,17 +41,6 @@ const platforms = [
     clicks: '18.6K',
   },
   {
-    name: 'Twitter',
-    followers: '24.8K',
-    reach: '78.0K',
-    impressions: '156.0K',
-    engagement: '4.1%',
-    likes: '9.8K',
-    comments: '1.4K',
-    shares: '2.1K',
-    clicks: '6.2K',
-  },
-  {
     name: 'LinkedIn',
     followers: '18.2K',
     reach: '52.0K',
@@ -46,6 +52,12 @@ const platforms = [
     clicks: '4.8K',
   },
 ];
+
+const platformIcons = {
+  Facebook: FaFacebook,
+  Instagram: FaInstagram,
+  LinkedIn: FaLinkedin,
+};
 
 export function PlatformComparisonPage() {
   return (
@@ -60,107 +72,181 @@ export function PlatformComparisonPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {platforms.map((platform) => (
-          <Card key={platform.name} className="p-5">
-            <h3 className="font-semibold text-gray-900">
-              {platform.name}
-            </h3>
+      {/* Platform Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {platforms.map((platform) => {
+          const Icon =
+            platformIcons[
+              platform.name as keyof typeof platformIcons
+            ];
 
-            <p className="text-2xl font-bold text-indigo-600 mt-3">
-              {platform.followers}
-            </p>
+          return (
+            <Card key={platform.name} className="p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Icon className="text-xl text-gray-700" />
+                </div>
 
-            <p className="text-xs text-gray-500">
-              Followers
-            </p>
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    {platform.name}
+                  </h3>
 
-            <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span>Reach</span>
-                <b>{platform.reach}</b>
+                  <p className="text-xs text-gray-500">
+                    Social Platform
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-between">
-                <span>Impressions</span>
-                <b>{platform.impressions}</b>
+              <div className="mt-5">
+                <p className="text-2xl font-bold text-indigo-600">
+                  {platform.followers}
+                </p>
+
+                <p className="text-xs text-gray-500">
+                  Followers
+                </p>
               </div>
 
-              <div className="flex justify-between">
-                <span>Engagement</span>
-                <b className="text-emerald-600">
-                  {platform.engagement}
-                </b>
+              <div className="mt-4 space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Reach</span>
+                  <span className="font-semibold text-gray-900">
+                    {platform.reach}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Impressions</span>
+                  <span className="font-semibold text-gray-900">
+                    {platform.impressions}
+                  </span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Engagement</span>
+                  <span className="font-semibold text-emerald-600">
+                    {platform.engagement}
+                  </span>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
+      {/* Platform Performance */}
       <Card className="p-5">
-        <h3 className="text-base font-semibold text-gray-900 mb-4">
-          Platform Performance
-        </h3>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-900">
+            Platform Performance
+          </h3>
+
+          <p className="text-sm text-gray-500 mt-1">
+            Detailed performance across connected platforms
+          </p>
+        </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[900px]">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3">Platform</th>
-                <th className="text-right py-3">Followers</th>
-                <th className="text-right py-3">Reach</th>
-                <th className="text-right py-3">Impressions</th>
-                <th className="text-right py-3">Engagement</th>
-                <th className="text-right py-3">Likes</th>
-                <th className="text-right py-3">Comments</th>
-                <th className="text-right py-3">Shares</th>
-                <th className="text-right py-3">Clicks</th>
+                <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">
+                  Platform
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Followers
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Reach
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Impressions
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Engagement
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Likes
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Comments
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Shares
+                </th>
+
+                <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">
+                  Clicks
+                </th>
               </tr>
             </thead>
 
             <tbody>
-              {platforms.map((platform) => (
-                <tr
-                  key={platform.name}
-                  className="border-b border-gray-100"
-                >
-                  <td className="py-3 font-medium">
-                    {platform.name}
-                  </td>
+              {platforms.map((platform) => {
+                const Icon =
+                  platformIcons[
+                    platform.name as keyof typeof platformIcons
+                  ];
 
-                  <td className="text-right py-3">
-                    {platform.followers}
-                  </td>
+                return (
+                  <tr
+                    key={platform.name}
+                    className="border-b border-gray-100 last:border-b-0"
+                  >
+                    <td className="py-4 px-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                          <Icon className="text-gray-700" />
+                        </div>
 
-                  <td className="text-right py-3">
-                    {platform.reach}
-                  </td>
+                        <span className="font-medium text-gray-900">
+                          {platform.name}
+                        </span>
+                      </div>
+                    </td>
 
-                  <td className="text-right py-3">
-                    {platform.impressions}
-                  </td>
+                    <td className="text-right py-4 px-2">
+                      {platform.followers}
+                    </td>
 
-                  <td className="text-right py-3 text-emerald-600 font-semibold">
-                    {platform.engagement}
-                  </td>
+                    <td className="text-right py-4 px-2">
+                      {platform.reach}
+                    </td>
 
-                  <td className="text-right py-3">
-                    {platform.likes}
-                  </td>
+                    <td className="text-right py-4 px-2">
+                      {platform.impressions}
+                    </td>
 
-                  <td className="text-right py-3">
-                    {platform.comments}
-                  </td>
+                    <td className="text-right py-4 px-2 font-semibold text-emerald-600">
+                      {platform.engagement}
+                    </td>
 
-                  <td className="text-right py-3">
-                    {platform.shares}
-                  </td>
+                    <td className="text-right py-4 px-2">
+                      {platform.likes}
+                    </td>
 
-                  <td className="text-right py-3">
-                    {platform.clicks}
-                  </td>
-                </tr>
-              ))}
+                    <td className="text-right py-4 px-2">
+                      {platform.comments}
+                    </td>
+
+                    <td className="text-right py-4 px-2">
+                      {platform.shares}
+                    </td>
+
+                    <td className="text-right py-4 px-2">
+                      {platform.clicks}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
