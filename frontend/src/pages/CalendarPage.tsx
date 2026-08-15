@@ -1,150 +1,466 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  ChevronLeft, ChevronRight, Plus, Clock,
-  Calendar as CalendarIcon, LayoutGrid, Columns, Square,
-} from 'lucide-react';
-import { Card, Badge, Button, Modal } from '../components/ui';
-import { scheduledPosts, campaigns } from '../data/mockData';
-import { getPlatformConfig, formatTime, cn } from '../utils/helpers';
+import React, { useMemo, useState } from "react";
 
-type ViewMode = 'month' | 'week' | 'day';
+type Status = "scheduled" | "published" | "draft" | "failed";
 
-const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+type Platform = "Instagram" | "Facebook" | "LinkedIn" | "X";
 
-interface CalendarPost {
-  id: string;
+type Post = {
+  id: number;
+  title: string;
   content: string;
-  platforms: string[];
   date: Date;
-  status: string;
+  status: Status;
+  platforms: Platform[];
   campaign?: string;
-}
-
-const statusColors: Record<string, string> = {
-  scheduled: 'bg-blue-500',
-  published: 'bg-emerald-500',
-  draft: 'bg-gray-400',
-  failed: 'bg-red-500',
 };
 
-const campaignColors = campaigns.reduce((acc, c) => {
-  acc[c.name] = c.color;
-  return acc;
-}, {} as Record<string, string>);
+type ViewMode = "day" | "week" | "month";
 
-export function CalendarPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 6, 12));
-  const [selectedPost, setSelectedPost] = useState<CalendarPost | null>(null);
+const STATUS_LABELS: Record<Status, string> = {
+  scheduled: "Scheduled",
+  published: "Published",
+  draft: "Draft",
+  failed: "Failed",
+};
+
+const PLATFORM_COLORS: Record<Platform, string> = {
+  Instagram: "#e11d48",
+  Facebook: "#2563eb",
+  LinkedIn: "#0a66c2",
+  X: "#111827",
+};
+
+const STATUS_COLORS: Record<Status, string> = {
+  scheduled: "#2563eb",
+  published: "#10b981",
+  draft: "#94a3b8",
+  failed: "#ef4444",
+};
+
+const initialPosts: Post[] = [
+  {
+    id: 1,
+    title: "Summer Campaign Launch",
+    content: "Our summer campaign is officially live. Discover what's new this season!",
+    date: new Date(2026, 7, 14, 10, 0),
+    status: "scheduled",
+    platforms: ["Instagram", "Facebook"],
+    campaign: "Summer Campaign",
+  },
+  {
+    id: 2,
+    title: "Product Update",
+    content: "A quick look at the latest product improvements and features.",
+    date: new Date(2026, 7, 15, 14, 30),
+    status: "draft",
+    platforms: ["LinkedIn"],
+    campaign: "Product Launch",
+  },
+  {
+    id: 3,
+    title: "Weekend Post",
+    content: "Weekend inspiration for our community.",
+    date: new Date(2026, 7, 16, 11, 0),
+    status: "published",
+    platforms: ["Instagram"],
+  },
+];
+
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function sameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function startOfWeek(date: Date) {
+  const result = new Date(date);
+  result.setDate(result.getDate() - result.getDay());
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getMonthDays(date: Date) {
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+  const days: Date[] = [];
+
+  const start = new Date(firstDay);
+  start.setDate(firstDay.getDate() - firstDay.getDay());
+
+  const end = new Date(lastDay);
+  end.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
+
+  const current = new Date(start);
+
+  while (current <= end) {
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return days;
+}
+
+function CalendarPage() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState<ViewMode>("month");
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showPostModal, setShowPostModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const posts: CalendarPost[] = scheduledPosts.map((p) => ({
-    id: p.id,
-    content: p.content,
-    platforms: p.platforms,
-    date: new Date(p.scheduledAt),
-    status: p.status,
-    campaign: p.campaign || undefined,
-  }));
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("10:00");
+  const [newPlatform, setNewPlatform] =
+    useState<Platform>("Instagram");
 
-  const getPostsForDate = (date: Date) => {
-    return posts.filter((p) => p.date.toDateString() === date.toDateString());
-  };
+  const monthDays = useMemo(
+    () => getMonthDays(currentDate),
+    [currentDate]
+  );
 
-  const navigate = (direction: 'prev' | 'next' | 'today') => {
-    if (direction === 'today') {
-      setCurrentDate(new Date(2026, 6, 12));
+  const selectedDayPosts = useMemo(() => {
+    if (!selectedPost) return [];
+
+    return posts.filter((post) => sameDay(post.date, selectedPost.date));
+  }, [posts, selectedPost]);
+
+  function goToday() {
+    setCurrentDate(new Date());
+  }
+
+  function previousPeriod() {
+    const date = new Date(currentDate);
+
+    if (currentView === "month") {
+      date.setMonth(date.getMonth() - 1);
+    } else if (currentView === "week") {
+      date.setDate(date.getDate() - 7);
+    } else {
+      date.setDate(date.getDate() - 1);
+    }
+
+    setCurrentDate(date);
+  }
+
+  function nextPeriod() {
+    const date = new Date(currentDate);
+
+    if (currentView === "month") {
+      date.setMonth(date.getMonth() + 1);
+    } else if (currentView === "week") {
+      date.setDate(date.getDate() + 7);
+    } else {
+      date.setDate(date.getDate() + 1);
+    }
+
+    setCurrentDate(date);
+  }
+
+  function deletePost(id: number) {
+    setPosts((current) => current.filter((post) => post.id !== id));
+    setShowPostModal(false);
+    setSelectedPost(null);
+  }
+
+  function createPost() {
+    if (!newTitle.trim() || !newDate) {
       return;
     }
-    const newDate = new Date(currentDate);
-    if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-    } else if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
-    } else {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
-    }
-    setCurrentDate(newDate);
-  };
 
-  const headerTitle = (() => {
-    if (viewMode === 'month') return `${months[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-    if (viewMode === 'week') {
-      const start = new Date(currentDate);
-      start.setDate(start.getDate() - start.getDay());
-      const end = new Date(start);
-      end.setDate(end.getDate() + 6);
-      return `${months[start.getMonth()].slice(0, 3)} ${start.getDate()} - ${months[end.getMonth()].slice(0, 3)} ${end.getDate()}, ${end.getFullYear()}`;
-    }
-    return `${months[currentDate.getMonth()]} ${currentDate.getDate()}, ${currentDate.getFullYear()}`;
-  })();
+    const createdDate = new Date(`${newDate}T${newTime}`);
 
-  // Month view
-  const renderMonthView = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate();
-    const today = new Date(2026, 6, 12);
+    const post: Post = {
+      id: Date.now(),
+      title: newTitle.trim(),
+      content: newContent.trim(),
+      date: createdDate,
+      status: "scheduled",
+      platforms: [newPlatform],
+    };
 
-    const cells: { date: Date; current: boolean }[] = [];
-    for (let i = firstDay - 1; i >= 0; i--) {
-      cells.push({ date: new Date(year, month - 1, daysInPrevMonth - i), current: false });
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      cells.push({ date: new Date(year, month, i), current: true });
-    }
-    const remaining = 42 - cells.length;
-    for (let i = 1; i <= remaining; i++) {
-      cells.push({ date: new Date(year, month + 1, i), current: false });
-    }
+    setPosts((current) => [...current, post]);
 
+    setNewTitle("");
+    setNewContent("");
+    setNewDate("");
+    setNewTime("10:00");
+    setNewPlatform("Instagram");
+    setShowCreateModal(false);
+  }
+
+  function renderPost(post: Post) {
     return (
-      <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl overflow-hidden">
-        {weekdays.map((day) => (
-          <div key={day} className="bg-gray-50 py-2 text-center text-xs font-semibold text-gray-600">
-            {day}
-          </div>
-        ))}
-        {cells.map((cell, idx) => {
-          const dayPosts = getPostsForDate(cell.date);
-          const isToday = cell.date.toDateString() === today.toDateString();
+      <button
+        key={post.id}
+        type="button"
+        onClick={() => openPost(post)}
+        style={{
+          width: "100%",
+          border: "none",
+          textAlign: "left",
+          background: "#ffffff",
+          borderLeft: `4px solid ${STATUS_COLORS[post.status]}`,
+          borderRadius: "7px",
+          padding: "7px",
+          marginBottom: "6px",
+          cursor: "pointer",
+          boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 700,
+            color: "#64748b",
+            marginBottom: "3px",
+          }}
+        >
+          {formatTime(post.date)}
+        </div>
+
+        <div
+          style={{
+            fontSize: "12px",
+            fontWeight: 700,
+            color: "#1e293b",
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {post.title}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "4px",
+            marginTop: "5px",
+            flexWrap: "wrap",
+          }}
+        >
+          {post.platforms.map((platform) => (
+            <span
+              key={platform}
+              style={{
+                fontSize: "9px",
+                fontWeight: 700,
+                color: PLATFORM_COLORS[platform],
+                background: "#f8fafc",
+                padding: "2px 5px",
+                borderRadius: "4px",
+              }}
+            >
+              {platform}
+            </span>
+          ))}
+        </div>
+      </button>
+    );
+  }
+
+  function renderMonthView() {
+    return (
+      <div
+        style={{
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          overflow: "hidden",
+          background: "#ffffff",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            background: "#f8fafc",
+            borderBottom: "1px solid #e2e8f0",
+          }}
+        >
+          {weekDays.map((day) => (
+            <div
+              key={day}
+              style={{
+                padding: "12px 8px",
+                textAlign: "center",
+                color: "#64748b",
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+          }}
+        >
+          {monthDays.map((day) => {
+            const dayPosts = posts.filter((post) =>
+              sameDay(post.date, day)
+            );
+
+            const isCurrentMonth =
+              day.getMonth() === currentDate.getMonth();
+
+            const isToday = sameDay(day, new Date());
+
+            return (
+              <div
+                key={day.toISOString()}
+                style={{
+                  minHeight: "145px",
+                  padding: "8px",
+                  borderRight: "1px solid #e2e8f0",
+                  borderBottom: "1px solid #e2e8f0",
+                  background: isCurrentMonth
+                    ? "#ffffff"
+                    : "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "50%",
+                    background: isToday ? "#2563eb" : "transparent",
+                    color: isToday
+                      ? "#ffffff"
+                      : isCurrentMonth
+                      ? "#334155"
+                      : "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    marginBottom: "6px",
+                  }}
+                >
+                  {day.getDate()}
+                </div>
+
+                {dayPosts.map(renderPost)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function renderWeekView() {
+    const start = startOfWeek(currentDate);
+
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      return day;
+    });
+
+   return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(7, 1fr)",
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          overflow: "hidden",
+          background: "#ffffff",
+        }}
+      >
+        {days.map((day) => {
+          const dayPosts = posts.filter((post) =>
+            sameDay(post.date, day)
+          );
+
+          const isToday = sameDay(day, new Date());
+
           return (
             <div
-              key={idx}
-              className={cn(
-                'bg-white min-h-[100px] sm:min-h-[120px] p-1.5 sm:p-2 relative group',
-                !cell.current && 'bg-gray-50/50',
-                isToday && 'ring-2 ring-indigo-500 ring-inset'
-              )}
+              key={day.toISOString()}
+              style={{
+                minHeight: "500px",
+                borderRight: "1px solid #e2e8f0",
+              }}
             >
-              <div className={cn(
-                'text-xs font-medium mb-1 inline-flex w-6 h-6 items-center justify-center rounded-full',
-                isToday ? 'bg-indigo-600 text-white' : cell.current ? 'text-gray-700' : 'text-gray-400'
-              )}>
-                {cell.date.getDate()}
+              <div
+                style={{
+                  padding: "14px 8px",
+                  textAlign: "center",
+                  background: isToday ? "#eff6ff" : "#f8fafc",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {weekDays[day.getDay()]}
+                </div>
+
+                <div
+                  style={{
+                    color: isToday ? "#2563eb" : "#1e293b",
+                    fontSize: "20px",
+                    fontWeight: 800,
+                    marginTop: "3px",
+                  }}
+                >
+                  {day.getDate()}
+                </div>
               </div>
-              <div className="space-y-1">
-                {dayPosts.slice(0, 3).map((post) => (
-                  <motion.button
-                    key={post.id}
-                    whileHover={{ scale: 1.02 }}
-                    onClick={() => { setSelectedPost(post); setShowPostModal(true); }}
-                    className={cn(
-                      'w-full text-left px-1.5 py-1 rounded-md text-[10px] sm:text-xs font-medium text-white truncate flex items-center gap-1',
-                      statusColors[post.status]
-                    )}
-                    style={post.campaign && campaignColors[post.campaign] ? { backgroundColor: campaignColors[post.campaign] } : {}}
+
+              <div style={{ padding: "8px" }}>
+                {dayPosts.length > 0 ? (
+                  dayPosts.map(renderPost)
+                ) : (
+                  <div
+                    style={{
+                      color: "#cbd5e1",
+                      fontSize: "11px",
+                      textAlign: "center",
+                      paddingTop: "20px",
+                    }}
                   >
-                    <Clock className="w-2.5 h-2.5 flex-shrink-0" />
-                    <span className="truncate">{formatTime(post.date.toISOString())}</span>
-                  </motion.button>
-                ))}
-                {dayPosts.length > 3 && (
-                  <p className="text-[10px] text-gray-500 px-1">+{dayPosts.length - 3} more</p>
+                    No posts
+                  </div>
                 )}
               </div>
             </div>
@@ -152,233 +468,793 @@ export function CalendarPage() {
         })}
       </div>
     );
-  };
-
-  // Week view
-  const renderWeekView = () => {
-    const start = new Date(currentDate);
-    start.setDate(start.getDate() - start.getDay());
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const today = new Date(2026, 6, 12);
+  }
+  
+  function renderDayView() {
+    const dayPosts = posts.filter((post) =>
+      sameDay(post.date, currentDate)
+    );
 
     return (
-      <div className="overflow-x-auto">
-        <div className="min-w-[700px]">
-          <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-px bg-gray-200 rounded-xl overflow-hidden">
-            <div className="bg-gray-50" />
-            {Array.from({ length: 7 }).map((_, i) => {
-              const date = new Date(start);
-              date.setDate(date.getDate() + i);
-              const isToday = date.toDateString() === today.toDateString();
-              return (
-                <div key={i} className="bg-gray-50 py-2 text-center">
-                  <p className="text-xs font-semibold text-gray-600">{weekdays[i]}</p>
-                  <p className={cn('text-sm font-bold mt-0.5 inline-flex w-7 h-7 items-center justify-center rounded-full', isToday ? 'bg-indigo-600 text-white' : 'text-gray-900')}>
-                    {date.getDate()}
-                  </p>
-                </div>
-              );
-            })}
-            {hours.filter((h) => h >= 6 && h <= 22).map((hour) => (
-              <>
-                <div key={`h-${hour}`} className="bg-white px-2 py-3 text-xs text-gray-400 text-right">
-                  {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-                </div>
-                {Array.from({ length: 7 }).map((_, dayIdx) => {
-                  const date = new Date(start);
-                  date.setDate(date.getDate() + dayIdx);
-                  date.setHours(hour, 0, 0, 0);
-                  const hourPosts = posts.filter((p) => p.date.toDateString() === date.toDateString() && p.date.getHours() === hour);
-                  return (
-                    <div key={`d-${dayIdx}-h-${hour}`} className="bg-white min-h-[50px] p-1 relative">
-                      {hourPosts.map((post) => (
-                        <motion.button
-                          key={post.id}
-                          whileHover={{ scale: 1.02 }}
-                          onClick={() => { setSelectedPost(post); setShowPostModal(true); }}
-                          className={cn('w-full text-left px-1.5 py-1 rounded-md text-[10px] font-medium text-white truncate flex items-center gap-1', statusColors[post.status])}
-                        >
-                          <span className="truncate">{post.content.slice(0, 30)}...</span>
-                        </motion.button>
-                      ))}
-                    </div>
-                  );
-                })}
-              </>
+      <div
+        style={{
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "14px",
+          padding: "20px",
+        }}
+      >
+        <div
+          style={{
+            color: "#1e293b",
+            fontSize: "18px",
+            fontWeight: 800,
+            marginBottom: "16px",
+          }}
+        >
+          {currentDate.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </div>
+
+        {dayPosts.length > 0 ? (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {dayPosts.map((post) => (
+              <div key={post.id}>{renderPost(post)}</div>
             ))}
           </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Day view
-  const renderDayView = () => {
-    const hours = Array.from({ length: 24 }, (_, i) => i);
-    const dayPosts = posts.filter((p) => p.date.toDateString() === currentDate.toDateString());
-
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="grid grid-cols-[80px_1fr] gap-px bg-gray-200 rounded-xl overflow-hidden">
-          {hours.filter((h) => h >= 6 && h <= 22).map((hour) => (
-            <>
-              <div key={`h-${hour}`} className="bg-white px-3 py-4 text-xs text-gray-400 text-right">
-                {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-              </div>
-              <div className="bg-white min-h-[60px] p-2">
-                {dayPosts.filter((p) => p.date.getHours() === hour).map((post) => (
-                  <motion.button
-                    key={post.id}
-                    whileHover={{ scale: 1.01 }}
-                    onClick={() => { setSelectedPost(post); setShowPostModal(true); }}
-                    className={cn('w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-white flex items-center gap-2', statusColors[post.status])}
-                  >
-                    <Clock className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{formatTime(post.date.toISOString())} - {post.content.slice(0, 40)}...</span>
-                  </motion.button>
-                ))}
-              </div>
-            </>
-          ))}
-        </div>
-        {dayPosts.length === 0 && (
-          <div className="text-center py-12">
-            <CalendarIcon className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm text-gray-500">No posts scheduled for this day</p>
+        ) : (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "50px 20px",
+              color: "#64748b",
+              background: "#f8fafc",
+              borderRadius: "12px",
+            }}
+          >
+            No posts scheduled for this day.
           </div>
         )}
       </div>
     );
-  };
-
-  const viewModes: { mode: ViewMode; icon: any; label: string }[] = [
-    { mode: 'month', icon: Square, label: 'Month' },
-    { mode: 'week', icon: Columns, label: 'Week' },
-    { mode: 'day', icon: LayoutGrid, label: 'Day' },
-  ];
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Content Calendar</h1>
-          <p className="text-sm text-gray-500 mt-1">View and manage your scheduled content</p>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        color: "#1e293b",
+        padding: "24px",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1400px",
+          margin: "0 auto",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+            marginBottom: "22px",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "28px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              Calendar
+            </h1>
+
+            <p
+              style={{
+                margin: "5px 0 0",
+                color: "#64748b",
+                fontSize: "13px",
+              }}
+            >
+              Manage and schedule your social media posts.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              border: "none",
+              background: "#2563eb",
+              color: "#ffffff",
+              borderRadius: "9px",
+              padding: "11px 18px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            + Create Post
+          </button>
         </div>
-        <Button icon={<Plus className="w-4 h-4" />}>Schedule Post</Button>
-      </div>
 
-      {/* Legend */}
-      <Card className="p-3 flex flex-wrap items-center gap-4">
-        <span className="text-xs font-medium text-gray-500">Campaigns:</span>
-        {campaigns.filter((c) => c.status !== 'draft').map((c) => (
-          <div key={c.id} className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: c.color }} />
-            <span className="text-xs text-gray-600">{c.name}</span>
-          </div>
-        ))}
-        <div className="w-px h-4 bg-gray-200 mx-2" />
-        <span className="text-xs font-medium text-gray-500">Status:</span>
-        {[
-          { label: 'Scheduled', color: 'bg-blue-500' },
-          { label: 'Published', color: 'bg-emerald-500' },
-          { label: 'Draft', color: 'bg-gray-400' },
-          { label: 'Failed', color: 'bg-red-500' },
-        ].map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5">
-            <div className={cn('w-3 h-3 rounded', s.color)} />
-            <span className="text-xs text-gray-600">{s.label}</span>
-          </div>
-        ))}
-      </Card>
+        {/* Toolbar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "12px",
+            padding: "12px",
+            marginBottom: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={previousPeriod}
+              style={{
+                width: "34px",
+                height: "34px",
+                border: "1px solid #dbeafe",
+                background: "#ffffff",
+                borderRadius: "8px",
+                cursor: "pointer",
+                color: "#2563eb",
+                fontSize: "18px",
+              }}
+            >
+              ‹
+            </button>
 
-      {/* Calendar controls */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate('today')}>Today</Button>
-            <div className="flex">
-              <button onClick={() => navigate('prev')} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <ChevronLeft className="w-4 h-4 text-gray-600" />
-              </button>
-              <button onClick={() => navigate('next')} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <ChevronRight className="w-4 h-4 text-gray-600" />
-              </button>
+            <button
+              type="button"
+onClick={nextPeriod}
+              style={{
+                width: "34px",
+                height: "34px",
+                border: "1px solid #dbeafe",
+                background: "#ffffff",
+                borderRadius: "8px",
+                cursor: "pointer",
+                color: "#2563eb",
+                fontSize: "18px",
+              }}
+            >
+              ›
+            </button>
+
+            <button
+              type="button"
+              onClick={goToday}
+              style={{
+                border: "1px solid #dbeafe",
+                background: "#eff6ff",
+                color: "#2563eb",
+                borderRadius: "8px",
+                padding: "8px 12px",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              Today
+            </button>
+
+            <div
+              style={{
+                marginLeft: "8px",
+                fontSize: "16px",
+                fontWeight: 800,
+                color: "#1e293b",
+              }}
+            >
+              {currentView === "month"
+                ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+                : currentDate.toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 ml-2">{headerTitle}</h2>
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
-            {viewModes.map((vm) => (
+          <div
+            style={{
+              display: "flex",
+              background: "#f1f5f9",
+              borderRadius: "8px",
+              padding: "3px",
+            }}
+          >
+            {(["day", "week", "month"] as ViewMode[]).map((view) => (
               <button
-                key={vm.mode}
-                onClick={() => setViewMode(vm.mode)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                  viewMode === vm.mode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                )}
+                key={view}
+                type="button"
+                onClick={() => setCurrentView(view)}
+                style={{
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "7px 12px",
+                  background:
+                    currentView === view ? "#ffffff" : "transparent",
+                  color:
+                    currentView === view ? "#2563eb" : "#64748b",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                }}
               >
-                <vm.icon className="w-3.5 h-3.5" />
-                {vm.label}
+                {view}
               </button>
             ))}
           </div>
         </div>
 
-        {viewMode === 'month' && renderMonthView()}
-        {viewMode === 'week' && renderWeekView()}
-        {viewMode === 'day' && renderDayView()}
-      </Card>
+        {/* Calendar */}
+        {currentView === "month" && renderMonthView()}
+        {currentView === "week" && renderWeekView()}
+        {currentView === "day" && renderDayView()}
 
-      {/* Post detail modal */}
-      <Modal isOpen={showPostModal} onClose={() => setShowPostModal(false)} title="Post Details" size="md">
-        {selectedPost && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Badge variant={selectedPost.status === 'published' ? 'success' : selectedPost.status === 'failed' ? 'danger' : selectedPost.status === 'draft' ? 'default' : 'info'} dot>
-                {selectedPost.status}
-              </Badge>
-              <span className="text-xs text-gray-500">
-                {formatTime(selectedPost.date.toISOString())} · {selectedPost.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </span>
-            </div>
+        {/* Post Details Modal */}
+        {showPostModal && selectedPost && (
+          <div
+            onClick={() => setShowPostModal(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              onClick={(event) => event.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: "520px",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxSizing: "border-box",
+                boxShadow: "0 20px 50px rgba(15,23,42,0.2)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "18px",
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                    color: "#0f172a",
+                  }}
+                >
+                  Post Details
+                </h2>
 
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-700">{selectedPost.content}</p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-2">Platforms</p>
-              <div className="flex gap-2">
-                {selectedPost.platforms.map((p) => {
-                  const config = getPlatformConfig(p);
-                  const Icon = config.icon;
-                  return (
-                    <div key={p} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 rounded-lg">
-                      <Icon className="w-4 h-4" style={{ color: config.color }} />
-                      <span className="text-xs font-medium text-gray-700">{config.name}</span>
-                    </div>
-                  );
-                })}
+                <button
+                  type="button"
+                  onClick={() => setShowPostModal(false)}
+                  style={{
+                    border: "none",
+                    background: "#f1f5f9",
+                    color: "#475569",
+                    width: "34px",
+                    height: "34px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                  }}
+                >
+                  ×
+                </button>
               </div>
-            </div>
 
-            {selectedPost.campaign && (
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">Campaign</p>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: `${campaignColors[selectedPost.campaign]}15` }}>
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: campaignColors[selectedPost.campaign] }} />
-                  <span className="text-sm font-medium text-gray-900">{selectedPost.campaign}</span>
+              <div style={{ display: "grid", gap: "16px" }}>
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 6px",
+                      color: "#64748b",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    TITLE
+                  </p>
+
+                  <div
+                    style={{
+                      color: "#1e293b",
+                      fontSize: "16px",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {selectedPost.title}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "6px 10px",
+                      borderRadius: "999px",
+                      background: `${STATUS_COLORS[selectedPost.status]}18`,
+                      color: STATUS_COLORS[selectedPost.status],
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: "7px",
+                        height: "7px",
+                        borderRadius: "50%",
+                        background: STATUS_COLORS[selectedPost.status],
+                      }}
+                    />
+                    {STATUS_LABELS[selectedPost.status]}
+                  </span>
+
+                  <span
+                    style={{
+                      color: "#64748b",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {formatTime(selectedPost.date)} ·{" "}
+                    {selectedPost.date.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 7px",
+                      color: "#64748b",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    CONTENT
+                  </p>
+
+                  <div
+                    style={{
+                      background: "#f8fbff",
+                      border: "1px solid #dbeafe",
+                      borderRadius: "10px",
+                      padding: "14px",
+                      color: "#334155",
+                      fontSize: "13px",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {selectedPost.content || "No content added."}
+                  </div>
+                </div>
+
+                <div>
+                  <p
+                    style={{
+                      margin: "0 0 7px",
+                      color: "#64748b",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    PLATFORMS
+                  </p>
+
+                  <div
+                    style={{
+                      display:
+
+                "flex",
+                      gap: "7px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {selectedPost.platforms.map((platform) => (
+                      <span
+                        key={platform}
+                        style={{
+                          padding: "6px 9px",
+                          borderRadius: "7px",
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          color: PLATFORM_COLORS[platform],
+                          fontSize: "11px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {platform}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedPost.campaign && (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 7px",
+                        color: "#64748b",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      CAMPAIGN
+                    </p>
+
+                    <div
+                      style={{
+                        padding: "9px 11px",
+                        background: "#eff6ff",
+                        border: "1px solid #dbeafe",
+                        borderRadius: "8px",
+                        color: "#1e3a8a",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {selectedPost.campaign}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    marginTop: "4px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowPostModal(false)}
+                    style={{
+                      flex: 1,
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      color: "#475569",
+                      borderRadius: "9px",
+                      padding: "10px",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Close
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => deletePost(selectedPost.id)}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      background: "#ef4444",
+                      color: "#ffffff",
+                      borderRadius: "9px",
+                      padding: "10px",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="secondary" fullWidth>Edit</Button>
-              <Button variant="danger" fullWidth>Cancel Post</Button>
             </div>
           </div>
         )}
-      </Modal>
+
+        {/* Create Post Modal */}
+        {showCreateModal && (
+          <div
+            onClick={() => setShowCreateModal(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "20px",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              onClick={(event) => event.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: "500px",
+                background: "#ffffff",
+                borderRadius: "16px",
+                padding: "22px",
+                boxSizing: "border-box",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "18px",
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "20px",
+                    color: "#0f172a",
+                  }}
+                >
+                  Create Post
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  style={{
+                    border: "none",
+                    background: "#f1f5f9",
+                    width: "34px",
+                    height: "34px",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    color: "#475569",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gap: "13px" }}>
+                <label
+                  style={{
+                    display: "grid",
+                    gap: "6px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#475569",
+                  }}
+                >
+                  Title
+                  <input
+                    value={newTitle}  
+                     onChange={(event) => setNewTitle(event.target.value)}
+                    placeholder="Enter post title"
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      padding: "10px",
+                      outline: "none",
+                      fontSize: "13px",
+                    }}
+                  />
+                </label>
+
+                <label
+                  style={{
+                    display: "grid",
+                    gap: "6px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#475569",
+                  }}
+                >
+                  Content
+                  <textarea
+                    value={newContent}
+                    onChange={(event) =>
+                      setNewContent(event.target.value)
+                    }
+                    placeholder="Write your post..."
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      padding: "10px",
+                      resize: "vertical",
+                      fontSize: "13px",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                </label>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "10px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "grid",
+                      gap: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: "#475569",
+                    }}
+                  >
+                    Date
+                    <input
+                      type="date"
+                      value={newDate}
+                      onChange={(event) =>
+                        setNewDate(event.target.value)
+                      }
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        padding: "10px",
+                        fontSize: "13px",
+                      }}
+                    />
+                  </label>
+
+                  <label
+                    style={{
+                      display: "grid",
+                      gap: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: "#475569",
+                    }}
+                  >
+                    Time
+                    <input
+                      type="time"
+                      value={newTime}
+                      onChange={(event) =>
+                        setNewTime(event.target.value)
+                      }
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "8px",
+                        padding: "10px",
+                        fontSize: "13px",
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <label
+                  style={{
+                    display: "grid",
+                    gap: "6px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#475569",
+                  }}
+                >
+                  Platform
+                  <select
+                    value={newPlatform}
+                    onChange={(event) =>
+                      setNewPlatform(event.target.value as Platform)
+                    }
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      padding: "10px",
+                      fontSize: "13px",
+                      background: "#ffffff",
+                    }}
+                  >
+                    <option value="Instagram">Instagram</option>
+                    <option value="Facebook">Facebook</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="X">X</option>
+                  </select>
+                </label>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    marginTop: "5px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    style={{
+                      flex: 1,
+                      border: "1px solid #cbd5e1",
+                      background: "#ffffff",
+                      color: "#475569",
+                      borderRadius: "9px",
+                      padding: "11px",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                     onClick={createPost}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      borderRadius: "9px",
+                      padding: "11px",
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Create Post
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+export default CalendarPage; 

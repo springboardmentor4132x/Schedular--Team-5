@@ -12,6 +12,9 @@ import {
   Sparkles,
   X,
   Zap,
+  Mail,
+  Users,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 
@@ -27,7 +30,7 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    to: '/app/accounts',
+    to: '/app/social-accounts',
     label: 'Social Accounts',
     icon: Share2,
   },
@@ -36,6 +39,8 @@ const navItems = [
     label: 'Create Post',
     icon: FileText,
   },
+
+  // Existing modules — leave them as they are
   {
     to: '/app/calendar',
     label: 'Calendar',
@@ -51,6 +56,11 @@ const navItems = [
     label: 'Analytics',
     icon: BarChart3,
   },
+
+  // =========================
+  // MODULE 7 — NOTIFICATIONS
+  // =========================
+
   {
     to: '/app/notifications',
     label: 'Notifications',
@@ -61,6 +71,22 @@ const navItems = [
     label: 'Notification History',
     icon: Bell,
   },
+  {
+    to: '/app/notifications/settings',
+    label: 'Notification Settings',
+    icon: SlidersHorizontal,
+  },
+  {
+    to: '/app/notifications/email-preferences',
+    label: 'Email Preferences',
+    icon: Mail,
+  },
+  {
+    to: '/app/notifications/team-activity',
+    label: 'Team Activity',
+    icon: Users,
+  },
+
   {
     to: '/app/settings',
     label: 'Settings',
@@ -130,6 +156,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100"
+            aria-label="Close sidebar"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -143,11 +170,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </p>
 
           <ul className="space-y-1">
+
             {navItems.map((item) => (
               <li key={item.to}>
+
                 <NavLink
                   to={item.to}
-                  onClick={() => onClose()}
+                  onClick={onClose}
                   className={({ isActive }) =>
                     cn(
                       'sidebar-link group',
@@ -155,6 +184,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     )
                   }
                 >
+
                   {({ isActive }) => (
                     <>
                       {/* Icon */}
@@ -168,7 +198,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       />
 
                       {/* Label */}
-                      <span>{item.label}</span>
+                      <span className="flex-1">
+                        {item.label}
+                      </span>
 
                       {/* Active indicator */}
                       {isActive && (
@@ -179,14 +211,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                       )}
                     </>
                   )}
+
                 </NavLink>
+
               </li>
             ))}
+
           </ul>
         </nav>
 
         {/* Upgrade Card */}
         <div className="p-3 border-t border-gray-200">
+
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 p-4 text-white">
 
             {/* Background circles */}
@@ -212,6 +248,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
               {/* Button */}
               <button
+                type="button"
                 className="w-full bg-white text-indigo-600 text-xs font-semibold py-2 rounded-lg hover:bg-white/90 transition-colors"
               >
                 Upgrade Now
@@ -219,7 +256,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
             </div>
           </div>
+
         </div>
+
       </motion.aside>
     </>
   );

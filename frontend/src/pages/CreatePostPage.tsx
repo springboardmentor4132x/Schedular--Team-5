@@ -1,429 +1,2245 @@
-import { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useRef, useState } from "react";
+import type { ChangeEvent, DragEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Image as ImageIcon, Video, FileText, Calendar, Clock, Hash,
-  Bold, Italic, List, Link2, Smile, X, Upload, Send, Save,
-  Check, AlertCircle,
-} from 'lucide-react';
-import { Card, Button } from '../components/ui';
-import { socialAccounts, campaigns } from '../data/mockData';
-import { getPlatformConfig, formatDateTime, cn } from '../utils/helpers';
+  Calendar,
+  Check,
+  Clock,
+  Image as ImageIcon,
+  Paperclip,
+  Send,
+  Smile,
+  Trash2,
+  Upload,
+  Video,
+  X,
+} from "lucide-react";
 
-const availablePlatforms = ['facebook', 'instagram', 'twitter', 'linkedin'];
+import {
+  FaFacebookF,
+  FaInstagram,
+  FaLinkedinIn,
+} from "react-icons/fa6";
 
-export function CreatePostPage() {
-  const [content, setContent] = useState('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['facebook', 'instagram']);
-  const [media, setMedia] = useState<{ type: 'image' | 'video'; url: string; name: string }[]>([]);
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
-  const [campaign, setCampaign] = useState('');
-  const [saveAsDraft, setSaveAsDraft] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const suggestions = [
-  "🚀 Boost your brand with our latest update!",
-  "✨ Stay connected for exciting news.",
-  "🔥 Don't miss today's special offer!",
-];
-  const fileInputRef = useRef<HTMLInputElement>(null);
+type Platform =
+  | "Facebook"
+  | "Instagram"
+  | "LinkedIn";
 
-  const maxLength = 280;
-  const remaining = maxLength - content.length;
-  const connectedAccounts = socialAccounts.filter((a) => a.status === 'connected' && availablePlatforms.includes(a.platform));
+interface MediaFile {
+  name: string;
+  url: string;
+  type: string;
+}
 
-  const togglePlatform = (platform: string) => {
-    setSelectedPlatforms((prev) =>
-      prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
-    );
+const MAX_CHARACTERS = 280;
+
+export default function CreatePostPage() {
+  const navigate =  useNavigate();
+
+  const [selectedPlatforms, setSelectedPlatforms] =
+    useState<Platform[]>(["Facebook"]);
+
+  const [content, setContent] = useState("");
+  const [postTitle, setPostTitle] = useState("");
+
+  const [media, setMedia] =
+    useState<MediaFile[]>([]);
+
+  const [scheduleDate, setScheduleDate] =
+    useState("");
+
+  const [scheduleTime, setScheduleTime] =
+    useState("");
+
+  const [campaign, setCampaign] =
+    useState("No Campaign");
+
+  const [saveAsDraft, setSaveAsDraft] =
+    useState(false);
+
+  const [successMessage, setSuccessMessage] =
+    useState("");
+
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  const charactersLeft =
+    MAX_CHARACTERS - content.length;
+
+  const platforms = [
+    {
+      name: "Facebook" as Platform,
+      icon: FaFacebookF,
+      color: "facebook",
+    },
+    {
+      name: "Instagram" as Platform,
+      icon: FaInstagram,
+      color: "instagram",
+    },
+    {
+      name: "LinkedIn" as Platform,
+      icon: FaLinkedinIn,
+      color: "linkedin",
+    },
+  ];
+
+  const showMessage = (message: string) => {
+    setSuccessMessage(message);
+
+    window.setTimeout(() => {
+      setSuccessMessage("");
+    }, 3000);
   };
 
-  const handleFileSelect = (files: FileList | null) => {
-    if (!files) return;
-    Array.from(files).forEach((file) => {
-      const isImage = file.type.startsWith('image/');
-      const isVideo = file.type.startsWith('video/');
-      if (!isImage && !isVideo) return;
-      const url = URL.createObjectURL(file);
-      setMedia((prev) => [...prev, { type: isImage ? 'image' : 'video', url, name: file.name }]);
+  const togglePlatform = (
+    platform: Platform
+  ) => {
+    setSelectedPlatforms((current) => {
+      if (current.includes(platform)) {
+        if (current.length === 1) {
+          return current;
+        }
+
+        return current.filter(
+          (item) => item !== platform
+        );
+      }
+
+      return [...current, platform];
     });
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleFileSelect(e.dataTransfer.files);
+  const handleContentChange = (
+    event: ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    const value = event.target.value;
+
+    if (value.length <= MAX_CHARACTERS) {
+      setContent(value);
+    }
   };
 
-  const removeMedia = (idx: number) => {
-    setMedia((prev) => prev.filter((_, i) => i !== idx));
+  const addEmoji = () => {
+    const emoji = " 😊";
+
+    if (
+      content.length + emoji.length <=
+      MAX_CHARACTERS
+    ) {
+      setContent(
+        (current) => current + emoji
+      );
+    }
+  };
+
+  const handleFileChange = (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+
+    if (!files) {
+      return;
+    }
+
+    const newFiles: MediaFile[] =
+      Array.from(files)
+        .filter(
+          (file) =>
+            file.type.startsWith("image/") ||
+            file.type.startsWith("video/")
+        )
+        .map((file) => ({
+          name: file.name,
+          url: URL.createObjectURL(file),
+          type: file.type,
+        }));
+
+    setMedia((current) => [
+      ...current,
+      ...newFiles,
+    ]);
+
+    event.target.value = "";
+  };
+
+  const handleDrop = (
+    event: DragEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault();
+
+    const files =
+      event.dataTransfer.files;
+
+    if (!files.length) {
+      return;
+    }
+
+    const newFiles: MediaFile[] =
+      Array.from(files)
+        .filter(
+          (file) =>
+            file.type.startsWith("image/") ||
+            file.type.startsWith("video/")
+        )
+        .map((file) => ({
+          name: file.name,
+          url: URL.createObjectURL(file),
+          type: file.type,
+        }));
+
+    setMedia((current) => [
+      ...current,
+      ...newFiles,
+    ]);
+  };
+
+  const removeMedia = (index: number) => {
+    setMedia((current) => {
+      const selectedFile = current[index];
+
+      if (selectedFile) {
+        URL.revokeObjectURL(
+          selectedFile.url
+        );
+      }
+
+      return current.filter(
+        (_, fileIndex) =>
+          fileIndex !== index
+      );
+    });
+  };
+
+  const handleClear = () => {
+    media.forEach((file) => {
+      URL.revokeObjectURL(file.url);
+    });
+
+    setSelectedPlatforms(["Facebook"]);
+    setContent("");
+    setPostTitle("");
+    setMedia([]);
+    setScheduleDate("");
+    setScheduleTime("");
+    setCampaign("No Campaign");
+    setSaveAsDraft(false);
+    setSuccessMessage("");
+  };
+
+  const handleSaveDraft = () => {
+    setSaveAsDraft(true);
+    showMessage(
+      "Post saved as draft successfully."
+    );
   };
 
   const handlePublish = () => {
-    setError('');
-    if (!content.trim()) { setError('Please write some content for your post.'); return; }
-    if (selectedPlatforms.length === 0) { setError('Select at least one platform.'); return; }
-    if (!saveAsDraft && (!scheduleDate || !scheduleTime)) { setError('Please set a schedule date and time.'); return; }
+    if (
+      !content.trim() &&
+      media.length === 0
+    ) {
+      showMessage(
+        "Please add post content or media first."
+      );
+      return;
+    }
 
-    setPublishing(true);
-    setTimeout(() => {
-      setPublishing(false);
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        setContent('');
-        setMedia([]);
-        setScheduleDate('');
-        setScheduleTime('');
-        setCampaign('');
-      }, 2000);
-    }, 1500);
-  };
-
-  const insertEmoji = (emoji: string) => {
-    setContent((prev) => prev + emoji);
+    if (
+      scheduleDate &&
+      scheduleTime
+    ) {
+      showMessage(
+        "Post scheduled successfully."
+      );
+    } else {
+      showMessage(
+        "Post published successfully."
+      );
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create Post</h1>
-        <p className="text-sm text-gray-500 mt-1">Compose and schedule content across your social platforms</p>
-      </div>
+    <div className="cp-page">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Editor */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Platforms */}
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Select Platforms</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {availablePlatforms.map((platform) => {
-                const config = getPlatformConfig(platform);
-                const Icon = config.icon;
-                const isSelected = selectedPlatforms.includes(platform);
-                const isConnected = connectedAccounts.some((a) => a.platform === platform);
-                return (
-                  <button
-                    key={platform}
-                    onClick={() => isConnected && togglePlatform(platform)}
-                    disabled={!isConnected}
-                    className={cn(
-                      'relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all',
-                      isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300',
-                      !isConnected && 'opacity-40 cursor-not-allowed'
-                    )}
-                  >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: config.color }}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700">{config.name}</span>
-                    {isSelected && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center"
-                      >
-                        <Check className="w-3 h-3 text-white" />
-                      </motion.div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+      <aside className="cp-sidebar">
 
-          {/* Content editor */}
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">Post Content</h3>
-              <span className={cn('text-xs font-medium', remaining < 0 ? 'text-red-500' : remaining < 50 ? 'text-amber-500' : 'text-gray-400')}>
-                {remaining} characters
-              </span>
+        <div className="cp-brand">
+          <div className="cp-brand-logo">
+            ⚡
+          </div>
+
+          <div>
+            <div className="cp-brand-name">
+              SocialPilot
             </div>
 
-            {/* Toolbar */}
-            <div className="flex items-center gap-1 mb-2 p-1.5 bg-gray-50 rounded-xl">
-              {[Bold, Italic, List, Link2, Smile].map((Icon, i) => (
-                <button
-                  key={i}
-                  className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
-                  onClick={() => i === 4 && insertEmoji('😊')}
-                >
-                  <Icon className="w-4 h-4" />
-                </button>
-              ))}
-              <div className="w-px h-5 bg-gray-200 mx-1" />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
-              >
-                <ImageIcon className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
-              >
-                <Video className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => insertEmoji('#')}
-                className="p-1.5 rounded-lg hover:bg-white transition-colors text-gray-500 hover:text-gray-700"
-              >
-                <Hash className="w-4 h-4" />
-              </button>
+            <div className="cp-brand-subtitle">
+              Campaign Manager
             </div>
-
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's on your mind? Write your post content here..."
-              rows={6}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-            />
-
-            {/* Media upload */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              className="hidden"
-              onChange={(e) => handleFileSelect(e.target.files)}
-            />
-
-            {media.length > 0 ? (
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <AnimatePresence>
-                  {media.map((m, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100"
-                    >
-                      {m.type === 'image' ? (
-                        <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                          <Video className="w-8 h-8 text-white" />
-                        </div>
-                      )}
-                      <button
-                        onClick={() => removeMedia(idx)}
-                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3.5 h-3.5 text-white" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            ) : (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  'mt-3 border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all',
-                  isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                )}
-              >
-                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 font-medium">Drag & drop or click to upload</p>
-                <p className="text-xs text-gray-400 mt-1">Images and videos up to 50MB</p>
-              </div>
-            )}
-          </Card>
-
-          {/* Schedule */}
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Schedule & Campaign</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Date</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <input
-                    type="date"
-                    value={scheduleDate}
-                    onChange={(e) => setScheduleDate(e.target.value)}
-                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Time</label>
-                <div className="relative">
-                  <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <input
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Campaign (optional)</label>
-              <select
-                value={campaign}
-                onChange={(e) => setCampaign(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              >
-                <option value="">No campaign</option>
-                {campaigns.filter((c) => c.status === 'active').map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <label className="flex items-center gap-2 mt-4 cursor-pointer">
-              <button
-                type="button"
-                onClick={() => setSaveAsDraft(!saveAsDraft)}
-                className={cn('w-4 h-4 rounded border transition-all flex items-center justify-center', saveAsDraft ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white')}
-              >
-                {saveAsDraft && <Check className="w-3 h-3 text-white" />}
-              </button>
-              <span className="text-sm text-gray-600">Save as draft (don't schedule)</span>
-            </label>
-          </Card>
-<Card className="p-5">
-  <h3 className="text-sm font-semibold mb-3">
-    AI Caption Suggestions
-  </h3>
-
-  <div className="space-y-2">
-    {suggestions.map((text, index) => (
-      <button
-        key={index}
-        onClick={() => setContent(text)}
-        className="w-full text-left border rounded-lg p-3 hover:bg-indigo-50 transition"
-      >
-        {text}
-      </button>
-    ))}
-  </div>
-</Card>
-          {/* Error */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
-              >
-                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <Button variant="secondary" fullWidth icon={<Save className="w-4 h-4" />} onClick={handlePublish} loading={publishing && saveAsDraft}>
-              Save Draft
-            </Button>
-            <Button fullWidth icon={<Send className="w-4 h-4" />} onClick={handlePublish} loading={publishing && !saveAsDraft}>
-              {saveAsDraft ? 'Save Draft' : 'Schedule Post'}
-            </Button>
           </div>
         </div>
 
-        {/* Preview */}
-        <div className="space-y-4">
-          <Card className="p-5 sticky top-20">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Live Preview</h3>
-
-            {/* Platform tabs */}
-            {selectedPlatforms.length > 0 ? (
-              <div className="space-y-4">
-                {selectedPlatforms.map((platform) => {
-                  const config = getPlatformConfig(platform);
-                  const Icon = config.icon;
-                  return (
-                    <motion.div
-                      key={platform}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="border border-gray-200 rounded-xl overflow-hidden"
-                    >
-                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-100">
-                        <Icon className="w-4 h-4" style={{ color: config.color }} />
-                        <span className="text-xs font-medium text-gray-600">{config.name}</span>
-                      </div>
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold">
-                            SP
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-gray-900">SocialPilot</p>
-                            <p className="text-[10px] text-gray-400">Sponsored</p>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap mb-3">
-                          {content || 'Your post content will appear here...'}
-                        </p>
-                        {media.length > 0 && (
-                          <div className={cn('rounded-lg overflow-hidden', media.length > 1 && 'grid grid-cols-2 gap-1')}>
-                            {media.slice(0, 4).map((m, idx) => (
-                              <div key={idx} className={cn('bg-gray-100', media.length === 1 ? 'aspect-video' : 'aspect-square')}>
-                                {m.type === 'image' ? (
-                                  <img src={m.url} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                                    <Video className="w-6 h-6 text-white" />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">Select a platform to preview</p>
-              </div>
-            )}
-
-            {/* Schedule summary */}
-            {scheduleDate && scheduleTime && !saveAsDraft && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <Clock className="w-3.5 h-3.5" />
-                  Scheduled for {formatDateTime(`${scheduleDate}T${scheduleTime}`)}
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Success animation */}
-          <AnimatePresence>
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-xl"
-              >
-                <Check className="w-5 h-5" />
-                <span className="text-sm font-medium">Post {saveAsDraft ? 'saved' : 'scheduled'} successfully!</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="cp-menu-title">
+          CREATE
         </div>
-      </div>
+
+        <nav className="cp-sidebar-menu">
+
+          <button
+            type="button"
+            className="cp-sidebar-item active"
+          >
+            <span className="cp-side-icon">
+              ＋
+            </span>
+
+            <span>
+              Create Post
+            </span>
+          </button>
+
+          <button
+  type="button"
+  className="cp-sidebar-item"
+  onClick={() => navigate("/app/content-library")}
+>
+            <span className="cp-side-icon">
+              ▣
+            </span>
+
+            <span>
+              Content Library
+            </span>
+          </button>
+
+          
+          <button
+  type="button"
+  className="cp-sidebar-item"
+  onClick={() => navigate("/app/calendar")}
+>
+          
+            <span className="cp-side-icon">
+              ◷
+            </span>
+
+            <span>
+              Scheduled Posts
+            </span>
+          </button>
+
+          <button
+  type="button"
+  className="cp-sidebar-item"
+  onClick={() => navigate("/app/campaigns")}
+>
+            <span className="cp-side-icon">
+              ◆
+            </span>
+
+            <span>
+              Campaigns
+            </span>
+          </button>
+
+        </nav>
+
+        <div className="cp-sidebar-bottom">
+
+          <div className="cp-upgrade-box">
+            <strong>
+              Upgrade your plan
+            </strong>
+
+            <p>
+              Get more features and grow
+              faster.
+            </p>
+
+            <button type="button">
+              Upgrade
+            </button>
+          </div>
+
+        </div>
+
+      </aside>
+
+      <main className="cp-main">
+
+        <header className="cp-topbar">
+
+          <div className="cp-topbar-title">
+
+            <div className="cp-page-icon">
+              <Send />
+            </div>
+
+            <div>
+              <h1>
+                Create Post
+              </h1>
+
+              <p>
+                SocialPilot Campaign Manager
+              </p>
+            </div>
+
+          </div>
+
+          <div className="cp-top-actions">
+
+            <button
+              type="button"
+              className="cp-clear-button"
+              onClick={handleClear}
+            >
+              <Trash2 />
+
+              Clear
+            </button>
+
+            <div className="cp-profile">
+
+              <div className="cp-avatar">
+                A
+              </div>
+
+              <div>
+                <strong>
+                  anika_123
+                </strong>
+
+                <small>
+                  Team Member
+                </small>
+              </div>
+
+            </div>
+
+          </div>
+
+        </header>
+
+        {successMessage && (
+          <div className="cp-message-wrapper">
+
+            <div
+              className={
+                successMessage.includes(
+                  "Please"
+                )
+                  ? "cp-message error"
+                  : "cp-message success"
+              }
+            >
+              {successMessage}
+            </div>
+
+          </div>
+        )}
+
+        <div className="cp-content">
+
+          <div className="cp-heading">
+
+            <div>
+              <h2>
+                Create, preview and schedule
+                your social media post
+              </h2>
+
+              <p>
+                Publish your content across
+                connected social media
+                platforms.
+              </p>
+            </div>
+
+            <div className="cp-heading-status">
+              <span className="cp-status-dot" />
+              Ready to publish
+            </div>
+
+          </div>
+
+          <div className="cp-layout">
+
+            <div className="cp-left-column">
+
+              <section className="cp-card">
+
+                <div className="cp-card-header">
+                  <div>
+                    <h3>
+                      Select Platforms
+                    </h3>
+
+                    <p>
+                      Choose where you want to
+                      publish this post.
+                    </p>
+                  </div>
+
+                  <span className="cp-header-number">
+                    {selectedPlatforms.length}
+                  </span>
+                </div>
+
+                <div className="cp-card-body">
+
+                  <div className="cp-platform-grid">
+
+                    {platforms.map(
+                      (platform) => {
+                        const Icon =
+                          platform.icon;
+
+                        const selected =
+                          selectedPlatforms.includes(
+                            platform.name
+                          );
+
+                        return (
+                          <button
+                            key={platform.name}
+                            type="button"
+                            onClick={() =>
+                              togglePlatform(
+                                platform.name
+                              )
+                            }
+                            className={
+                              selected
+                                ? "cp-platform selected"
+                                : "cp-platform"
+                            }
+                          >
+                            <div
+                              className={`cp-platform-icon ${platform.color}`}
+                            >
+                              <Icon />
+                            </div>
+
+                            <div className="cp-platform-name">
+                              {
+                                platform.name
+                              }
+                            </div>
+
+                            {selected && (
+                              <div className="cp-check">
+                                <Check />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      }
+                    )}
+
+                  </div>
+
+                </div>
+
+              </section>
+
+              <section className="cp-card">
+
+                <div className="cp-card-header">
+                  <div>
+                    <h3>
+                      Compose Post
+                    </h3>
+
+                    <p>
+                      Write your content and
+                      add media.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="cp-card-body">
+
+                  <div className="cp-field">
+
+                    <label>
+                      Post Title
+                    </label>
+
+                    <input
+                      type="text"
+                      value={postTitle}
+                      onChange={(event) =>
+                        setPostTitle(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter post title"
+                    />
+
+                  </div>
+
+                  <div className="cp-field">
+
+                    <label>
+                      Post Content
+                    </label>
+
+                    <div className="cp-textarea-wrapper">
+
+                      <textarea
+                        value={content}
+                        onChange={
+                          handleContentChange
+                        }
+                        rows={8}
+                        placeholder="What do you want to share?"
+                      />
+
+                      <div className="cp-textarea-footer">
+
+                        <div className="cp-editor-tools">
+
+                          <button
+                            type="button"
+                            onClick={addEmoji}
+                            title="Add emoji"
+                          >
+                            <Smile />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              fileInputRef.current?.click()
+                            }
+                            title="Attach media"
+                          >
+                            <Paperclip />
+                          </button>
+
+                        </div>
+
+                        <span
+                          className={
+                            charactersLeft <
+                            20
+                              ? "cp-counter danger"
+                              : "cp-counter"
+                          }
+                        >
+                          {charactersLeft}{" "}
+                          characters left
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <div className="cp-field">
+
+                    <div className="cp-media-title">
+
+                      <label>
+                        Images and Videos
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          fileInputRef.current?.click()
+                        }
+                      >
+                        <Upload />
+                        Upload
+                      </button>
+
+                    </div>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      onChange={
+                        handleFileChange
+                      }
+                      className="cp-hidden-input"
+                    />
+
+                    {media.length === 0 ? (
+                      <button
+                        type="button"
+                        className="cp-upload-box"
+                        onClick={() =>
+                          fileInputRef.current?.click()
+                        }
+                        onDragOver={(event) =>
+                          event.preventDefault()
+                        }
+                        onDrop={handleDrop}
+                      >
+                        <div className="cp-upload-icon">
+                          <Upload />
+                        </div>
+
+                        <strong>
+                          Drag & drop or click
+                          to upload
+                        </strong>
+
+                        <span>
+                          PNG, JPG, GIF, MP4
+                          supported
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="cp-media-grid">
+
+                        {media.map(
+                          (file, index) => (
+                            <div
+                              key={`${file.name}-${index}`}
+                              className="cp-media-item"
+                            >
+
+                              {file.type.startsWith(
+                                "video/"
+                              ) ? (
+                                <video
+                                  src={file.url}
+                                  controls
+                                />
+                              ) : (
+                                <img
+                                  src={file.url}
+                                  alt={file.name}
+                                />
+                              )}
+
+                              <button
+                                type="button"
+                                className="cp-remove-media"
+                                onClick={() =>
+                                  removeMedia(
+                                    index
+                                  )
+                                }
+                              >
+                                <X />
+                              </button>
+
+                              <div className="cp-media-name">
+                                {file.name}
+                              </div>
+
+                            </div>
+                          )
+                        )}
+
+                      </div>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </section>
+
+              <section className="cp-card">
+
+                <div className="cp-card-header">
+                  <div>
+                    <h3>
+                      Schedule & Campaign
+                    </h3>
+
+                    <p>
+                      Choose when and under
+                      which campaign to publish.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="cp-card-body">
+
+                  <div className="cp-schedule-grid">
+
+                    <div className="cp-field">
+
+                      <label>
+                        Date
+                      </label>
+
+                      <div className="cp-input-icon">
+
+                        <Calendar />
+
+                        <input
+                          type="date"
+                          value={scheduleDate}
+                          onChange={(event) =>
+                            setScheduleDate(
+                              event.target.value
+                            )
+                          }
+                        />
+
+                      </div>
+
+                    </div>
+
+                    <div className="cp-field">
+
+                      <label>
+                        Time
+                      </label>
+
+                      <div className="cp-input-icon">
+
+                        <Clock />
+
+                        <input
+                          type="time"
+                          value={scheduleTime}
+                          onChange={(event) =>
+                            setScheduleTime(
+                              event.target.value
+                            )
+                          }
+                        />
+
+                      </div>
+
+                    </div>
+
+                    <div className="cp-field cp-full">
+
+                      <label>
+                        Campaign
+                      </label>
+
+                      <select
+                        value={campaign}
+                        onChange={(event) =>
+                          setCampaign(
+                            event.target.value
+                          )
+                        }
+                      >
+                        <option>
+                          No Campaign
+                        </option>
+
+                        <option>
+                          Product Launch Q3
+                        </option>
+
+                        <option>
+                          Brand Awareness
+                        </option>
+
+                        <option>
+                          Social Proof
+                        </option>
+
+                        <option>
+                          Brand Campaign
+                        </option>
+                      </select>
+
+                    </div>
+
+                  </div>
+
+                  <label className="cp-draft-option">
+
+                    <input
+                      type="checkbox"
+                      checked={saveAsDraft}
+                      onChange={(event) =>
+                        setSaveAsDraft(
+                          event.target.checked
+                        )
+                      }
+                    />
+
+                    <span>
+                      Save as draft
+                    </span>
+
+                  </label>
+
+                </div>
+
+              </section>
+
+            </div>
+
+            <div className="cp-right-column">
+
+              <section className="cp-preview-card">
+
+                <div className="cp-preview-header">
+
+                  <div>
+                    <h3>
+                      Post Preview
+                    </h3>
+
+                    <p>
+                      Preview how your post
+                      will look.
+                    </p>
+                  </div>
+
+                  <span>
+                    {selectedPlatforms.length}{" "}
+                    platform
+                    {selectedPlatforms.length !==
+                    1
+                      ? "s"
+                      : ""}
+                  </span>
+
+                </div>
+
+                <div className="cp-preview-body">
+
+                  <div className="cp-preview-profile">
+
+                    <div className="cp-preview-avatar">
+                      A
+                    </div>
+
+                    <div>
+                      <strong>
+                        anika_123
+                      </strong>
+
+                      <small>
+                        Just now
+                      </small>
+                    </div>
+
+                  </div>
+
+                  {postTitle && (
+                    <h4 className="cp-preview-title">
+                      {postTitle}
+                    </h4>
+                  )}
+
+                  <p className="cp-preview-content">
+                    {content ||
+                      "Your post content will appear here..."}
+                  </p>
+
+                  {media.length > 0 && (
+                    <div className="cp-preview-media">
+
+                      {media[0].type.startsWith(
+                        "video/"
+                      ) ? (
+                        <video
+                          src={media[0].url}
+                          controls
+                        />
+                      ) : (
+                        <img
+                          src={media[0].url}
+                          alt={media[0].name}
+                        />
+                      )}
+
+                      {media.length > 1 && (
+                        <div className="cp-media-count">
+                          +{media.length - 1}
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+
+                  <div className="cp-preview-actions">
+
+                    <span>
+                      ♡ Like
+                    </span>
+
+                    <span>
+                      ◯ Comment
+                    </span>
+
+                    <span>
+                      ⌯ Share
+                    </span>
+
+                  </div>
+
+                </div>
+
+              </section>
+
+              <section className="cp-summary-card">
+
+                <div className="cp-summary-header">
+                  <h3>
+                    Publishing Summary
+                  </h3>
+                </div>
+
+                <div className="cp-summary-list">
+
+                  <div>
+                    <span>
+                      Platforms
+                    </span>
+
+                    <strong>
+                      {selectedPlatforms.join(
+                        ", "
+                      )}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Content
+                    </span>
+
+                    <strong>
+                      {content.length} /{" "}
+                      {MAX_CHARACTERS}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Media
+                    </span>
+
+                    <strong>
+                      {media.length} file
+                      {media.length !== 1
+                        ? "s"
+                        : ""}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Campaign
+                    </span>
+
+                    <strong>
+                      {campaign}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Publishing
+                    </span>
+
+                    <strong>
+                      {scheduleDate &&
+                      scheduleTime
+                        ? "Scheduled"
+                        : saveAsDraft
+                        ? "Draft"
+                        : "Publish now"}
+                    </strong>
+                  </div>
+
+                </div>
+
+              </section>
+
+              <section className="cp-tip-card">
+
+                <div className="cp-tip-icon">
+                  💡
+                </div>
+
+                <div>
+                  <strong>
+                    Publishing tip
+                  </strong>
+
+                  <p>
+                    Add an image or video to
+                    make your post more
+                    engaging across social
+                    platforms.
+                  </p>
+                </div>
+
+              </section>
+
+              <div className="cp-action-buttons">
+
+                <button
+                  type="button"
+                  className="cp-draft-button"
+                  onClick={
+                    handleSaveDraft
+                  }
+                >
+                  Save Draft
+                </button>
+
+                <button
+                  type="button"
+                  className="cp-publish-button"
+                  onClick={
+                    handlePublish
+                  }
+                >
+                  <Send />
+                  {scheduleDate &&
+                  scheduleTime
+                    ? "Schedule Post"
+                    : "Publish Post"}
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <style>{`
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+          }
+
+          button,
+          input,
+          textarea,
+          select {
+            font-family: inherit;
+          }
+
+          button {
+            cursor: pointer;
+          }
+
+          .cp-page {
+            min-height: 100vh;
+            background:
+              linear-gradient(
+                135deg,
+                #eff6ff 0%,
+                #f8fbff 48%,
+                #ecfeff 100%
+              );
+            color: #172033;
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
+          }
+
+          .cp-sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 250px;
+            background: #ffffff;
+            border-right: 1px solid #dbe5f0;
+            display: flex;
+            flex-direction: column;
+            z-index: 20;
+          }
+
+          .cp-brand {
+            height: 82px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #e7eef7;
+          }
+
+          .cp-brand-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background:
+              linear-gradient(
+                135deg,
+                #2563eb,
+                #06b6d4
+              );
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 900;
+            box-shadow:
+              0 7px 18px
+              rgba(37, 99, 235, 0.22);
+          }
+
+          .cp-brand-name {
+            font-size: 17px;
+            font-weight: 800;
+            color: #172033;
+          }
+
+          .cp-brand-subtitle {
+            margin-top: 2px;
+            font-size: 11px;
+            color: #64748b;
+          }
+
+          .cp-menu-title {
+            padding: 24px 20px 10px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            color: #94a3b8;
+          }
+
+          .cp-sidebar-menu {
+            padding: 0 12px;
+          }
+
+          .cp-sidebar-item {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: left;
+            transition: 0.2s ease;
+          }
+
+          .cp-sidebar-item:hover {
+            background: #eff6ff;
+            color: #2563eb;
+          }
+
+          .cp-sidebar-item.active {
+            background:
+              linear-gradient(
+                90deg,
+                #dbeafe,
+                #eff6ff
+              );
+            color: #1d4ed8;
+            box-shadow:
+              inset 3px 0 0 #2563eb;
+          }
+
+          .cp-side-icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+          }
+
+          .cp-sidebar-bottom {
+            margin-top: auto;
+            padding: 16px;
+          }
+
+          .cp-upgrade-box {
+            padding: 17px;
+            border-radius: 14px;
+            background:
+              linear-gradient(
+                135deg,
+                #eff6ff,
+                #ecfeff
+              );
+            border: 1px solid #dbeafe;
+          }
+
+          .cp-upgrade-box strong {
+            color: #1e3a8a;
+            font-size: 13px;
+          }
+
+          .cp-upgrade-box p {
+            margin: 6px 0 12px;
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.5;
+          }
+
+          .cp-upgrade-box button {
+            width: 100%;
+            border: 0;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #ffffff;
+            padding: 9px;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .cp-main {
+            min-height: 100vh;
+            margin-left: 250px;
+          }
+
+          .cp-topbar {
+            min-height: 82px;
+            padding: 16px 28px;
+            background: #ffffff;
+            border-bottom: 1px solid #dbe5f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+          }
+
+          .cp-topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .cp-page-icon {
+            width: 43px;
+            height: 43px;
+            border-radius: 11px;
+            background: #eff6ff;
+            color: #2563eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .cp-page-icon svg {
+            width: 21px;
+            height: 21px;
+          }
+
+          .cp-topbar-title h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 800;
+            color: #111827;
+          }
+
+          .cp-topbar-title p {
+            margin: 3px 0 0;
+            color: #64748b;
+            font-size: 11px;
+          }
+
+          .cp-top-actions {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+          }
+
+          .cp-clear-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            border: 1px solid #dbe3ee;
+            background: #ffffff;
+            color: #475569;
+            border-radius: 9px;
+            padding: 9px 13px;
+            font-size: 12px;
+            font-weight: 700;
+          }
+
+          .cp-clear-button:hover {
+            background: #fff1f2;
+            color: #dc2626;
+            border-color: #fecdd3;
+          }
+
+          .cp-clear-button svg {
+            width: 15px;
+            height: 15px;
+          }
+
+          .cp-profile {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+          }
+
+          .cp-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background:
+              linear-gradient(
+                135deg,
+                #2563eb,
+                #06b6d4
+              );
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+          }
+
+          .cp-profile strong,
+          .cp-profile small {
+            display: block;
+          }
+
+          .cp-profile strong {
+            font-size: 12px;
+            color: #334155;
+          }
+
+          .cp-profile small {
+            margin-top: 2px;
+            color: #94a3b8;
+            font-size: 10px;
+          }
+
+          .cp-message-wrapper {
+            max-width: 1250px;
+            margin: 0 auto;
+            padding: 18px 28px 0;
+          }
+
+          .cp-message {
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 12px;
+            font-weight: 700;
+          }
+
+          .cp-message.success {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+          }
+
+          .cp-message.error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+          }
+
+          .cp-content {
+            max-width: 1250px;
+            margin: 0 auto;
+            padding: 28px;
+          }
+
+          .cp-heading {
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+          }
+
+          .cp-heading h2 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 24px;
+            font-weight: 800;
+          }
+
+          .cp-heading p {
+            margin: 6px 0 0;
+            color: #64748b;
+            font-size: 13px;
+          }
+
+          .cp-heading-status {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            color: #047857;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .cp-status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+          }
+
+          .cp-layout {
+            display: grid;
+            grid-template-columns:
+              minmax(0, 1.35fr)
+              minmax(330px, 0.65fr);
+            gap: 22px;
+            align-items: start;
+          }
+
+          .cp-left-column,
+          .cp-right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+          }
+
+          .cp-card,
+          .cp-preview-card,
+          .cp-summary-card,
+          .cp-tip-card {
+            background: #ffffff;
+            border: 1px solid #dbe5f0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow:
+              0 7px 22px
+              rgba(15, 23, 42, 0.055);
+          }
+
+          .cp-card-header,
+          .cp-preview-header,
+          .cp-summary-header {
+            padding: 17px 19px;
+            border-bottom: 1px solid #e5edf6;
+            background:
+              linear-gradient(
+                90deg,
+                #f8fbff,
+                #ffffff
+              );
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+          }
+
+          .cp-card-header h3,
+          .cp-preview-header h3,
+          .cp-summary-header h3 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 16px;
+            font-weight: 800;
+          }
+
+          .cp-card-header p,
+          .cp-preview-header p {
+            margin: 4px 0 0;
+            color: #64748b;
+            font-size: 11px;
+          }
+
+          .cp-header-number {
+            min-width: 29px;
+            height: 29px;
+            border-radius: 50%;
+            background: #dbeafe;
+            color: #1d4ed8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .cp-card-body {
+            padding: 19px;
+          }
+
+          .cp-platform-grid {
+            display: grid;
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+            gap: 11px;
+          }
+
+          .cp-platform {
+            position: relative;
+            min-height: 88px;
+            border: 1px solid #dbe3ed;
+            border-radius: 12px;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px;
+            text-align: left;
+            transition: 0.2s ease;
+          }
+
+          .cp-platform:hover {
+            border-color: #93c5fd;
+            background: #f8fbff;
+          }
+
+          .cp-platform.selected {
+            border-color: #60a5fa;
+            background: #eff6ff;
+            box-shadow:
+              0 5px 15px
+              rgba(37, 99, 235, 0.08);
+          }
+
+          .cp-platform-icon {
+            width: 39px;
+            height: 39px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+          }
+
+          .cp-platform-icon svg {
+            width: 19px;
+            height: 19px;
+          }
+
+          .cp-platform-icon.facebook {
+            color: #2563eb;
+            background: #dbeafe;
+          }
+
+          .cp-platform-icon.instagram {
+            color: #db2777;
+            background: #fce7f3;
+          }
+
+          .cp-platform-icon.linkedin {
+            color: #0a66c2;
+            background: #dbeafe;
+          }
+
+          .cp-platform-name {
+            color: #334155;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .cp-check {
+            position: absolute;
+            right: 9px;
+            top: 9px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2563eb;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .cp-check svg {
+            width: 12px;
+            height: 12px;
+          }
+
+          .cp-field {
+            margin-bottom: 17px;
+          }
+
+          .cp-field:last-child {
+            margin-bottom: 0;
+          }
+
+          .cp-field label {
+            display: block;
+            margin-bottom: 7px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 800;
+          }
+
+          .cp-field input,
+          .cp-field select {
+            width: 100%;
+            height: 43px;
+            border: 1px solid #d5dee9;
+            border-radius: 9px;
+            background: #ffffff;
+            padding: 0 12px;
+            color: #334155;
+            font-size: 12px;
+            outline: none;
+          }
+
+          .cp-field input:focus,
+          .cp-field select:focus {
+            border-color: #3b82f6;
+            box-shadow:
+              0 0 0 3px
+              rgba(59, 130, 246, 0.1);
+          }
+
+          .cp-textarea-wrapper {
+            overflow: hidden;
+            border: 1px solid #d5dee9;
+            border-radius: 10px;
+            background: #ffffff;
+          }
+
+          .cp-textarea-wrapper:focus-within {
+            border-color: #3b82f6;
+            box-shadow:
+              0 0 0 3px
+              rgba(59, 130, 246, 0.1);
+          }
+
+          .cp-textarea-wrapper textarea {
+            width: 100%;
+            min-height: 175px;
+            resize: vertical;
+            border: 0;
+            outline: 0;
+            padding: 13px;
+            color: #334155;
+            font-size: 12px;
+            line-height: 1.6;
+          }
+
+          .cp-textarea-wrapper textarea::placeholder {
+            color: #94a3b8;
+          }
+
+          .cp-textarea-footer {
+            min-height: 43px;
+            padding: 5px 8px;
+            border-top: 1px solid #e5edf6;
+            background: #f8fbff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+
+          .cp-editor-tools {
+            display: flex;
+            gap: 2px;
+          }
+
+          .cp-editor-tools button {
+            width: 31px;
+            height: 31px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: #2563eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .cp-editor-tools button:hover {
+            background: #ffffff;
+          }
+
+          .cp-editor-tools svg {
+            width: 17px;
+            height: 17px;
+          }
+
+          .cp-counter {
+            color: #2563eb;
+            font-size: 10px;
+            font-weight: 700;
+          }
+
+          .cp-counter.danger {
+            color: #dc2626;
+          }
+
+          .cp-media-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+          }
+
+          .cp-media-title label {
+            margin: 0;
+          }
+
+          .cp-media-title button {
+            border: 0;
+            background: transparent;
+            color: #2563eb;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            font-size: 11px;
+            font-weight: 800;
+          }
+
+          .cp-media-title svg {
+            width: 14px;
+            height: 14px;
+          }
+
+          .cp-hidden-input {
+            display: none !important;
+          }
+
+          .cp-upload-box {
+            width: 100%;
+            min-height: 165px;
+            border: 2px dashed #93c5fd;
+            border-radius: 12px;
+            background:
+              linear-gradient(
+                135deg,
+                #eff6ff,
+                #ecfeff
+              );
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+          }
+
+          .cp-upload-box:hover {
+            border-color: #2563eb;
+            background: #eff6ff;
+          }
+
+          .cp-upload-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            background: #2563eb;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow:
+              0 8px 18px
+              rgba(37, 99, 235, 0.2);
+          }
+
+          .cp-upload-icon svg {
+            width: 23px;
+            height: 23px;
+          }
+
+          .cp-upload-box strong {
+            font-size: 12px;
+          }
+
+          .cp-upload-box span {
+            margin-top: 5px;
+            color: #94a3b8;
+            font-size: 10px;
+          }
+
+          .cp-media-grid {
+            display: grid;
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
+            gap: 9px;
+          }
+
+          .cp-media-item {
+            position: relative;
+            overflow: hidden;
+            min-height: 120px;
+            border: 1px solid #dbeafe;
+            border-radius: 10px;
+            background: #eff6ff;
+          }
+
+          .cp-media-item img,
+          .cp-media-item video {
+            display: block;
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+          }
+
+          .cp-remove-media {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 25px;
+            height: 25px;
+            border: 0;
+            border-radius: 50%;
+            background: #dc2626;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .cp-remove-media svg {
+            width: 13px;
+            height: 13px;
+          }
+
+          .cp-media-name {
+            overflow: hidden;
+            padding: 6px 7px;
+            color: #475569;
+            font-size: 9px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .cp-schedule-grid {
+            display: grid;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap: 15px;
+          }
+
+          .cp-full {
+            grid-column: 1 / -1;
+          }
+
+          .cp-input-icon {
+            position: relative;
+          }
+
+          .cp-input-icon svg {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            width: 15px;
+            height: 15px;
+            transform: translateY(-50%);
+            color: #2563eb;
+            pointer-events: none;
+          }
+
+          .cp-input-icon input {
+            padding-left: 36px;
+          }
+
+          .cp-draft-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 700;
+          }
+
+          .cp-draft-option input {
+            width: 15px;
+            height: 15px;
+            accent-color: #2563eb;
+          }
+
+          .cp-preview-header > span {
+            padding: 5px 9px;
+            border-radius: 15px;
+            background: #eef6ff;
+          color: #2563eb;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .cp-preview-body {
+          padding: 20px;
+        }
+
+        .cp-preview-title {
+          margin: 0 0 10px;
+          color: #0f172a;
+          font-size: 18px;
+          font-weight: 800;
+        }
+
+        .cp-preview-content {
+          min-height: 100px;
+          color: #475569;
+          font-size: 14px;
+          line-height: 1.7;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+
+        .cp-preview-empty {
+          color: #94a3b8;
+          font-size: 14px;
+          font-style: italic;
+        }
+
+        .cp-preview-media {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          margin-top: 18px;
+        }
+
+        .cp-preview-media-item {
+          position: relative;
+          overflow: hidden;
+          min-height: 140px;
+          border: 1px solid #dbeafe;
+          border-radius: 14px;
+          background: #f8fafc;
+        }
+
+        .cp-preview-media-item img,
+        .cp-preview-media-item video {
+          display: block;
+          width: 100%;
+          height: 180px;
+          object-fit: cover;
+        }
+
+        .cp-preview-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 15px 18px;
+          border-top: 1px solid #e2e8f0;
+          background: #f8fafc;
+        }
+
+        .cp-preview-footer-text {
+          color: #64748b;
+          font-size: 12px;
+        }
+
+        .cp-preview-platforms {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .cp-platform-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 9px;
+          border-radius: 999px;
+          background: #eff6ff;
+          color: #2563eb;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .cp-platform-badge.instagram {
+          background: #fdf2f8;
+          color: #db2777;
+        }
+
+        .cp-platform-badge.facebook {
+          background: #eff6ff;
+          color: #2563eb;
+        }
+
+        .cp-platform-badge.linkedin {
+          background: #eef2ff;
+          color: #1d4ed8;
+        }
+
+        .cp-action-buttons {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 20px;
+        }
+
+        .cp-action-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          min-height: 46px;
+          padding: 12px 18px;
+          border: 0;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            background 0.2s ease;
+        }
+
+        .cp-action-button:hover {
+          transform: translateY(-1px);
+        }
+
+        .cp-action-primary {
+          background: linear-gradient(
+            135deg,
+            #2563eb,
+            #06b6d4
+          );
+          color: #ffffff;
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+        }
+
+        .cp-action-primary:hover {
+          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.3);
+        }
+
+        .cp-action-secondary {
+          border: 1px solid #bfdbfe;
+          background: #ffffff;
+          color: #2563eb;
+        }
+
+        .cp-action-secondary:hover {
+          background: #eff6ff;
+        }
+
+        .cp-action-draft {
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          color: #475569;
+        }
+
+        .cp-action-draft:hover {
+          background: #f1f5f9;
+        }
+
+        .cp-success {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 18px;
+          padding: 12px 15px;
+          border: 1px solid #bfdbfe;
+          border-radius: 12px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .cp-success.error {
+          border-color: #fecaca;
+          background: #fef2f2;
+          color: #dc2626;
+        }
+
+        .cp-schedule-summary {
+          margin-top: 16px;
+          padding: 13px 15px;
+          border: 1px solid #dbeafe;
+          border-radius: 12px;
+          background: #f8fbff;
+        }
+
+        .cp-schedule-summary strong {
+          display: block;
+          margin-bottom: 4px;
+          color: #334155;
+          font-size: 13px;
+        }
+
+        .cp-schedule-summary span {
+          color: #64748b;
+          font-size: 12px;
+        }
+
+        .cp-footer {
+          padding: 15px 18px;
+          color: #64748b;
+          font-size: 12px;
+          text-align: center;
+        }
+
+        @media (max-width: 1100px) {
+          .cp-layout {
+            grid-template-columns: 1fr;
+          }
+
+          .cp-preview {
+            position: static;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .cp-page {
+            padding: 14px;
+          }
+
+          .cp-header {
+            padding: 18px;
+          }
+
+          .cp-header-content {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .cp-grid-2,
+          .cp-grid-3,
+          .cp-media-grid,
+          .cp-action-buttons {
+            grid-template-columns: 1fr;
+          }
+
+          .cp-preview-media {
+            grid-template-columns: 1fr;
+          }
+
+          .cp-card-header {
+            padding: 14px 16px;
+          }
+
+          .cp-card-body {
+            padding: 16px;
+          }
+
+          .cp-title {
+            font-size: 24px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .cp-header-title {
+            font-size: 20px;
+          }
+
+          .cp-header-subtitle {
+            font-size: 12px;
+          }
+
+          .cp-preview-media-item img,
+          .cp-preview-media-item video {
+            height: 150px;
+          }
+        }
+      `}</style>
+      </main>
     </div>
   );
-}
+};
+

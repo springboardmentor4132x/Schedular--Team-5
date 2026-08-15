@@ -11,6 +11,8 @@ import {
   Search,
 } from "lucide-react";
 
+type Status = "scheduled" | "published" | "draft" | "failed";
+
 type Notification = {
   id: number;
   title: string;
@@ -113,13 +115,7 @@ export function NotificationHistoryPage() {
     let matchesDate = true;
 
     if (dateFilter !== "All") {
-      if (dateFilter === "Aug 9, 2026") {
-        matchesDate = notification.date === "Aug 9, 2026";
-      } else if (dateFilter === "Aug 8, 2026") {
-        matchesDate = notification.date === "Aug 8, 2026";
-      } else if (dateFilter === "Aug 7, 2026") {
-        matchesDate = notification.date === "Aug 7, 2026";
-      }
+      matchesDate = notification.date === dateFilter;
     }
 
     return (
@@ -173,252 +169,578 @@ export function NotificationHistoryPage() {
   const getIconStyle = (type: Notification["type"]) => {
     switch (type) {
       case "success":
-        return "bg-green-100 text-green-600";
+        return "bg-green-50 text-green-600";
 
       case "schedule":
-        return "bg-blue-100 text-blue-600";
+        return "bg-blue-50 text-blue-600";
 
       case "analytics":
-        return "bg-purple-100 text-purple-600";
+        return "bg-indigo-50 text-indigo-600";
 
       case "warning":
-        return "bg-red-100 text-red-600";
+        return "bg-red-50 text-red-600";
 
       default:
-        return "bg-gray-100 text-gray-600";
+        return "bg-slate-100 text-slate-600";
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        color: "#1e293b",
+        padding: "24px",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1400px",
+          margin: "0 auto",
+        }}
+      >
+        {/* =========================
+            HEADER
+        ========================= */}
 
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-blue-600 p-3 text-white">
-            <Bell size={24} />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Notification History
-            </h1>
-
-            <p className="text-sm text-gray-500">
-              View and manage your previous notifications
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={clearHistory}
-          disabled={notifications.length === 0}
-          className="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+            marginBottom: "22px",
+          }}
         >
-          <Trash2 size={17} />
-          Clear History
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-
-        <div className="relative mb-4 w-full md:max-w-md">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-
-          <input
-            type="text"
-            placeholder="Search notifications..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-
-          {/* Status */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600"
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
           >
-            <option value="All">All Status</option>
-            <option value="Read">Read</option>
-            <option value="Unread">Unread</option>
-          </select>
-
-          {/* Category */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600"
-          >
-            <option value="All">All Categories</option>
-            <option value="Publishing">Publishing</option>
-            <option value="Campaigns">Campaigns</option>
-            <option value="Account Activity">Account Activity</option>
-            <option value="System">System</option>
-          </select>
-
-          {/* Date */}
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600"
-          >
-            <option value="All">All Dates</option>
-            <option value="Aug 9, 2026">Aug 9, 2026</option>
-            <option value="Aug 8, 2026">Aug 8, 2026</option>
-            <option value="Aug 7, 2026">Aug 7, 2026</option>
-          </select>
-
-          {/* Delivery Method */}
-          <select
-            value={deliveryFilter}
-            onChange={(e) => setDeliveryFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600"
-          >
-            <option value="All">All Delivery Methods</option>
-            <option value="In-App">In-App</option>
-            <option value="Email">Email</option>
-          </select>
-
-        </div>
-      </div>
-
-      {/* History List */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-
-        <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">
-            Notification History
-          </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            {filteredNotifications.length} notification
-            {filteredNotifications.length !== 1 ? "s" : ""} found
-          </p>
-        </div>
-
-        {filteredNotifications.length > 0 ? (
-          <div>
-
-            {filteredNotifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`flex items-start gap-4 border-b border-gray-100 p-5 hover:bg-gray-50 ${
-                  !notification.read ? "bg-blue-50/40" : ""
-                }`}
-              >
-
-                {/* Icon */}
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${getIconStyle(
-                    notification.type
-                  )}`}
-                >
-                  {getIcon(notification.type)}
-                </div>
-
-                {/* Details */}
-                <div className="min-w-0 flex-1">
-
-                  <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
-
-                    <div>
-                      <h3
-                        className={`text-sm ${
-                          notification.read
-                            ? "font-semibold text-gray-700"
-                            : "font-bold text-gray-900"
-                        }`}
-                      >
-                        {notification.title}
-                      </h3>
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        {notification.message}
-                      </p>
-                    </div>
-
-                    {!notification.read && (
-                      <span className="flex items-center gap-1 text-xs font-medium text-blue-600">
-                        <span className="h-2 w-2 rounded-full bg-blue-600" />
-                        Unread
-                      </span>
-                    )}
-
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400">
-                    <span>{notification.date}</span>
-                    <span>•</span>
-                    <span>{notification.time}</span>
-                    <span>•</span>
-                    <span className="font-medium text-gray-500">
-                      {notification.category}
-                    </span>
-                    <span>•</span>
-                    <span className="font-medium text-gray-500">
-                      {notification.deliveryMethod}
-                    </span>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="mt-3 flex gap-4">
-
-                    {!notification.read && (
-                      <button
-                        onClick={() => markAsRead(notification.id)}
-                        className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
-                      >
-                        <Check size={14} />
-                        Mark as read
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => deleteNotification(notification.id)}
-                      className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-
-                  </div>
-
-                </div>
-              </div>
-            ))}
-
-          </div>
-        ) : (
-
-          /* Empty State */
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-
-            <div className="mb-4 rounded-full bg-gray-100 p-5">
-              <Bell size={32} className="text-gray-400" />
+            <div
+              style={{
+                width: "46px",
+                height: "46px",
+                borderRadius: "12px",
+                background: "#2563eb",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(37,99,235,0.18)",
+              }}
+            >
+              <Bell size={24} />
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-800">
-              No notifications found
-            </h3>
+            <div>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "28px",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                }}
+              >
+                Notification History
+              </h1>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Try changing your search or filter.
-            </p>
-
+              <p
+                style={{
+                  margin: "5px 0 0",
+                  color: "#64748b",
+                  fontSize: "13px",
+                }}
+              >
+                View and manage your previous notifications.
+              </p>
+            </div>
           </div>
-        )}
 
+          <button
+            type="button"
+            onClick={clearHistory}
+            disabled={notifications.length === 0}
+            style={{
+              border: "none",
+              background:
+                notifications.length === 0 ? "#cbd5e1" : "#2563eb",
+              color: "#ffffff",
+              borderRadius: "9px",
+              padding: "11px 18px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor:
+                notifications.length === 0 ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              boxShadow:
+                notifications.length === 0
+                  ? "none"
+                  : "0 4px 10px rgba(37,99,235,0.15)",
+            }}
+          >
+            <Trash2 size={17} />
+            Clear History
+          </button>
+        </div>
+
+        {/* =========================
+            SEARCH + FILTER CARD
+        ========================= */}
+
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            padding: "16px",
+            marginBottom: "16px",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: "520px",
+              marginBottom: "14px",
+            }}
+          >
+            <Search
+              size={18}
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#94a3b8",
+              }}
+            />
+
+            <input
+              type="text"
+              placeholder="Search notifications..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: "100%",
+                height: "42px",
+                border: "1px solid #dbeafe",
+                borderRadius: "9px",
+                background: "#f8fafc",
+                padding: "0 14px 0 40px",
+                outline: "none",
+                color: "#1e293b",
+                fontSize: "13px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "9px",
+            }}
+          >
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Status</option>
+              <option value="Read">Read</option>
+              <option value="Unread">Unread</option>
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Categories</option>
+              <option value="Publishing">Publishing</option>
+              <option value="Campaigns">Campaigns</option>
+              <option value="Account Activity">
+                Account Activity
+              </option>
+              <option value="System">System</option>
+            </select>
+
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Dates</option>
+              <option value="Aug 9, 2026">Aug 9, 2026</option>
+              <option value="Aug 8, 2026">Aug 8, 2026</option>
+              <option value="Aug 7, 2026">Aug 7, 2026</option>
+            </select>
+
+            <select
+              value={deliveryFilter}
+              onChange={(e) => setDeliveryFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Delivery Methods</option>
+              <option value="In-App">In-App</option>
+              <option value="Email">Email</option>
+            </select>
+          </div>
+        </div>
+
+      {/* =========================
+            HISTORY CARD
+        ========================= */}
+
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            overflow: "hidden",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+          }}
+        >
+          <div
+            style={{
+              padding: "18px 20px",
+              borderBottom: "1px solid #e2e8f0",
+              background: "#ffffff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "9px",
+              }}
+            >
+              <Bell size={19} color="#2563eb" />
+
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "17px",
+                  fontWeight: 800,
+                  color: "#1e293b",
+                }}
+              >
+                Notification History
+              </h2>
+            </div>
+
+            <p
+              style={{
+                margin: "5px 0 0 28px",
+                fontSize: "12px",
+                color: "#64748b",
+              }}
+            >
+              {filteredNotifications.length} notification
+              {filteredNotifications.length !== 1 ? "s" : ""} found
+            </p>
+          </div>
+
+          {filteredNotifications.length > 0 ? (
+            <div>
+              {filteredNotifications.map((notification, index) => (
+                <div
+                  key={notification.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "14px",
+                    padding: "18px 20px",
+                    borderBottom:
+                      index !== filteredNotifications.length - 1
+                        ? "1px solid #edf2f7"
+                        : "none",
+                    background: notification.read
+                      ? "#ffffff"
+                      : "#eff6ff",
+                    transition: "background 0.2s ease",
+                  }}
+                >
+                  {/* ICON */}
+
+                  <div
+                    className={getIconStyle(notification.type)}
+                    style={{
+                      width: "44px",
+                      height: "44px",
+                      flexShrink: 0,
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {getIcon(notification.type)}
+                  </div>
+
+                  {/* CONTENT */}
+
+                  <div
+                    style={{
+                      minWidth: 0,
+                      flex: 1,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "12px",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <h3
+                            style={{
+                              margin: 0,
+                              fontSize: "14px",
+                              fontWeight: notification.read
+                                ? 700
+                                : 800,
+                              color: "#1e293b",
+                            }}
+                          >
+                            {notification.title}
+                          </h3>
+
+                          {!notification.read && (
+                            <span
+                              style={{
+                                width: "7px",
+                                height: "7px",
+                                borderRadius: "50%",
+                                background: "#2563eb",
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        <p
+                          style={{
+                            margin: "5px 0 0",
+                            fontSize: "13px",
+                            lineHeight: 1.5,
+                            color: "#64748b",
+                          }}
+                        >
+                          {notification.message}
+                        </p>
+                      </div>
+
+                      {!notification.read && (
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            padding: "5px 9px",
+                            borderRadius: "7px",
+                            background: "#dbeafe",
+                            color: "#2563eb",
+                            fontSize: "10px",
+                            fontWeight: 800,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              background: "#2563eb",
+                            }}
+                          />
+                          Unread
+                        </span>
+                      )}
+                    </div>
+
+                    {/* METADATA */}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "7px",
+                        marginTop: "9px",
+                        fontSize: "11px",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <span>{notification.date}</span>
+
+                      <span>•</span>
+
+                      <span>{notification.time}</span>
+
+                      <span>•</span>
+
+                      <span
+                        style={{
+                          color: "#475569",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {notification.category}
+                      </span>
+
+                      <span>•</span>
+
+                      <span
+                        style={{
+                          color: "#2563eb",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {notification.deliveryMethod}
+                      </span>
+                    </div>
+
+                    {/* ACTIONS */}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "14px",
+                        marginTop: "11px",
+                      }}
+                    >
+                      {!notification.read && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            markAsRead(notification.id)
+                          }
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            padding: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            color: "#2563eb",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Check size={14} />
+                          Mark as read
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteNotification(notification.id)
+                        }
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          color: "#ef4444",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                padding: "70px 20px",
+              }}
+            >
+              <div
+                style={{
+                  width: "68px",
+                  height: "68px",
+                  borderRadius: "18px",
+                  background: "#eff6ff",
+                  color: "#2563eb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: "15px",
+                }}
+              >
+                <Bell size={32} />
+              </div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "16px",
+                  fontWeight: 800,
+                  color: "#1e293b",
+                }}
+              >
+                No notifications found
+              </h3>
+
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: "12px",
+                  color: "#64748b",
+                }}
+              >
+                Try changing your search or filter.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+const filterStyle: React.CSSProperties = {
+  height: "38px",
+  border: "1px solid #dbeafe",
+  borderRadius: "8px",
+  background: "#ffffff",
+  color: "#475569",
+  padding: "0 11px",
+  fontSize: "12px",
+  fontWeight: 600,
+  outline: "none",
+  cursor: "pointer",
+};

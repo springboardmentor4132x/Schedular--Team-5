@@ -4,78 +4,121 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import SocialAccountsPage from "./pages/SocialAccountsPage";
+import CreatePostPage from "./pages/CreatePostPage";
+import CampaignsPage from "./pages/CampaignsPage";
+import CalendarPage from "./pages/CalendarPage";
+
+import { NotificationsPage } from "./pages/NotificationsPage";
+import { NotificationSettingsPage } from "./pages/NotificationSettingsPage";
+import { EmailPreferencesPage } from "./pages/EmailPreferencesPage";
+import { NotificationHistoryPage } from "./pages/NotificationHistoryPage";
+import { TeamActivityPage } from "./pages/TeamActivityPage";
+
+import { SettingsPage } from "./pages/SettingsPage";
+import ContentLibraryPage from "./pages/ContentLibraryPage";
 
 function App() {
-return (
-<BrowserRouter>
-<Routes>
+  return (
+    <BrowserRouter>
+      <Routes>
 
-{/* FIRST PAGE — CREATE ACCOUNT */}  
-    <Route  
-      path="/"  
-      element={<Navigate to="/register" replace />}  
-    />  
+        <Route
+          path="/"
+          element={<Navigate to="/register" replace />}
+        />
 
-    {/* CREATE ACCOUNT — DON'T CHANGE */}  
-    <Route  
-      path="/register"  
-      element={<RegisterPage />}  
-    />  
+        <Route
+          path="/register"
+          element={<RegisterPage />}
+        />
 
-    {/* LOGIN / SIGN IN — DON'T CHANGE */}  
-    <Route  
-      path="/login"  
-      element={<LoginPage />}  
-    />  
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
 
-    {/* DASHBOARD */}  
-    <Route  
-      path="/app/dashboard"  
-      element={<DashboardPage />}  
-    />  
+        {/* DASHBOARD */}
+        <Route
+          path="/app/dashboard"
+          element={<DashboardPage />}
+        />
 
-    {/* DASHBOARD SECTIONS */}  
-    <Route  
-      path="/app/social-accounts"  
-      element={<DashboardPage />}  
-    />  
+        {/* EXISTING MODULES */}
+        <Route
+          path="/app/social-accounts"
+          element={<SocialAccountsPage />}
+        />
 
-    <Route  
-      path="/app/create-post"  
-      element={<DashboardPage />}  
-    />  
+        <Route
+          path="/app/create-post"
+          element={<CreatePostPage />}
+        />
 
-    <Route  
-      path="/app/calendar"  
-      element={<DashboardPage />}  
-    />  
+        <Route
+          path="/app/content-library"
+          element={<ContentLibraryPage />}
+        />
 
-    <Route  
-      path="/app/notifications"  
-      element={<DashboardPage />}  
-    />  
+        <Route
+          path="/app/calendar"
+          element={<CalendarPage />}
+        />
 
-    <Route  
-      path="/app/campaigns"  
-      element={<DashboardPage />}  
-    />  
+        <Route
+          path="/app/campaigns"
+          element={<CampaignsPage />}
+        />
 
-    {/* ANALYTICS */}  
-    <Route  
-      path="/app/analytics"  
-      element={<AnalyticsPage />}  
-    />  
+        <Route
+          path="/app/analytics"
+          element={<AnalyticsPage />}
+        />
 
-    {/* UNKNOWN URL */}  
-    <Route  
-      path="*"  
-      element={<Navigate to="/register" replace />}  
-    />  
+        {/* =========================
+            MODULE 7 - NOTIFICATIONS
+           ========================= */}
 
-  </Routes>  
-</BrowserRouter>
+        <Route
+          path="/app/notifications"
+          element={<NotificationsPage />}
+        />
 
-);
+        <Route
+          path="/app/notifications/history"
+          element={<NotificationHistoryPage />}
+        />
+
+        <Route
+          path="/app/notifications/settings"
+          element={<NotificationSettingsPage />}
+        />
+
+        <Route
+          path="/app/notifications/email-preferences"
+          element={<EmailPreferencesPage />}
+        />
+
+        <Route
+          path="/app/notifications/team-activity"
+          element={<TeamActivityPage />}
+        />
+
+        {/* SETTINGS */}
+        <Route
+          path="/app/settings"
+          element={<SettingsPage />}
+        />
+
+        {/* UNKNOWN URL */}
+        <Route
+          path="*"
+          element={<Navigate to="/app/dashboard" replace />}
+        />
+
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

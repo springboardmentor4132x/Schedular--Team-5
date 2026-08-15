@@ -9,7 +9,7 @@ import {
   Search,
   Plus,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -43,36 +43,53 @@ export function DashboardPage() {
             <span className="active-dot"></span>
           </div>
 
-          <div className="menu-item">
-            <Share2 size={21} />
-            <span>Social Accounts</span>
-          </div>
+          <div
+  className="menu-item"
+  onClick={() => navigate("/app/social-accounts")}
+>
+  <Share2 size={21} />
+  <span>Social Accounts</span>
+</div>
 
-          <div className="menu-item">
-            <FileText size={21} />
-            <span>Create Post</span>
-          </div>
+   <div
+  className="menu-item"
+  onClick={() => navigate("/app/create-post")}
+>
+  <FileText size={21} />
+  <span>Create Post</span>
+</div>       
 
-          <div className="menu-item">
-            <CalendarDays size={21} />
-            <span>Calendar</span>
-          </div>
+      <div
+  className="menu-item"
+  onClick={() => navigate("/app/calendar")}
+>
+  <CalendarDays size={21} />
+  <span>Calendar</span>
+</div>  
 
-          <div className="menu-item">
-            <Bell size={21} />
-            <span>Notifications</span>
-          </div>
-
-          <div className="menu-item">
-            <Megaphone size={21} />
-            <span>Campaigns</span>
-          </div>
+        
+<div
+  className="menu-item"
+  onClick={() => navigate("/app/campaigns")}
+>
+  <Megaphone size={21} />
+  <span>Campaigns</span>
+</div>
+          
            <div
   className="menu-item"
   onClick={() => navigate("/app/analytics")}
 >
   <BarChart3 size={21} />
   <span>Analytics</span>
+</div>
+
+<div
+  className="menu-item"
+  onClick={() => navigate("/app/notifications")}
+>
+  <Bell size={21} />
+  <span>Notifications</span>
 </div>
 
         </nav>
@@ -88,7 +105,7 @@ export function DashboardPage() {
             </div>
 
             <button className="upgrade-button">
-              Upgrade
+              Upgradeam
             </button>
           </div>
         </div>
@@ -112,7 +129,10 @@ export function DashboardPage() {
 
           <div className="top-right">
 
-            <button className="create-button">
+            <button
+  className="create-button"
+  onClick={() => navigate("/app/create-post")}
+>
               <Plus size={18} />
               Create Post
             </button>
@@ -260,7 +280,10 @@ export function DashboardPage() {
                 </p>
               </div>
 
-              <button className="content-create-button">
+              <button
+  className="content-create-button"
+  onClick={() => navigate("/app/create-post")}
+>
                 <Plus size={17} />
                 Create Post
               </button>

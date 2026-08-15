@@ -1,378 +1,2082 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useMemo, useState } from "react";
 import {
-  Plus, Megaphone, Calendar, DollarSign, Target, Users,
-  MoreVertical, Edit2, Trash2, Eye, X, Check,
-} from 'lucide-react';
-import { Card, Badge, Button, Modal, Input, EmptyState } from '../components/ui';
-import { campaigns as initialCampaigns } from '../data/mockData';
-import { formatCurrency, formatNumber, formatDate, getPlatformConfig, cn } from '../utils/helpers';
+  Plus,
+  Megaphone,
+  Calendar,
+  DollarSign,
+  Target,
+  Users,
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Eye,
+  X,
+  Check,
+  Search,
+} from "lucide-react";
 
-const statusVariants: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'default'> = {
-  active: 'success',
-  draft: 'default',
-  completed: 'info',
-  paused: 'warning',
+type CampaignStatus = "active" | "draft" | "completed" | "paused";
+
+type Campaign = {
+  id: number;
+  name: string;
+  description: string;
+  platforms: string[];
+  startDate: string;
+  endDate: string;
+  budget: number;
+  spent: number;
+  status: CampaignStatus;
+  posts: number;
+  reach: number;
+  engagement: number;
+  objective: string;
+  color: string;
 };
 
-export function CampaignsPage() {
-  const [campaigns, setCampaigns] = useState(initialCampaigns);
-  const [showCreate, setShowCreate] = useState(false);
-  const [filter, setFilter] = useState<string>('all');
-  const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: '', description: '', budget: '', startDate: '', endDate: '', objective: 'Brand Awareness',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-const [searchTerm, setSearchTerm] = useState('');
-  const filtered = campaigns.filter((c) => {
-  const matchesStatus = filter === 'all' || c.status === filter;
-  const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
+const initialCampaigns: Campaign[] = [
+  {
+    id: 1,
+    name: "Summer Product Launch",
+    description:
+      "Promote the new summer collection across social media platforms.",
+    platforms: ["Instagram", "Facebook"],
+    startDate: "2026-08-01",
+    endDate: "2026-08-31",
+    budget: 10000,
+    spent: 4200,
+    status: "active",
+    posts: 12,
+    reach: 24500,
+    engagement: 8.4,
+    objective: "Brand Awareness",
+    color: "#2563eb",
+  },
+  {
+    id: 2,
+    name: "Brand Awareness",
+    description:
+      "Build stronger brand recognition through consistent social content.",
+    platforms: ["Instagram", "LinkedIn"],
+    startDate: "2026-08-05",
+    endDate: "2026-09-05",
+    budget: 7500,
+    spent: 2800,
+    status: "active",
+    posts: 8,
+    reach: 18700,
+    engagement: 7.2,
+    objective: "Brand Awareness",
+    color: "#7c3aed",
+  },
+  {
+    id: 3,
+    name: "Social Promotion",
+    description:
+      "Drive traffic and engagement using promotional social media posts.",
+    platforms: ["Facebook", "X"],
+    startDate: "2026-07-10",
+    endDate: "2026-08-20",
+    budget: 5000,
+    spent: 5000,
+    status: "completed",
+    posts: 15,
+    reach: 31200,
+    engagement: 9.1,
+    objective: "Engagement",
+    color: "#db2777",
+  },
+  {
+    id: 4,
+    name: "Content Campaign",
+    description:
+      "Share useful educational content and customer success stories.",
+    platforms: ["LinkedIn", "Instagram"],
+    startDate: "2026-08-10",
+    endDate: "2026-09-10",
+    budget: 6500,
+    spent: 1200,
+    status: "draft",
+    posts: 4,
+    reach: 8600,
+    engagement: 5.8,
+    objective: "Trust Building",
+    color: "#059669",
+  },
+];
 
-  return matchesStatus && matchesSearch;
-});
+const statusStyles: Record<
+  CampaignStatus,
+  {
+    background: string;
+    color: string;
+    border: string;
+  }
+> = {
+  active: {
+    background: "#ecfdf5",
+    color: "#047857",
+    border: "#a7f3d0",
+  },
+  draft: {
+    background: "#f1f5f9",
+    color: "#475569",
+    border: "#cbd5e1",
+  },
+  completed: {
+    background: "#eff6ff",
+    color: "#1d4ed8",
+    border: "#bfdbfe",
+  },
+  paused: {
+    background: "#fff7ed",
+    color: "#c2410c",
+    border: "#fed7aa",
+  },
+};
+
+const platformColors: Record<string, string> = {
+  Instagram: "#e1306c",
+  Facebook: "#1877f2",
+  LinkedIn: "#0a66c2",
+  X: "#111827",
+};
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value + "T00:00:00");
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function CampaignsPage() {
+  const [campaigns, setCampaigns] =
+    useState<Campaign[]>(initialCampaigns);
+
+  const [filter, setFilter] = useState<"all" | CampaignStatus>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [menuOpen, setMenuOpen] = useState<number | null>(null);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [showView, setShowView] = useState<Campaign | null>(null);
+  const [showEdit, setShowEdit] = useState<Campaign | null>(null);
+  const [deleteTarget, setDeleteTarget] =
+    useState<Campaign | null>(null);
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    budget: "",
+    startDate: "",
+    endDate: "",
+    objective: "Brand Awareness",
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const filteredCampaigns = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    return campaigns.filter((campaign) => {
+      const statusMatch =
+        filter === "all" || campaign.status === filter;
+
+      const searchMatch =
+        !term ||
+        campaign.name.toLowerCase().includes(term) ||
+        campaign.description.toLowerCase().includes(term) ||
+        campaign.objective.toLowerCase().includes(term);
+
+      return statusMatch && searchMatch;
+    });
+  }, [campaigns, filter, searchTerm]);
+
+  const totalBudget = campaigns.reduce(
+    (sum, campaign) => sum + campaign.budget,
+    0
+  );
+
+  const totalSpent = campaigns.reduce(
+    (sum, campaign) => sum + campaign.spent,
+    0
+  );
+
+  const totalReach = campaigns.reduce(
+    (sum, campaign) => sum + campaign.reach,
+    0
+  );
+
+  const activeCount = campaigns.filter(
+    (campaign) => campaign.status === "active"
+  ).length;
+
+  const completedCount = campaigns.filter(
+    (campaign) => campaign.status === "completed"
+  ).length;
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      description: "",
+      budget: "",
+      startDate: "",
+      endDate: "",
+      objective: "Brand Awareness",
+    });
+
+    setErrors({});
+  };
 
   const handleCreate = () => {
-    const e: Record<string, string> = {};
-    if (!form.name) e.name = 'Name is required';
-    if (!form.budget) e.budget = 'Budget is required';
-    if (!form.startDate) e.startDate = 'Start date is required';
-    if (!form.endDate) e.endDate = 'End date is required';
-    setErrors(e);
-    if (Object.keys(e).length > 0) return;
+    const nextErrors: Record<string, string> = {};
 
-    const newCampaign = {
-      id: Date.now().toString(),
-      name: form.name,
-      description: form.description || 'No description provided',
-      platforms: ['facebook', 'instagram'],
+    if (!form.name.trim()) {
+      nextErrors.name = "Campaign name is required";
+    }
+
+    if (!form.budget || Number(form.budget) <= 0) {
+      nextErrors.budget = "Enter a valid budget";
+    }
+
+    if (!form.startDate) {
+      nextErrors.startDate = "Start date is required";
+    }
+
+    if (!form.endDate) {
+      nextErrors.endDate = "End date is required";
+    }
+
+    if (
+      form.startDate &&
+      form.endDate &&
+      form.endDate < form.startDate
+    ) {
+      nextErrors.endDate = "End date must be after start date";
+    }
+
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    const newCampaign: Campaign = {
+      id: Date.now(),
+      name: form.name.trim(),
+      description:
+        form.description.trim() || "No description provided.",
+      platforms: ["Instagram", "Facebook"],
       startDate: form.startDate,
       endDate: form.endDate,
-      budget: parseInt(form.budget),
+      budget: Number(form.budget),
       spent: 0,
-      status: 'active' as const,
+      status: "active",
       posts: 0,
       reach: 0,
       engagement: 0,
       objective: form.objective,
-      color: '#3B82F6',
+      color: "#2563eb",
     };
-    setCampaigns([newCampaign, ...campaigns]);
+
+    setCampaigns((current) => [newCampaign, ...current]);
     setShowCreate(false);
-    setForm({ name: '', description: '', budget: '', startDate: '', endDate: '', objective: 'Brand Awareness' });
+    resetForm();
   };
 
   const handleDelete = () => {
-    setCampaigns(campaigns.filter((c) => c.id !== deleteTarget));
+    if (!deleteTarget) {
+      return;
+    }
+
+    setCampaigns((current) =>
+      current.filter((campaign) => campaign.id !== deleteTarget.id)
+    );
+
     setDeleteTarget(null);
+    setMenuOpen(null);
+  };
+
+  const handleEditSave = () => {
+    if (!showEdit) {
+      return;
+    }
+
+    setCampaigns((current) =>
+      current.map((campaign) =>
+        campaign.id === showEdit.id ? showEdit : campaign
+      )
+    );
+
+    setShowEdit(null);
   };
 
   const filters = [
-    { key: 'all', label: 'All Campaigns', count: campaigns.length },
-    { key: 'active', label: 'Active', count: campaigns.filter((c) => c.status === 'active').length },
-    { key: 'draft', label: 'Drafts', count: campaigns.filter((c) => c.status === 'draft').length },
-    { key: 'completed', label: 'Completed', count: campaigns.filter((c) => c.status === 'completed').length },
+    {
+      key: "all" as const,
+      label: "All Campaigns",
+      count: campaigns.length,
+    },
+    {
+      key: "active" as const,
+      label: "Active",
+      count: campaigns.filter((c) => c.status === "active").length,
+    },
+    {
+      key: "draft" as const,
+      label: "Drafts",
+      count: campaigns.filter((c) => c.status === "draft").length,
+    },
+    {
+      key: "completed" as const,
+      label: "Completed",
+      count: campaigns.filter((c) => c.status === "completed").length,
+    },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Campaigns</h1>
-          <p className="text-sm text-gray-500 mt-1">Create and manage your marketing campaigns</p>
-        </div>
-        <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>New Campaign</Button>
-      </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        color: "#0f172a",
+        padding: 24,
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1400,
+          margin: "0 auto",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 20,
+            flexWrap: "wrap",
+            marginBottom: 22,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: 28,
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              Campaigns
+            </h1>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Campaigns', value: campaigns.length, icon: Megaphone, color: 'from-indigo-500 to-violet-500' },
-          { label: 'Active Now', value: campaigns.filter((c) => c.status === 'active').length, icon: Target, color: 'from-emerald-500 to-teal-500' },
-          { label: 'Total Budget', value: formatCurrency(campaigns.reduce((s, c) => s + c.budget, 0)), icon: DollarSign, color: 'from-amber-500 to-orange-500' },
-          { label: 'Total Reach', value: formatNumber(campaigns.reduce((s, c) => s + c.reach, 0)), icon: Users, color: 'from-blue-500 to-cyan-500' },
-        ].map((stat, idx) => (
-          <motion.div key={stat.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}>
-            <Card className="p-5">
-              <div className={cn('w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center mb-3', stat.color)}>
-                <stat.icon className="w-5 h-5 text-white" />
-              </div>
-              <p className="text-xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-xs text-gray-500">{stat.label}</p>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-<div className="flex justify-end">
-  <input
-    type="text"
-    placeholder="Search Campaign..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className="border border-gray-300 rounded-lg px-4 py-2 w-72"
-  />
-</div>
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {filters.map((f) => (
+            <p
+              style={{
+                margin: "6px 0 0",
+                color: "#64748b",
+                fontSize: 13,
+              }}
+            >
+              Create and manage your marketing campaigns.
+            </p>
+          </div>
+
           <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all',
-              filter === f.key ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            )}
+            type="button"
+            onClick={() => setShowCreate(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              border: "none",
+              background: "#2563eb",
+              color: "#ffffff",
+              borderRadius: 10,
+              padding: "11px 16px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.18)",
+            }}
           >
-            {f.label}
-            <span className={cn('px-1.5 py-0.5 text-xs rounded-md', filter === f.key ? 'bg-white/20' : 'bg-gray-100')}>
-              {f.count}
-            </span>
+            <Plus size={16} />
+            New Campaign
           </button>
-        ))}
-      </div>
-<Card className="p-5">
-  <h2 className="text-lg font-semibold mb-4">
-    Campaign Performance
-  </h2>
+        </div>
 
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Summary Cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(210px, 1fr))",
+            gap: 14,
+            marginBottom: 18,
+          }}
+        >
+          {[
+            {
+              label: "Total Campaigns",
+              value: campaigns.length,
+              icon: <Megaphone size={19} />,
+              color: "#2563eb",
+            },
+            {
+              label: "Active Now",
+              value: activeCount,
+              icon: <Target size={19} />,
+              color: "#059669",
+            },
+            {
+              label: "Total Budget",
+              value: formatCurrency(totalBudget),
+              icon: <DollarSign size={19} />,
+              color: "#d97706",
+            },
+            {
+              label: "Total Reach",
+              value: formatNumber(totalReach),
+              icon: <Users size={19} />,
+              color: "#0891b2",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #dbeafe",
+                borderRadius: 14,
+                padding: 18,
+                boxShadow:
+                  "0 2px 8px rgba(15,23,42,0.04)",
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 11,
+                  background: stat.color,
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                }}
+              >
+                {stat.icon}
+              </div>
 
-    <div>
-      <p className="text-sm text-gray-500">Total Reach</p>
-      <h2 className="text-xl font-bold">
-        {formatNumber(campaigns.reduce((a,b)=>a+b.reach,0))}
-      </h2>
-    </div>
+              <div
+                style={{
+                  fontSize: 21,
+                  fontWeight: 800,
+                  color: "#0f172a",
+                }}
+              >
+                {stat.value}
+              </div>
 
-    <div>
-      <p className="text-sm text-gray-500">Budget Used</p>
-      <h2 className="text-xl font-bold">
-        {formatCurrency(campaigns.reduce((a,b)=>a+b.spent,0))}
-      </h2>
-    </div>
+              <div
+                style={{
+                  marginTop: 3,
+                  fontSize: 12,
+                  color: "#64748b",
+                }}
+              >
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Search */}
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #dbeafe",
+            borderRadius: 14,
+            padding: 14,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              maxWidth: 420,
+            }}
+          >
+            <Search
+              size={16}
+              style={{
+                position: "absolute",
+                left: 13,
+                top: 13,
+                color: "#94a3b8",
+              }}
+            />
 
-    <div>
-      <p className="text-sm text-gray-500">Running</p>
-      <h2 className="text-xl font-bold">
-        {campaigns.filter(c=>c.status==="active").length}
-      </h2>
-    </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) =>
+                setSearchTerm(event.target.value)
+              }
+              placeholder="Search campaigns..."
+              style={{
+                width: "100%",
+                height: 42,
+                boxSizing: "border-box",
+                padding: "0 14px 0 38px",
+                border: "1px solid #bfdbfe",
+                borderRadius: 10,
+                outline: "none",
+                color: "#334155",
+                background: "#ffffff",
+                fontSize: 13,
+              }}
+            />
+          </div>
+        </div>
 
-    <div>
-      <p className="text-sm text-gray-500">Completed</p>
-      <h2 className="text-xl font-bold">
-        {campaigns.filter(c=>c.status==="completed").length}
-      </h2>
-    </div>
+        {/* Filters */}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            marginBottom: 18,
+          }}
+        >
+          {filters.map((item) => {
+            const selected = filter === item.key;
 
-  </div>
-</Card>
-      {/* Campaign grid */}
-      {filtered.length === 0 ? (
-        <Card className="p-0">
-          <EmptyState
-            icon={<Megaphone className="w-8 h-8" />}
-            title="No campaigns found"
-            description="Create your first campaign to start tracking your marketing performance."
-            action={<Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>New Campaign</Button>}
-          />
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {filtered.map((campaign, idx) => {
-              const progress = campaign.budget > 0 ? Math.min((campaign.spent / campaign.budget) * 100, 100) : 0;
-              return (
-                <motion.div
-                  key={campaign.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: idx * 0.08 }}
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setFilter(item.key)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  border: selected
+                    ? "1px solid #2563eb"
+                    : "1px solid #dbeafe",
+                  background: selected
+                    ? "#2563eb"
+                    : "#ffffff",
+                  color: selected
+                    ? "#ffffff"
+                    : "#475569",
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {item.label}
+
+                <span
+                  style={{
+                    padding: "2px 7px",
+                    borderRadius: 6,
+                    background: selected
+                      ? "rgba(255,255,255,0.18)"
+                      : "#eff6ff",
+                    color: selected
+                      ? "#ffffff"
+                      : "#2563eb",
+                    fontSize: 11,
+                  }}
                 >
-                  <Card hover className="p-5 h-full flex flex-col">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: campaign.color }} />
-                        <Badge variant={statusVariants[campaign.status]} dot>{campaign.status}</Badge>
-                      </div>
-                      <div className="relative">
-                        <button
-                          onClick={() => setMenuOpen(menuOpen === campaign.id ? null : campaign.id)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  {item.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Performance */}
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #dbeafe",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 18,
+            boxShadow:
+              "0 2px 8px rgba(15,23,42,0.04)",
+          }}
+        >
+          <h2
+            style={{
+              margin: "0 0 16px",
+              color: "#0f172a",
+              fontSize: 17,
+              fontWeight: 800,
+            }}
+          >
+            Campaign Performance
+          </h2>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 18,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: 12,
+                  marginBottom: 4,
+                }}
+              >
+                Total Reach
+              </div>
+              <div
+                style={{
+                  color: "#0f172a",
+                  fontSize: 20,
+                  fontWeight: 800,
+                }}
+              >
+                {formatNumber(totalReach)}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: 12,
+                  marginBottom: 4,
+                }}
+              >
+                Budget Used
+              </div>
+              <div
+                style={{
+                  color: "#0f172a",
+                  fontSize: 20,
+                  fontWeight: 800,
+                }}
+              >
+                {formatCurrency(totalSpent)}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: 12,
+                  marginBottom: 4,
+                }}
+              >
+                Running
+              </div>
+              <div
+                style={{
+                  color: "#047857",
+                  fontSize: 20,
+                  fontWeight: 800,
+                }}
+              >
+                {activeCount}
+              </div>
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: 12,
+                  marginBottom: 4,
+                }}
+              >
+                Completed
+              </div>
+              <div
+                style={{
+                  color: "#1d4ed8",
+                  fontSize: 20,
+                  fontWeight: 800,
+                }}
+              >
+                {completedCount}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Campaign Grid */}
+        {filteredCampaigns.length === 0 ? (
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #dbeafe",
+              borderRadius: 14,
+              padding: "70px 20px",
+              textAlign: "center",
+            }}
+          >
+            <Megaphone
+              size={42}
+              style={{
+                color: "#93c5fd",
+                marginBottom: 12,
+              }}
+            />
+
+            <h3
+              style={{
+                margin: 0,
+                color: "#0f172a",
+                fontSize: 17,
+              }}
+            >
+              No campaigns found
+            </h3>
+
+            <p
+              style={{
+                margin: "7px 0 18px",
+                color: "#64748b",
+                fontSize: 13,
+              }}
+            >
+              Try changing your search or create a new campaign.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              style={{
+                border: "none",
+                background: "#2563eb",
+                color: "#ffffff",
+                borderRadius: 9,
+                padding: "10px 15px",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              New Campaign
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(290px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {filteredCampaigns.map((campaign) => {
+              const progress =
+                campaign.budget > 0
+                  ? Math.min(
+                      (campaign.spent / campaign.budget) * 100,
+                      100
+                    )
+                  : 0;
+
+              const status = statusStyles[campaign.status];
+
+              return (
+                <div
+                  key={campaign.id}
+                  style={{
+                    position: "relative",
+                    background: "#ffffff",
+                    border: "1px solid #dbeafe",
+                    borderRadius: 14,
+                    padding: 18,
+                    boxShadow:
+                      "0 2px 8px rgba(15,23,42,0.04)",
+                  }}
+                >
+                  {/* Top */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 14,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "5px 9px",
+                        borderRadius: 999,
+                        background: status.background,
+                        color: status.color,
+                        border: `1px solid ${status.border}`,
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: status.color,
+                        }}
+                      />
+                      {campaign.status}
+                    </span>
+
+                    <div
+                      style={{
+                        position: "relative",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMenuOpen(
+                            menuOpen === campaign.id
+                              ? null
+                              : campaign.id
+                          )
+                        }
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          color: "#64748b",
+                          cursor: "pointer",
+                          padding: 5,
+                        }}
+                      >
+                        <MoreVertical size={17} />
+                      </button>
+
+                      {menuOpen === campaign.id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 32,
+                            width: 150,
+                            background: "#ffffff",
+                            border: "1px solid #dbeafe",
+                            borderRadius: 10,
+                            boxShadow:
+                              "0 10px 30px rgba(15,23,42,0.12)",
+                            padding: 5,
+                            zIndex: 20,
+                          }}
                         >
-                          <MoreVertical className="w-4 h-4 text-gray-400" />
-                        </button>
-                        <AnimatePresence>
-                          {menuOpen === campaign.id && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -5 }}
-                              className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-10"
-                            >
-                              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                <Eye className="w-4 h-4 text-gray-400" /> View
-                              </button>
-                              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                <Edit2 className="w-4 h-4 text-gray-400" /> Edit
-                              </button>
-                              <button
-                                onClick={() => { setDeleteTarget(campaign.id); setMenuOpen(null); }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete
-                              </button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowView(campaign);
+                              setMenuOpen(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              border: "none",
+                              background: "transparent",
+                              padding: "9px 8px",
+                              color: "#334155",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontSize: 12,
+                            }}
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
 
-                    <h3 className="text-base font-semibold text-gray-900 mb-1">{campaign.name}</h3>
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-4">{campaign.description}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowEdit({
+                                ...campaign,
+                              });
+                              setMenuOpen(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              border: "none",
+                              background: "transparent",
+                              padding: "9px 8px",
+                              color: "#334155",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontSize: 12,
+                            }}
+                          >
+                            <Edit2 size={14} />
+                            Edit
+                          </button>
 
-                    <div className="flex items-center gap-2 mb-4">
-                      {campaign.platforms.map((p) => {
-                        const config = getPlatformConfig(p);
-                        const Icon = config.icon;
-                        return (
-                          <div key={p} className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
-                            <Icon className="w-3.5 h-3.5" style={{ color: config.color }} />
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div>
-                        <p className="text-xs text-gray-500">Reach</p>
-                        <p className="text-sm font-semibold text-gray-900">{formatNumber(campaign.reach)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Engagement</p>
-                        <p className="text-sm font-semibold text-emerald-600">{campaign.engagement}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Posts</p>
-                        <p className="text-sm font-semibold text-gray-900">{campaign.posts}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Objective</p>
-                        <p className="text-sm font-semibold text-gray-900">{campaign.objective}</p>
-                      </div>
-                    </div>
-
-                    {/* Budget progress */}
-                    <div className="mt-auto">
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-gray-500">Budget</span>
-                        <span className="font-medium text-gray-900">
-                          {formatCurrency(campaign.spent)} / {formatCurrency(campaign.budget)}
-                        </span>
-                      </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${progress}%` }}
-                          transition={{ duration: 0.8, delay: idx * 0.1 }}
-                          className="h-full rounded-full"
-                          style={{ backgroundColor: campaign.color }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <Calendar className="w-3.5 h-3.5" />
-                          {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteTarget(campaign);
+                              setMenuOpen(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              border: "none",
+                              background: "transparent",
+                              padding: "9px 8px",
+                              color: "#dc2626",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontSize: 12,
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
                         </div>
-                        <span className="text-xs font-medium text-gray-600">{progress.toFixed(0)}%</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: "50%",
+                        background: campaign.color,
+                      }}
+                    />
+
+                    <h3
+                      style={{
+                        margin: 0,
+                        color: "#0f172a",
+                        fontSize: 16,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {campaign.name}
+                    </h3>
+                  </div>
+
+                  <p
+                    style={{
+                      margin: "0 0 14px",
+                      color: "#64748b",
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {campaign.description}
+                  </p>
+
+                  {/* Platforms */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 7,
+                      marginBottom: 16,
+                    }}
+                  >
+                    {campaign.platforms.map((platform) => (
+                      <span
+                        key={platform}
+                        style={{
+                          padding: "5px 8px",
+                          borderRadius: 7,
+                          background: "#eff6ff",
+                          border: "1px solid #dbeafe",
+                          color:
+                            platformColors[platform] ||
+                            "#2563eb",
+                          fontSize: 10,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {platform}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Stats */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(2, 1fr)",
+                      gap: 12,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: 11,
+                        }}
+                      >
+                        Reach
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#0f172a",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          marginTop: 3,
+                        }}
+                      >
+                        {formatNumber(campaign.reach)}
                       </div>
                     </div>
-                  </Card>
-                </motion.div>
+
+                    <div>
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: 11,
+                        }}
+                      >
+                        Engagement
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#059669",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          marginTop: 3,
+                        }}
+                      >
+                        {campaign.engagement}%
+                      </div>
+                    </div>
+
+                    <div>
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: 11,
+                        }}
+                      >
+                        Posts
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#0f172a",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          marginTop: 3,
+                        }}
+                      >
+                        {campaign.posts}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: 11,
+                        }}
+                      >
+                        Objective
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#0f172a",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          marginTop: 3,
+                        }}
+                      >
+                        {campaign.objective}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Budget */}
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: "#64748b",
+                          fontSize: 11,
+                        }}
+                      >
+                        Budget
+                      </span>
+
+                      <span
+                        style={{
+                          color: "#334155",
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {formatCurrency(campaign.spent)} /{" "}
+                        {formatCurrency(campaign.budget)}
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        height: 7,
+                        background: "#e2e8f0",
+                        borderRadius: 999,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${progress}%`,
+                          height: "100%",
+                          background: campaign.color,
+                          borderRadius: 999,
+                        }}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        marginTop: 11,
+                        paddingTop: 11,
+                        borderTop: "1px solid #e2e8f0",
+                        color: "#64748b",
+                        fontSize: 10,
+                      }}
+                    >
+                      <Calendar size={13} />
+
+                      <span>
+                        {formatDate(campaign.startDate)} -{" "}
+                        {formatDate(campaign.endDate)}
+                      </span>
+
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          color: campaign.color,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {progress.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* Create campaign modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create New Campaign" size="lg">
-        <div className="space-y-4">
-          <Input
-            label="Campaign Name"
-            placeholder="e.g. Summer Launch 2026"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            error={errors.name}
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-            <textarea
-              placeholder="Describe your campaign goals..."
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-            />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Budget ($)"
-              type="number"
-              placeholder="10000"
-              icon={<DollarSign className="w-4 h-4" />}
-              value={form.budget}
-              onChange={(e) => setForm({ ...form, budget: e.target.value })}
-              error={errors.budget}
-            />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Objective</label>
-              <select
-                value={form.objective}
-                onChange={(e) => setForm({ ...form, objective: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+        )}
+
+        {/* Create Modal */}
+        {showCreate && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+              zIndex: 100,
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 600,
+                maxHeight: "90vh",
+                overflowY: "auto",
+                background: "#ffffff",
+                borderRadius: 16,
+                border: "1px solid #dbeafe",
+                boxShadow:
+                  "0 20px 60px rgba(15,23,42,0.2)",
+              }}
+            >
+              <div
+                style={{
+                  padding: 20,
+                  borderBottom: "1px solid #dbeafe",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
               >
-                {['Brand Awareness', 'Conversions', 'Engagement', 'Trust Building', 'Sales', 'Lead Generation'].map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
+                <div>
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: 18,
+                      color: "#0f172a",
+                    }}
+                  >
+                    Create New Campaign
+                  </h2>
+
+                  <p
+                    style={{
+                      margin: "4px 0 0",
+                      color: "#64748b",
+                      fontSize: 12,
+                    }}
+                  >
+                    Add campaign details below.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreate(false);
+                    resetForm();
+                  }}
+                  style={{
+                    border: "none",
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: 20,
+                  display: "grid",
+                  gap: 15,
+                }}
+              >
+                <label>
+                  <span
+                    style={{
+                      display: "block",
+                      marginBottom: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#334155",
+                    }}
+                  >
+                    Campaign Name
+                  </span>
+
+                  <input
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        name: event.target.value,
+                      })
+                    }
+                    placeholder="e.g. Summer Launch 2026"
+                    style={{
+                      width: "100%",
+                      height: 42,
+                      boxSizing: "border-box",
+                      padding: "0 12px",
+                      border: "1px solid #bfdbfe",
+                      borderRadius: 9,
+                      outline: "none",
+                      fontSize: 13,
+                    }}
+                  />
+
+                  {errors.name && (
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: 5,
+                        color: "#dc2626",
+                        fontSize: 11,
+                      }}
+                    >
+                      {errors.name}
+                    </span>
+                  )}
+                </label>
+
+                <label>
+                  <span
+                    style={{
+                      display: "block",
+                      marginBottom: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#334155",
+                    }}
+                  >
+                    Description
+                  </span>
+
+                  <textarea
+                    value={form.description}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        description: event.target.value,
+                      })
+                    }
+                    placeholder="Describe your campaign..."
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      padding: 12,
+                      border: "1px solid #bfdbfe",
+                      borderRadius: 9,
+                      outline: "none",
+                      resize: "vertical",
+                      fontSize: 13,
+                    }}
+                  />
+                </label>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(2, minmax(0, 1fr))",
+                    gap: 14,
+                  }}
+                >
+                  <label>
+                    <span
+                      style={{
+                        display: "block",
+                        marginBottom: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#334155",
+                      }}
+                    >
+                      Budget ($)
+                    </span>
+
+                    <input
+                      type="number"
+                      value={form.budget}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          budget: event.target.value,
+                        })
+                      }
+                      placeholder="10000"
+                      style={{
+                        width: "100%",
+                        height: 42,
+                        boxSizing: "border-box",
+                        padding: "0 12px",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: 9,
+                        outline: "none",
+                        fontSize: 13,
+                      }}
+                    />
+
+                    {errors.budget && (
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 5,
+                          color: "#dc2626",
+                          fontSize: 11,
+                        }}
+                      >
+                        {errors.budget}
+                      </span>
+                    )}
+                  </label>
+
+                  <label>
+                    <span
+                      style={{
+                        display: "block",
+                        marginBottom: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#334155",
+                      }}
+                    >
+                      Objective
+                    </span>
+
+                    <select
+                      value={form.objective}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          objective: event.target.value,
+                        })
+                      }
+                      style={{
+                        width: "100%",
+                        height: 42,
+                        boxSizing: "border-box",
+                        padding: "0 12px",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: 9,
+                        outline: "none",
+                        fontSize: 13,
+                        background: "#ffffff",
+                      }}
+                    >
+                      <option>Brand Awareness</option>
+                      <option>Conversions</option>
+                      <option>Engagement</option>
+                      <option>Trust Building</option>
+                      <option>Sales</option>
+                      <option>Lead Generation</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span
+                      style={{
+                        display: "block",
+                        marginBottom: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#334155",
+                      }}
+                    >
+                      Start Date
+                    </span>
+
+                    <input
+                      type="date"
+                      value={form.startDate}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          startDate: event.target.value,
+                        })
+                      }
+                      style={{
+                        width: "100%",
+                        height: 42,
+                        boxSizing: "border-box",
+                        padding: "0 12px",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: 9,
+                        outline: "none",
+                        fontSize: 13,
+                      }}
+                    />
+
+                    {errors.startDate && (
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 5,
+                          color: "#dc2626",
+                          fontSize: 11,
+                        }}
+                      >
+                        {errors.startDate}
+                      </span>
+                    )}
+                  </label>
+
+                  <label>
+                    <span
+                      style={{
+                        display: "block",
+                        marginBottom: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#334155",
+                      }}
+                    >
+                      End Date
+                    </span>
+
+                    <input
+                      type="date"
+                      value={form.endDate}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          endDate: event.target.value,
+                        })
+                      }
+                      style={{
+                        width: "100%",
+                        height: 42,
+                        boxSizing: "border-box",
+                        padding: "0 12px",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: 9,
+                        outline: "none",
+                        fontSize: 13,
+                      }}
+                    />
+
+                    {errors.endDate && (
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 5,
+                          color: "#dc2626",
+                          fontSize: 11,
+                        }}
+                      >
+                        {errors.endDate}
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    marginTop: 4,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreate(false);
+                      resetForm();
+                    }}
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      border: "1px solid #bfdbfe",
+                      background: "#ffffff",
+                      color: "#2563eb",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCreate}
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 7,
+                    }}
+                  >
+                    <Check size={16} />
+                    Create Campaign
+                  </button>
+                </div>
+              </div>
             </div>
-            <Input
-              label="Start Date"
-              type="date"
-              value={form.startDate}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              error={errors.startDate}
-            />
-            <Input
-              label="End Date"
-              type="date"
-              value={form.endDate}
-              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              error={errors.endDate}
-            />
           </div>
+        )}
 
-          <div className="flex gap-3 pt-2">
-            <Button variant="secondary" fullWidth onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button fullWidth icon={<Check className="w-4 h-4" />} onClick={handleCreate}>Create Campaign</Button>
+        {/* View Modal */}
+        {showView && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+              zIndex: 100,
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 520,
+                background: "#ffffff",
+                borderRadius: 16,
+                border: "1px solid #dbeafe",
+                padding: 22,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 18,
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#0f172a",
+                    fontSize: 19,
+                  }}
+                >
+                  Campaign Details
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={() => setShowView(null)}
+                  style={{
+                    border: "none",
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <h3
+                style={{
+                  margin: "0 0 7px",
+                  color: "#2563eb",
+                  fontSize: 18,
+                }}
+              >
+                {showView.name}
+              </h3>
+
+              <p
+                style={{
+                  margin: "0 0 18px",
+                  color: "#64748b",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                }}
+              >
+                {showView.description}
+              </p>
+
+              {[
+                ["Status", showView.status],
+                ["Objective", showView.objective],
+                ["Budget", formatCurrency(showView.budget)],
+                ["Spent", formatCurrency(showView.spent)],
+                ["Reach", formatNumber(showView.reach)],
+                ["Posts", String(showView.posts)],
+                [
+                  "Dates",
+                  `${formatDate(showView.startDate)} - ${formatDate(
+                    showView.endDate
+                  )}`,
+                ],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 20,
+                    padding: "10px 0",
+                    borderBottom: "1px solid #e2e8f0",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#64748b",
+                      fontSize: 12,
+                    }}
+                  >
+                    {label}
+                  </span>
+
+                  <strong
+                    style={{
+                      color: "#0f172a",
+                      fontSize: 12,
+                      textAlign: "right",
+                    }}
+                  >
+                    {value}
+                  </strong>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setShowView(null)}
+                style={{
+                  width: "100%",
+                  height: 42,
+                  marginTop: 18,
+                  border: "none",
+                  background: "#2563eb",
+                  color: "#ffffff",
+                  borderRadius: 9,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        )}
 
-      {/* Delete confirmation */}
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Campaign?" size="sm">
-        <p className="text-sm text-gray-600 mb-6">
-          This will permanently delete the campaign and all its data. This action cannot be undone.
-        </p>
-        <div className="flex gap-3">
-          <Button variant="secondary" fullWidth onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button variant="danger" fullWidth onClick={handleDelete} icon={<X className="w-4 h-4" />}>Delete</Button>
-        </div>
-      </Modal>
+        {/* Edit Modal */}
+        {showEdit && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+              zIndex: 100,
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 560,
+                background: "#ffffff",
+                borderRadius: 16,
+                padding: 22,
+                border: "1px solid #dbeafe",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 18,
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 18,
+                    color: "#0f172a",
+                  }}
+                >
+                  Edit Campaign
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={() => setShowEdit(null)}
+                  style={{
+                    border: "none",
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 14,
+                }}
+              >
+                <input
+                  value={showEdit.name}
+                  onChange={(event) =>
+                    setShowEdit({
+                      ...showEdit,
+                      name: event.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    height: 42,
+                    boxSizing: "border-box",
+                    padding: "0 12px",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 9,
+                    fontSize: 13,
+                  }}
+                />
+
+                <textarea
+               value={showEdit.description}
+                  onChange={(event) =>
+                    setShowEdit({
+                      ...showEdit,
+                      description: event.target.value,
+                    })
+                  }
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: 12,
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 9,
+                    fontSize: 13,
+                    resize: "vertical",
+                  }}
+                />
+
+                <select
+                  value={showEdit.status}
+                  onChange={(event) =>
+                    setShowEdit({
+                      ...showEdit,
+                      status:
+                        event.target.value as CampaignStatus,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    height: 42,
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 9,
+                    padding: "0 12px",
+                    fontSize: 13,
+                    background: "#ffffff",
+                  }}
+                >
+                  <option value="active">Active</option>
+                  <option value="draft">Draft</option>
+                  <option value="completed">Completed</option>
+                  <option value="paused">Paused</option>
+                </select>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowEdit(null)}
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      border: "1px solid #bfdbfe",
+                      background: "#ffffff",
+                      color: "#2563eb",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleEditSave}
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#ffffff",
+                      borderRadius: 9,
+                      cursor: "pointer",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Modal */}
+        {deleteTarget && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15,23,42,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+              zIndex: 100,
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 420,
+                background: "#ffffff",
+                borderRadius: 16,
+                padding: 22,
+                border: "1px solid #fecaca",
+              }}
+            >
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 11,
+                  background: "#fef2f2",
+                  color: "#dc2626",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <Trash2 size={19} />
+              </div>
+
+              <h2
+                style={{
+                  margin: "0 0 7px",
+                  color: "#0f172a",
+                  fontSize: 18,
+                }}
+              >
+                Delete Campaign?
+              </h2>
+
+              <p
+                style={{
+                  margin: "0 0 20px",
+                  color: "#64748b",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}
+              >
+                Are you sure you want to delete{" "}
+                <strong>{deleteTarget.name}</strong>? This action
+                cannot be undone.
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  style={{
+                    flex: 1,
+                    height: 42,
+                    border: "1px solid #bfdbfe",
+                    background: "#ffffff",
+                    color: "#2563eb",
+                    borderRadius: 9,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  style={{
+                    flex: 1,
+                    height: 42,
+                    border: "none",
+                    background: "#dc2626",
+                    color: "#ffffff",
+                    borderRadius: 9,
+                    cursor: "pointer",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Trash2 size={15} />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+export default CampaignsPage;   

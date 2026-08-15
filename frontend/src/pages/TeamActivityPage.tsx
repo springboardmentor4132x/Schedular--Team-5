@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Users,
   MessageSquare,
@@ -7,7 +7,14 @@ import {
   Calendar,
   UserPlus,
   Search,
-} from 'lucide-react';
+} from "lucide-react";
+
+type ActivityType =
+  | "comment"
+  | "approval"
+  | "post"
+  | "schedule"
+  | "member";
 
 type Activity = {
   id: number;
@@ -16,96 +23,118 @@ type Activity = {
   target: string;
   campaign: string;
   time: string;
-  type: 'comment' | 'approval' | 'post' | 'schedule' | 'member';
+  type: ActivityType;
 };
 
 const initialActivities: Activity[] = [
   {
     id: 1,
-    user: 'Alex Johnson',
-    action: 'commented on',
-    target: 'Summer Campaign Post',
-    campaign: 'Summer Sale',
-    time: '10 minutes ago',
-    type: 'comment',
+    user: "Alex Johnson",
+    action: "commented on",
+    target: "Summer Campaign Post",
+    campaign: "Summer Sale",
+    time: "10 minutes ago",
+    type: "comment",
   },
   {
     id: 2,
-    user: 'Sarah Wilson',
-    action: 'approved',
-    target: 'Instagram Campaign',
-    campaign: 'Product Launch Q3',
-    time: '35 minutes ago',
-    type: 'approval',
+    user: "Sarah Wilson",
+    action: "approved",
+    target: "Instagram Campaign",
+    campaign: "Product Launch Q3",
+    time: "35 minutes ago",
+    type: "approval",
   },
   {
     id: 3,
-    user: 'Mike Brown',
-    action: 'created',
-    target: 'New Facebook Post',
-    campaign: 'Content Marketing',
-    time: '1 hour ago',
-    type: 'post',
+    user: "Mike Brown",
+    action: "created",
+    target: "New Facebook Post",
+    campaign: "Content Marketing",
+    time: "1 hour ago",
+    type: "post",
   },
   {
     id: 4,
-    user: 'Emily Davis',
-    action: 'scheduled',
-    target: 'Product Launch Post',
-    campaign: 'Product Launch Q3',
-    time: '2 hours ago',
-    type: 'schedule',
+    user: "Emily Davis",
+    action: "scheduled",
+    target: "Product Launch Post",
+    campaign: "Product Launch Q3",
+    time: "2 hours ago",
+    type: "schedule",
   },
   {
     id: 5,
-    user: 'John Smith',
-    action: 'joined the team',
-    target: '',
-    campaign: 'No Campaign',
-    time: '3 hours ago',
-    type: 'member',
+    user: "John Smith",
+    action: "joined the team",
+    target: "",
+    campaign: "No Campaign",
+    time: "3 hours ago",
+    type: "member",
   },
 ];
+
+const filterStyle: React.CSSProperties = {
+  height: "40px",
+  border: "1px solid #dbeafe",
+  borderRadius: "9px",
+  background: "#f8fafc",
+  padding: "0 12px",
+  outline: "none",
+  color: "#475569",
+  fontSize: "12px",
+  cursor: "pointer",
+};
 
 export function TeamActivityPage() {
   const [activities] = useState<Activity[]>(initialActivities);
 
-  const [search, setSearch] = useState('');
-  const [campaignFilter, setCampaignFilter] = useState('All');
-  const [userFilter, setUserFilter] = useState('All');
+  const [search, setSearch] = useState("");
+  const [campaignFilter, setCampaignFilter] = useState("All");
+  const [userFilter, setUserFilter] = useState("All");
+  const [activityFilter, setActivityFilter] = useState("All");
 
   const filteredActivities = activities.filter((activity) => {
-    const text =
+    const searchText =
       `${activity.user} ${activity.action} ${activity.target} ${activity.campaign}`.toLowerCase();
 
-    const matchesSearch = text.includes(search.toLowerCase());
+    const matchesSearch = searchText.includes(search.toLowerCase());
 
     const matchesCampaign =
-      campaignFilter === 'All' ||
+      campaignFilter === "All" ||
       activity.campaign === campaignFilter;
 
     const matchesUser =
-      userFilter === 'All' ||
+      userFilter === "All" ||
       activity.user === userFilter;
 
-    return matchesSearch && matchesCampaign && matchesUser;
+    const matchesActivity =
+      activityFilter === "All" ||
+      activity.type === activityFilter;
+
+    return (
+      matchesSearch &&
+      matchesCampaign &&
+      matchesUser &&
+      matchesActivity
+    );
   });
 
-  const getIcon = (type: Activity['type']) => {
+  const getIcon = (type: ActivityType) => {
     switch (type) {
-      case 'comment':
+      case "comment":
         return <MessageSquare size={20} />;
 
-      case 'approval':
+      case "approval":
         return <CheckCircle size={20} />;
 
-      case 'post':
+      case "post":
         return <FileText size={20} />;
 
-      case 'schedule':
+      case "schedule":
         return <Calendar size={20} />;
 
-      case 'member':
+      case "member":
         return <UserPlus size={20} />;
 
       default:
@@ -113,60 +142,151 @@ export function TeamActivityPage() {
     }
   };
 
-  const getIconStyle = (type: Activity['type']) => {
+  const getIconStyle = (type: ActivityType) => {
     switch (type) {
-      case 'comment':
-        return 'bg-blue-100 text-blue-600';
+      case "comment":
+        return "bg-blue-50 text-blue-600";
 
-      case 'approval':
-        return 'bg-green-100 text-green-600';
+      case "approval":
+        return "bg-green-50 text-green-600";
 
-      case 'post':
-        return 'bg-purple-100 text-purple-600';
+      case "post":
+        return "bg-indigo-50 text-indigo-600";
 
-      case 'schedule':
-        return 'bg-orange-100 text-orange-600';
+      case "schedule":
+        return "bg-orange-50 text-orange-600";
 
-      case 'member':
-        return 'bg-indigo-100 text-indigo-600';
+      case "member":
+        return "bg-slate-100 text-slate-600";
 
       default:
-        return 'bg-gray-100 text-gray-600';
+        return "bg-slate-100 text-slate-600";
+    }
+  };
+
+  const getActivityLabel = (type: ActivityType) => {
+    switch (type) {
+      case "comment":
+        return "Comment";
+
+      case "approval":
+        return "Approval";
+
+      case "post":
+        return "Post";
+
+      case "schedule":
+        return "Scheduling";
+
+      case "member":
+        return "Team Member";
+
+      default:
+        return "Activity";
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        color: "#1e293b",
+        padding: "24px",
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1400px",
+          margin: "0 auto",
+        }}
+      >
+        {/* =========================
+            HEADER
+        ========================= */}
 
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-indigo-600 p-3 text-white">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            marginBottom: "22px",
+          }}
+        >
+          <div
+            style={{
+              width: "46px",
+              height: "46px",
+              borderRadius: "12px",
+              background: "#2563eb",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.18)",
+            }}
+          >
             <Users size={24} />
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "28px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
               Team Activity
             </h1>
 
-            <p className="text-sm text-gray-500">
-              View recent activity from your team members
+            <p
+              style={{
+                margin: "5px 0 0",
+                color: "#64748b",
+                fontSize: "13px",
+              }}
+            >
+              View recent activity from your team members.
             </p>
           </div>
         </div>
-      </div>
 
-      {/* Search and Filters */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        {/* =========================
+            SEARCH + FILTERS
+        ========================= */}
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            padding: "16px",
+            marginBottom: "16px",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+          }}
+        >
           {/* Search */}
-          <div className="relative w-full md:max-w-md">
+
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: "520px",
+              marginBottom: "14px",
+            }}
+          >
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              style={{
+                position: "absolute",
+                left: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#94a3b8",
+              }}
             />
 
             <input
@@ -174,126 +294,373 @@ export function TeamActivityPage() {
               placeholder="Search team activity..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              style={{
+                width: "100%",
+                height: "42px",
+                border: "1px solid #dbeafe",
+                borderRadius: "9px",
+                background: "#f8fafc",
+                padding: "0 14px 0 40px",
+                outline: "none",
+                color: "#1e293b",
+                fontSize: "13px",
+                boxSizing: "border-box",
+              }}
             />
           </div>
 
-          {/* Campaign Filter */}
-          <select
-            value={campaignFilter}
-            onChange={(e) => setCampaignFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-600"
+          {/* Filters */}
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "9px",
+            }}
           >
-            <option value="All">All Campaigns</option>
-            <option value="Summer Sale">Summer Sale</option>
-            <option value="Product Launch Q3">
-              Product Launch Q3
-            </option>
-            <option value="Content Marketing">
-              Content Marketing
-            </option>
-            <option value="No Campaign">No Campaign</option>
-          </select>
+            {/* Campaign */}
 
-          {/* User Filter */}
-          <select
-            value={userFilter}
-            onChange={(e) => setUserFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-600"
-          >
-            <option value="All">All Users</option>
-            <option value="Alex Johnson">Alex Johnson</option>
-            <option value="Sarah Wilson">Sarah Wilson</option>
-            <option value="Mike Brown">Mike Brown</option>
-            <option value="Emily Davis">Emily Davis</option>
-            <option value="John Smith">John Smith</option>
-          </select>
+            <select
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Campaigns</option>
 
-        </div>
-      </div>
+              <option value="Summer Sale">
+                Summer Sale
+              </option>
 
-      {/* Activity List */}
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+              <option value="Product Launch Q3">
+                Product Launch Q3
+              </option>
 
-        <div className="border-b border-gray-200 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">
-            Recent Team Activity
-          </h2>
+              <option value="Content Marketing">
+                Content Marketing
+              </option>
 
-          <p className="mt-1 text-sm text-gray-500">
-            {filteredActivities.length} activities found
-          </p>
-        </div>
+              <option value="No Campaign">
+                No Campaign
+              </option>
+            </select>
 
-        {filteredActivities.length > 0 ? (
-          <div>
+            {/* Users */}
 
-            {filteredActivities.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-start gap-4 border-b border-gray-100 p-5 hover:bg-gray-50"
-              >
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Users</option>
 
-                {/* Icon */}
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${getIconStyle(
-                    activity.type
-                  )}`}
-                >
-                  {getIcon(activity.type)}
-                </div>
+              <option value="Alex Johnson">
+                Alex Johnson
+              </option>
 
-                {/* Activity Details */}
-                <div className="min-w-0 flex-1">
+              <option value="Sarah Wilson">
+                Sarah Wilson
+              </option>
 
-                  <p className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      {activity.user}
-                    </span>{' '}
-                    {activity.action}{' '}
+              <option value="Mike Brown">
+                Mike Brown
+              </option>
 
-                    {activity.target && (
-                      <span className="font-semibold text-gray-900">
-                        {activity.target}
-                      </span>
-                    )}
-                  </p>
+              <option value="Emily Davis">
+                Emily Davis
+              </option>
 
-                  <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-400">
-                    <span>{activity.time}</span>
+              <option value="John Smith">
+                John Smith
+              </option>
+            </select>
 
-                    <span>•</span>
+            {/* Activity Type */}
 
-                    <span>
-                      Campaign: {activity.campaign}
-                    </span>
-                  </div>
+            <select
+              value={activityFilter}
+              onChange={(e) => setActivityFilter(e.target.value)}
+              style={filterStyle}
+            >
+              <option value="All">All Activities</option>
 
-                </div>
-              </div>
-            ))}
+              <option value="comment">
+                Comments
+              </option>
 
+              <option value="approval">
+                Approvals
+              </option>
+
+              <option value="post">
+                Posts
+              </option>
+
+              <option value="schedule">
+                Scheduling
+              </option>
+
+              <option value="member">
+                Team Members
+              </option>
+            </select>
           </div>
-        ) : (
+        </div>
 
-          /* Empty State */
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+        {/* =========================
+            ACTIVITY CARD
+        ========================= */}
 
-            <div className="mb-4 rounded-full bg-gray-100 p-5">
-              <Users size={32} className="text-gray-400" />
+        <div
+          style={{
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            overflow: "hidden",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
+          }}
+        >
+          {/* Card Header */}
+
+          <div
+            style={{
+              padding: "18px 20px",
+              borderBottom: "1px solid #e2e8f0",
+              background: "#ffffff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "9px",
+              }}
+            >
+              <Users size={19} color="#2563eb" />
+
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "17px",
+                  fontWeight: 800,
+                  color: "#1e293b",
+                }}
+              >
+                Recent Team Activity
+              </h2>
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-800">
-              No activity found
-            </h3>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Try changing your search or filters.
+            <p
+              style={{
+                margin: "5px 0 0 28px",
+                fontSize: "12px",
+                color: "#64748b",
+              }}
+            >
+              {filteredActivities.length} activit
+              {filteredActivities.length === 1
+                ? "y"
+                : "ies"}{" "}
+              found
             </p>
-
           </div>
-        )}
 
+          {/* =========================
+              ACTIVITY LIST
+          ========================= */}
+
+          {filteredActivities.length > 0 ? (
+            <div>
+              {filteredActivities.map((activity, index) => (
+                <div
+                  key={activity.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "14px",
+                    padding: "18px 20px",
+                    borderBottom:
+                      index !==
+                      filteredActivities.length - 1
+                        ? "1px solid #edf2f7"
+                        : "none",
+                    background: "#ffffff",
+                    transition:
+                      "background 0.2s ease",
+                  }}
+                >
+                  {/* ICON */}
+
+                  <div
+                    className={getIconStyle(activity.type)}
+                    style={{
+                      width: "44px",
+                      height: "44px",
+                      flexShrink: 0,
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {getIcon(activity.type)}
+                  </div>
+
+                  {/* CONTENT */}
+
+                  <div
+                    style={{
+                      minWidth: 0,
+                      flex: 1,
+                    }}
+                  >
+                    {/* Main Activity */}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        alignItems:
+                          "flex-start",
+                        gap: "12px",
+                      }}
+                    >
+                      <div>
+                        <h3
+                          style={{
+                            margin: 0,
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            color: "#1e293b",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontWeight: 800,
+                            }}
+                          >
+                            {activity.user}
+                          </span>{" "}
+                          {activity.action}{" "}
+                          {activity.target && (
+                            <span
+                              style={{
+                                fontWeight: 800,
+                              }}
+                            >
+                              {activity.target}
+                            </span>
+                          )}
+                        </h3>
+
+                        {/* Activity Type */}
+
+                        <span
+                          style={{
+                            display: "inline-block",
+                            marginTop: "6px",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            background: "#eff6ff",
+                            color: "#2563eb",
+                            fontSize: "10px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {getActivityLabel(
+                            activity.type
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* METADATA */}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems:
+                          "center",
+                        flexWrap: "wrap",
+                        gap: "7px",
+                        marginTop: "9px",
+                        fontSize: "11px",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <span>
+                        {activity.time}
+                      </span>
+
+                      <span>•</span>
+
+                      <span>
+                        Campaign:{" "}
+                        {activity.campaign}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* =========================
+               EMPTY STATE
+            ========================= */
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "64px 24px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "50%",
+                  background: "#f1f5f9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: "14px",
+                }}
+              >
+                <Users
+                  size={30}
+                  color="#94a3b8"
+                />
+              </div>
+
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "16px",
+                  fontWeight: 800,
+                  color: "#334155",
+                }}
+              >
+                No activity found
+              </h3>
+
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: "12px",
+                  color: "#94a3b8",
+                }}
+              >
+                Try changing your search or
+                filters.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
