@@ -1,4 +1,5 @@
 
+from api.core.config import settings
 from api.dependencies.database import get_db
 from api.exceptions import integrations
 from api.models.campaign import Campaign
@@ -24,6 +25,21 @@ async def get_youtube_audience_analytics(
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
         raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    if account.token_expiry and datetime.now(timezone.utc) >= account.token_expiry - timedelta(minutes=5):
+        refresh_res = httpx.post("https://oauth2.googleapis.com/token", data={
+            "client_id": settings.YOUTUBE_CLIENT_ID,
+            "client_secret": settings.YOUTUBE_CLIENT_SECRET,
+            "refresh_token": account.refresh_token,
+            "grant_type": "refresh_token"
+        })
+        refresh_res.raise_for_status()
+        token_json = refresh_res.json()
+        
+        # Update database with new token
+        account.access_token = token_json["access_token"]
+        account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
+        db.commit()
 
     headers: Dict = {
         "Authorization": f"Bearer {account.access_token}",
@@ -53,7 +69,7 @@ async def get_youtube_audience_analytics(
         return {
             "platform": "YOUTUBE",
             "audience": {
-                "follower_count": int(stats.get("subscriberCount", 0)),
+                "subscriber_count": int(stats.get("subscriberCount", 0)),
                 "total_views": int(stats.get("viewCount", 0)),
                 "total_videos": int(stats.get("videoCount", 0))
             }
@@ -68,6 +84,21 @@ async def get_youtube_content_analytics(
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
         raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    if account.token_expiry and datetime.now(timezone.utc) >= account.token_expiry - timedelta(minutes=5):
+        refresh_res = httpx.post("https://oauth2.googleapis.com/token", data={
+            "client_id": settings.YOUTUBE_CLIENT_ID,
+            "client_secret": settings.YOUTUBE_CLIENT_SECRET,
+            "refresh_token": account.refresh_token,
+            "grant_type": "refresh_token"
+        })
+        refresh_res.raise_for_status()
+        token_json = refresh_res.json()
+        
+        # Update database with new token
+        account.access_token = token_json["access_token"]
+        account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
+        db.commit()
 
     headers: Dict = {
         "Authorization": f"Bearer {account.access_token}",
@@ -113,6 +144,21 @@ async def get_youtube_performance_trends(
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
         raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    if account.token_expiry and datetime.now(timezone.utc) >= account.token_expiry - timedelta(minutes=5):
+        refresh_res = httpx.post("https://oauth2.googleapis.com/token", data={
+            "client_id": settings.YOUTUBE_CLIENT_ID,
+            "client_secret": settings.YOUTUBE_CLIENT_SECRET,
+            "refresh_token": account.refresh_token,
+            "grant_type": "refresh_token"
+        })
+        refresh_res.raise_for_status()
+        token_json = refresh_res.json()
+        
+        # Update database with new token
+        account.access_token = token_json["access_token"]
+        account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
+        db.commit()
 
     headers: Dict = {
         "Authorization": f"Bearer {account.access_token}",
@@ -170,6 +216,21 @@ async def get_youtube_geography(
     if not account:
         raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
 
+    if account.token_expiry and datetime.now(timezone.utc) >= account.token_expiry - timedelta(minutes=5):
+        refresh_res = httpx.post("https://oauth2.googleapis.com/token", data={
+            "client_id": settings.YOUTUBE_CLIENT_ID,
+            "client_secret": settings.YOUTUBE_CLIENT_SECRET,
+            "refresh_token": account.refresh_token,
+            "grant_type": "refresh_token"
+        })
+        refresh_res.raise_for_status()
+        token_json = refresh_res.json()
+        
+        # Update database with new token
+        account.access_token = token_json["access_token"]
+        account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
+        db.commit()
+
     headers: Dict = {
         "Authorization": f"Bearer {account.access_token}",
         "Accept": "application/json"
@@ -223,6 +284,21 @@ async def get_youtube_demographics(
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
         raise integrations.YOUTUBE_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    if account.token_expiry and datetime.now(timezone.utc) >= account.token_expiry - timedelta(minutes=5):
+        refresh_res = httpx.post("https://oauth2.googleapis.com/token", data={
+            "client_id": settings.YOUTUBE_CLIENT_ID,
+            "client_secret": settings.YOUTUBE_CLIENT_SECRET,
+            "refresh_token": account.refresh_token,
+            "grant_type": "refresh_token"
+        })
+        refresh_res.raise_for_status()
+        token_json = refresh_res.json()
+        
+        # Update database with new token
+        account.access_token = token_json["access_token"]
+        account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
+        db.commit()
 
     headers: Dict = {
         "Authorization": f"Bearer {account.access_token}",

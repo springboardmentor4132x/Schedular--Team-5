@@ -4,6 +4,7 @@ from api.dependencies.database import get_db
 from api.exceptions import integrations
 from api.models.social_account import SocialAccount
 from api.roles.social_account import Platform
+from api.models.publishing_log import PublishingLog
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
@@ -115,11 +116,20 @@ async def linkedin_callback(
             permissions=["openid", "profile", "email", "w_member_social"]
         )
         db.add(new_account)
+
+    db.add(
+        PublishingLog(
+            post_id=None, 
+            status_changed_to=None, 
+            message="Account Activity: Successfully linked LinkedIn account."
+        )
+    )
         
     db.commit()
     return {
         "message": "LinkedIn account connected successfully"
     }
+
 
 @router.delete("/{account_id}")
 def disconnect_linkedin(

@@ -8,9 +8,12 @@ from api.core import constants
 from api.database.init_db import init_db
 from api.routers import youtube
 from api.routers import analytics
+from api.routers.notifications import router as notifications_router
+from api.routers.reports import router as reports_router
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict
 
 
@@ -25,6 +28,20 @@ app = FastAPI(
     description=constants.PROJECT_DESCRIPTION,
     version=constants.PROJECT_VERSION,
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/", response_model=None, tags=["Root Route"])
@@ -45,3 +62,5 @@ app.include_router(youtube.router)
 app.include_router(linkedin.router)
 app.include_router(schedule.router)
 app.include_router(analytics.router)
+app.include_router(notifications_router)
+app.include_router(reports_router)

@@ -81,5 +81,7 @@ class Post(Base):
         back_populates="post", cascade="all, delete-orphan"
     )
 
+    logs = relationship("PublishingLog", back_populates="post", cascade="all, delete-orphan")
+
     def __repr__(self) -> str:
         return f"<Post id={self.id} status={self.status} media_type={self.media_type}>"

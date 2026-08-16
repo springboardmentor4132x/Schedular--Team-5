@@ -4,6 +4,7 @@ from api.dependencies.database import get_db
 from api.exceptions import integrations
 from api.models.social_account import SocialAccount
 from api.roles.social_account import Platform
+from api.models.publishing_log import PublishingLog
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
@@ -34,7 +35,7 @@ def get_youtube_accounts(
 
 @router.get("/login")
 async def youtube_login(
-    user_id: int = 1
+    user_id: int
 ):
     params: Dict = {
         "client_id": settings.YOUTUBE_CLIENT_ID,
@@ -47,6 +48,7 @@ async def youtube_login(
     }
     url = httpx.URL(GOOGLE_AUTH_URL, params=params)
     return RedirectResponse(url=str(url))
+
 
 @router.get("/callback")
 async def youtube_callback(
@@ -130,9 +132,18 @@ async def youtube_callback(
             permissions=["youtube.readonly"]
         )
         db.add(new_account)
-        
+
+    db.add(
+        PublishingLog(
+            post_id=None, 
+            status_changed_to=None, 
+            message="Account Activity: Successfully linked YouTube channel."
+        )
+    )
+    
     db.commit()
     return {"message": "YouTube account connected successfully"}
+
 
 @router.delete("/{account_id}")
 def disconnect_youtube(
