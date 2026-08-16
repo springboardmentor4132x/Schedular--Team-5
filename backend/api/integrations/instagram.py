@@ -1,9 +1,10 @@
+
 import asyncio
 import json
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
-import os
 
 import httpx
 
@@ -35,7 +36,8 @@ INSTAGRAM_REDIRECT_URI = os.getenv(
     "http://localhost:8000/social-accounts/instagram/callback",
 )
 
-GRAPH_API_VERSION = "v19.0"
+# Keep Instagram on the same Graph API version as Facebook.
+GRAPH_API_VERSION = "v25.0"
 
 FACEBOOK_OAUTH_DIALOG_URL = (
     f"https://www.facebook.com/{GRAPH_API_VERSION}/dialog/oauth"
@@ -74,7 +76,7 @@ def get_login_url(state: str) -> str:
 # ============================================================
 
 async def exchange_code_for_token(code: str) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
 
         short_lived = await client.get(
             FACEBOOK_TOKEN_URL,
@@ -86,9 +88,29 @@ async def exchange_code_for_token(code: str) -> dict:
             },
         )
 
+        print(
+            ">>> INSTAGRAM SHORT TOKEN STATUS:",
+            short_lived.status_code,
+            flush=True,
+        )
+
+        print(
+            ">>> INSTAGRAM SHORT TOKEN RESPONSE:",
+            short_lived.text,
+            flush=True,
+        )
+
         short_lived.raise_for_status()
 
-        short_token = short_lived.json()["access_token"]
+        short_token = short_lived.json().get(
+            "access_token"
+        )
+
+        if not short_token:
+            raise ValueError(
+                "Instagram OAuth did not return "
+                "a short-lived access token."
+            )
 
         long_lived = await client.get(
             FACEBOOK_TOKEN_URL,
@@ -98,6 +120,18 @@ async def exchange_code_for_token(code: str) -> dict:
                 "client_secret": FACEBOOK_CLIENT_SECRET,
                 "fb_exchange_token": short_token,
             },
+        )
+
+        print(
+            ">>> INSTAGRAM LONG TOKEN STATUS:",
+            long_lived.status_code,
+            flush=True,
+        )
+
+        print(
+            ">>> INSTAGRAM LONG TOKEN RESPONSE:",
+            long_lived.text,
+            flush=True,
         )
 
         long_lived.raise_for_status()
@@ -112,7 +146,9 @@ async def exchange_code_for_token(code: str) -> dict:
 async def get_instagram_business_account(
     user_access_token: str,
 ):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        timeout=30.0
+    ) as client:
 
         pages_resp = await client.get(
             f"{GRAPH_BASE_URL}/me/accounts",
@@ -126,11 +162,26 @@ async def get_instagram_business_account(
             },
         )
 
+        print(
+            ">>> INSTAGRAM PAGE LOOKUP STATUS:",
+            pages_resp.status_code,
+            flush=True,
+        )
+
+        print(
+            ">>> INSTAGRAM PAGE LOOKUP RESPONSE:",
+            pages_resp.text,
+            flush=True,
+        )
+
         pages_resp.raise_for_status()
 
         response = pages_resp.json()
 
-        pages = response.get("data", [])
+        pages = response.get(
+            "data",
+            [],
+        )
 
         if not pages:
             raise ValueError(
@@ -139,7 +190,12 @@ async def get_instagram_business_account(
 
         for page in pages:
 
-            page_token = page["access_token"]
+            page_token = page.get(
+                "access_token"
+            )
+
+            if not page_token:
+                continue
 
             page_lookup = await client.get(
                 f"{GRAPH_BASE_URL}/{page['id']}",
@@ -173,6 +229,13 @@ async def get_instagram_business_account(
             )
 
             if ig_data:
+
+                print(
+                    ">>> INSTAGRAM BUSINESS ACCOUNT FOUND:",
+                    ig_data,
+                    flush=True,
+                )
+
                 return {
                     "page_id": page["id"],
                     "page_name": page["name"],
@@ -232,26 +295,6 @@ def sync(account_id: str):
 # ============================================================
 
 def _parse_media_urls(media_url) -> list[str]:
-    """
-    Convert the media_url value into a list of URLs.
-
-    Supported inputs:
-
-        "https://example.com/image.jpg"
-
-    or:
-
-        '["https://example.com/1.jpg",
-          "https://example.com/2.jpg"]'
-
-    or:
-
-        ["https://example.com/1.jpg",
-         "https://example.com/2.jpg"]
-
-    This allows carousel support without immediately
-    changing the Post model.
-    """
 
     if media_url is None:
         return []
@@ -269,20 +312,24 @@ def _parse_media_urls(media_url) -> list[str]:
         if not media_url:
             return []
 
-        # JSON array
         if media_url.startswith("["):
 
             try:
-                parsed = json.loads(media_url)
+                parsed = json.loads(
+                    media_url
+                )
 
             except json.JSONDecodeError as exc:
                 raise ValueError(
                     "media_url contains invalid JSON."
                 ) from exc
 
-            if not isinstance(parsed, list):
+            if not isinstance(
+                parsed,
+                list,
+            ):
                 raise ValueError(
-                    "Carousel media_url must contain a JSON array."
+                    "media_url JSON must contain an array."
                 )
 
             urls = parsed
@@ -299,7 +346,10 @@ def _parse_media_urls(media_url) -> list[str]:
 
     for url in urls:
 
-        if not isinstance(url, str):
+        if not isinstance(
+            url,
+            str,
+        ):
             raise ValueError(
                 "Every media URL must be a string."
             )
@@ -322,6 +372,7 @@ def _raise_instagram_api_error(
     response: httpx.Response,
     operation: str,
 ):
+
     if response.status_code < 400:
         return
 
@@ -334,7 +385,7 @@ def _raise_instagram_api_error(
         }
 
     print(
-        f">>> INSTAGRAM {operation} ERROR",
+        f">>> INSTAGRAM {operation.upper()} ERROR",
         flush=True,
     )
 
@@ -370,6 +421,7 @@ async def _create_media_container(
     caption: str | None = None,
     children: list[str] | None = None,
 ):
+
     params = {
         "access_token": access_token,
     }
@@ -447,7 +499,8 @@ async def _create_media_container(
 
     if not creation_id:
         raise ValueError(
-            "Instagram did not return a media container ID."
+            "Instagram did not return "
+            "a media container ID."
         )
 
     print(
@@ -469,6 +522,7 @@ async def _wait_for_media_container(
     max_attempts: int = 60,
     wait_seconds: int = 5,
 ):
+
     container_status = None
 
     for attempt in range(
@@ -575,6 +629,7 @@ async def _publish_media_container(
     access_token: str,
     creation_id: str,
 ):
+
     print(
         ">>> INSTAGRAM PUBLISHING MEDIA CONTAINER",
         flush=True,
@@ -605,7 +660,9 @@ async def _publish_media_container(
         "media publishing",
     )
 
-    published_id = response.json().get("id")
+    published_id = response.json().get(
+        "id"
+    )
 
     if not published_id:
         raise ValueError(
@@ -623,7 +680,7 @@ async def _publish_media_container(
 
 
 # ============================================================
-# PUBLISH INSTAGRAM CAROUSEL
+# INSTAGRAM CAROUSEL
 # ============================================================
 
 async def _publish_carousel(
@@ -633,17 +690,29 @@ async def _publish_carousel(
     content: str | None,
     media_urls: list[str],
 ):
+
+    # --------------------------------------------------------
+    # VALIDATE CAROUSEL COUNT
+    # --------------------------------------------------------
+
     if len(media_urls) < 2:
+
         raise ValueError(
             "Instagram carousel requires at least "
             "2 media URLs."
         )
 
     if len(media_urls) > 10:
+
         raise ValueError(
             "Instagram carousel supports a maximum "
             "of 10 media items."
         )
+
+    print(
+        "==================================================",
+        flush=True,
+    )
 
     print(
         ">>> INSTAGRAM CAROUSEL PUBLISH STARTED",
@@ -651,14 +720,15 @@ async def _publish_carousel(
     )
 
     print(
-        f">>> CAROUSEL ITEM COUNT: {len(media_urls)}",
+        f">>> INSTAGRAM CAROUSEL ITEM COUNT: "
+        f"{len(media_urls)}",
         flush=True,
     )
 
     children = []
 
     # --------------------------------------------------------
-    # CREATE CHILD CONTAINERS
+    # CREATE CHILD IMAGE CONTAINERS
     # --------------------------------------------------------
 
     for index, media_url in enumerate(
@@ -666,9 +736,20 @@ async def _publish_carousel(
         start=1,
     ):
 
+        if not media_url:
+            raise ValueError(
+                f"Instagram carousel item "
+                f"{index} has an empty media URL."
+            )
+
         print(
-            f">>> CREATING CAROUSEL CHILD "
+            f">>> INSTAGRAM CAROUSEL CHILD "
             f"{index}/{len(media_urls)}",
+            flush=True,
+        )
+
+        print(
+            f">>> CHILD IMAGE URL: {media_url}",
             flush=True,
         )
 
@@ -678,8 +759,6 @@ async def _publish_carousel(
                 ig_user_id=ig_user_id,
                 access_token=access_token,
                 image_url=media_url,
-                media_type="",
-                caption=None,
             )
         )
 
@@ -687,8 +766,14 @@ async def _publish_carousel(
             child_creation_id
         )
 
+        print(
+            f">>> CAROUSEL CHILD {index} "
+            f"CREATION ID: {child_creation_id}",
+            flush=True,
+        )
+
     # --------------------------------------------------------
-    # WAIT FOR CHILD CONTAINERS
+    # WAIT FOR ALL CHILD CONTAINERS
     # --------------------------------------------------------
 
     for index, child_id in enumerate(
@@ -706,11 +791,24 @@ async def _publish_carousel(
             client=client,
             creation_id=child_id,
             access_token=access_token,
+            max_attempts=60,
+            wait_seconds=5,
         )
 
     # --------------------------------------------------------
-    # CREATE CAROUSEL CONTAINER
+    # CREATE PARENT CAROUSEL CONTAINER
     # --------------------------------------------------------
+
+    print(
+        ">>> ALL CAROUSEL CHILDREN ARE READY",
+        flush=True,
+    )
+
+    print(
+        f">>> CAROUSEL CHILD CREATION IDS: "
+        f"{children}",
+        flush=True,
+    )
 
     carousel_creation_id = (
         await _create_media_container(
@@ -723,22 +821,52 @@ async def _publish_carousel(
         )
     )
 
+    print(
+        f">>> INSTAGRAM CAROUSEL PARENT CREATION ID: "
+        f"{carousel_creation_id}",
+        flush=True,
+    )
+
+    # --------------------------------------------------------
+    # WAIT FOR PARENT CAROUSEL
+    # --------------------------------------------------------
+
     await _wait_for_media_container(
         client=client,
         creation_id=carousel_creation_id,
         access_token=access_token,
+        max_attempts=60,
+        wait_seconds=5,
     )
 
     # --------------------------------------------------------
-    # PUBLISH CAROUSEL
+    # PUBLISH PARENT CAROUSEL
     # --------------------------------------------------------
 
-    return await _publish_media_container(
+    print(
+        ">>> INSTAGRAM CAROUSEL PARENT IS READY",
+        flush=True,
+    )
+
+    published_id = await _publish_media_container(
         client=client,
         ig_user_id=ig_user_id,
         access_token=access_token,
         creation_id=carousel_creation_id,
     )
+
+    print(
+        f">>> INSTAGRAM CAROUSEL PUBLISHED "
+        f"SUCCESSFULLY: {published_id}",
+        flush=True,
+    )
+
+    print(
+        "==================================================",
+        flush=True,
+    )
+
+    return published_id
 
 
 # ============================================================
@@ -752,6 +880,7 @@ async def _publish_reel(
     content: str | None,
     media_url: str,
 ):
+
     print(
         ">>> INSTAGRAM REEL PUBLISH STARTED",
         flush=True,
@@ -793,6 +922,7 @@ async def _publish_image(
     content: str | None,
     media_url: str,
 ):
+
     print(
         ">>> INSTAGRAM IMAGE PUBLISH STARTED",
         flush=True,
@@ -833,6 +963,7 @@ async def _publish_video(
     content: str | None,
     media_url: str,
 ):
+
     print(
         ">>> INSTAGRAM VIDEO PUBLISH STARTED",
         flush=True,
@@ -874,22 +1005,20 @@ async def _publish_story(
     media_url: str,
     media_type,
 ):
-    """
-    Story publishing is intentionally isolated here.
-
-    Instagram Stories require media containers configured
-    specifically for STORIES. The media must be supplied as
-    a publicly reachable URL.
-
-    Supported media:
-        - image
-        - video
-    """
 
     media_type_value = (
         media_type.value
-        if hasattr(media_type, "value")
-        else str(media_type).lower()
+        if hasattr(
+            media_type,
+            "value",
+        )
+        else str(
+            media_type
+        ).lower()
+    )
+
+    media_type_value = (
+        media_type_value.lower()
     )
 
     print(
@@ -921,6 +1050,7 @@ async def _publish_story(
         )
 
     else:
+
         raise ValueError(
             "Instagram Story supports only "
             "image or video media."
@@ -953,19 +1083,6 @@ async def publish_post(
     media_url: str | None,
     media_type,
 ):
-    """
-    Publish content to Instagram.
-
-    Supported:
-
-        image
-        video
-        reel
-        carousel
-        story
-
-    Instagram does NOT support text-only feed posts.
-    """
 
     print(
         ">>> INSTAGRAM PUBLISH DEBUG",
@@ -1009,36 +1126,47 @@ async def publish_post(
     # --------------------------------------------------------
 
     if not access_token:
+
         raise ValueError(
             "Instagram publishing failed: "
             "access_token is empty."
         )
 
     if not ig_user_id:
+
         raise ValueError(
             "Instagram publishing failed: "
             "ig_user_id is empty."
         )
 
     if not media_url:
+
         raise ValueError(
             "Instagram requires media_url. "
-            "Text-only posts are not supported."
+            "Text-only feed posts are not supported."
         )
 
     media_type_value = (
         media_type.value
-        if hasattr(media_type, "value")
-        else str(media_type).lower()
+        if hasattr(
+            media_type,
+            "value",
+        )
+        else str(
+            media_type
+        ).lower()
     )
 
-    media_type_value = media_type_value.lower()
+    media_type_value = (
+        media_type_value.lower().strip()
+    )
 
     media_urls = _parse_media_urls(
         media_url
     )
 
     if not media_urls:
+
         raise ValueError(
             "Instagram publishing requires "
             "at least one media URL."
@@ -1064,11 +1192,16 @@ async def publish_post(
         timeout=120.0
     ) as client:
 
-        # ----------------------------------------------------
+        # ====================================================
         # CAROUSEL
-        # ----------------------------------------------------
+        # ====================================================
 
         if media_type_value == "carousel":
+
+            print(
+                ">>> INSTAGRAM POST TYPE: CAROUSEL",
+                flush=True,
+            )
 
             return await _publish_carousel(
                 client=client,
@@ -1078,13 +1211,14 @@ async def publish_post(
                 media_urls=media_urls,
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # STORY
-        # ----------------------------------------------------
+        # ====================================================
 
         if media_type_value == "story":
 
             if len(media_urls) != 1:
+
                 raise ValueError(
                     "Instagram Story requires exactly "
                     "one media URL."
@@ -1098,13 +1232,14 @@ async def publish_post(
                 media_type=media_type,
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # REEL
-        # ----------------------------------------------------
+        # ====================================================
 
         if media_type_value == "reel":
 
             if len(media_urls) != 1:
+
                 raise ValueError(
                     "Instagram Reel requires exactly "
                     "one video URL."
@@ -1118,16 +1253,17 @@ async def publish_post(
                 media_url=media_urls[0],
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # VIDEO
-        # ----------------------------------------------------
+        # ====================================================
 
         if media_type_value == "video":
 
             if len(media_urls) != 1:
+
                 raise ValueError(
-                    "Instagram video publishing requires "
-                    "exactly one video URL."
+                    "Instagram video publishing "
+                    "requires exactly one video URL."
                 )
 
             return await _publish_video(
@@ -1138,16 +1274,17 @@ async def publish_post(
                 media_url=media_urls[0],
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # IMAGE
-        # ----------------------------------------------------
+        # ====================================================
 
         if media_type_value == "image":
 
             if len(media_urls) != 1:
+
                 raise ValueError(
-                    "Instagram image publishing requires "
-                    "exactly one image URL."
+                    "Instagram image publishing "
+                    "requires exactly one image URL."
                 )
 
             return await _publish_image(
@@ -1158,11 +1295,12 @@ async def publish_post(
                 media_url=media_urls[0],
             )
 
-        # ----------------------------------------------------
+        # ====================================================
         # UNSUPPORTED
-        # ----------------------------------------------------
+        # ====================================================
 
         raise ValueError(
             "Unsupported Instagram media type: "
             f"{media_type_value}"
         )
+

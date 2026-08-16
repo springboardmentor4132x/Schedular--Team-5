@@ -9,6 +9,7 @@ from api.core import constants
 from api.database.init_db import init_db
 
 from api.business_assignment import router as business_assignment_router
+
 from api.routers.user import router as user_router
 from api.routers.social_account import router as social_account_router
 from api.routers.twitter import router as twitter_router
@@ -18,16 +19,21 @@ from api.routers.campaign import router as campaign_router
 from api.routers.upload import router as upload_router
 from api.routers.client import router as client_router
 from api.routers.notification import router as notification_router
-from api.routers.analytics import router as analytics_router
+from api.routers.analytics_router import router as analytics_router
 
 from api.routers import youtube
 from api.routers import linkedin
 from api.routers import schedule
+from api.routers import meta_analytics
+from api.routers import yt_li_analytics
 
 
 UPLOAD_DIR = "uploads"
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(
+    UPLOAD_DIR,
+    exist_ok=True,
+)
 
 
 @asynccontextmanager
@@ -91,10 +97,33 @@ app.include_router(post_router)
 app.include_router(campaign_router)
 app.include_router(upload_router)
 app.include_router(client_router)
-app.include_router(business_assignment_router)
 
+app.include_router(business_assignment_router)
 app.include_router(notification_router)
 
 app.include_router(schedule.router)
 
+app.include_router(meta_analytics.router)
+app.include_router(yt_li_analytics.router)
 app.include_router(analytics_router)
+
+
+print(
+    ">>> REGISTERED ROUTES:",
+    len(app.routes),
+    flush=True,
+)
+
+print(
+    ">>> ANALYTICS ROUTES:",
+    flush=True,
+)
+
+for route in app.routes:
+    path = getattr(route, "path", "")
+
+    if "/analytics/" in path or "/audience/" in path:
+        print(
+            f">>> {path} {getattr(route, 'methods', set())}",
+            flush=True,
+        )

@@ -8,6 +8,7 @@ celery_app = Celery(
     backend="redis://localhost:6379/0",
     include=[
         "api.tasks.publish",
+        "api.tasks.analytics_sync",
     ],
 )
 
@@ -24,6 +25,10 @@ celery_app.conf.update(
         "check-scheduled-posts-every-minute": {
             "task": "api.tasks.publish.check_scheduled_posts",
             "schedule": crontab(minute="*"),
+        },
+        "sync-platform-analytics-hourly": {
+            "task": "api.tasks.analytics_sync.sync_platform_analytics",
+            "schedule": crontab(minute="0"),
         },
     },
 )

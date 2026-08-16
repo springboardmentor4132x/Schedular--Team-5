@@ -20,13 +20,14 @@ dashboard_router = APIRouter(
     tags=["Analytics Dashboard"],
 )
 
-GRAPH_API_VERSION = "v19.0"
+
+GRAPH_API_VERSION = "v25.0"
 GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 
 def _get_platform_value(account: SocialAccount) -> str:
     if hasattr(account.platform, "value"):
-        return account.platform.value
+        return str(account.platform.value).lower()
 
     return str(account.platform).lower()
 
@@ -36,10 +37,19 @@ def _get_account(
     account_id: str,
     platform: str,
 ) -> SocialAccount:
+
+    try:
+        numeric_account_id = int(account_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid social account ID.",
+        )
+
     account = (
         db.query(SocialAccount)
         .filter(
-            SocialAccount.account_id == str(account_id),
+            SocialAccount.id == numeric_account_id,
             SocialAccount.is_connected.is_(True),
         )
         .first()
@@ -84,6 +94,7 @@ async def _graph_get(
     access_token: str,
     params: Optional[Dict] = None,
 ) -> Dict:
+
     request_params = dict(params or {})
     request_params["access_token"] = access_token
 
@@ -94,6 +105,7 @@ async def _graph_get(
         )
 
     if response.status_code != 200:
+
         try:
             error_data = response.json()
         except Exception:
@@ -111,6 +123,7 @@ async def _graph_get(
 
     try:
         return response.json()
+
     except Exception as exc:
         raise HTTPException(
             status_code=502,
@@ -119,6 +132,7 @@ async def _graph_get(
 
 
 def _format_insights(data: list) -> list:
+
     formatted = []
 
     for item in data:
@@ -129,10 +143,127 @@ def _format_insights(data: list) -> list:
                 "title": item.get("title"),
                 "description": item.get("description"),
                 "values": item.get("values", []),
+                "total_value": item.get("total_value"),
             }
         )
 
     return formatted
+
+
+def _safe_number(value) -> float:
+
+    try:
+        if value is None:
+            return 0
+
+        return float(value)
+
+    except (TypeError, ValueError):
+        return 0
+
+
+def _clean_number(value):
+
+    value = _safe_number(value)
+
+    if value.is_integer():
+        return int(value)
+
+    return value
+
+
+async def _get_instagram_media_insights(
+    media_id: str,
+    access_token: str,
+) -> Dict:
+
+    metrics = [
+        "likes",
+        "comments",
+        "total_interactions",
+        "reach",
+        "impressions",
+    ]
+
+    result = {
+        "likes": 0,
+        "comments": 0,
+        "engagement": 0,
+        "reach": 0,
+        "impressions": 0,
+    }
+
+    for metric_name in metrics:
+
+        try:
+            response = await _graph_get(
+                f"{GRAPH_BASE_URL}/{media_id}/insights",
+                access_token,
+                {
+                    "metric": metric_name,
+                },
+            )
+
+            insight_items = response.get(
+                "data",
+                [],
+            )
+
+            for insight in insight_items:
+
+                if insight.get("name") != metric_name:
+                    continue
+
+                values = insight.get(
+                    "values",
+                    [],
+                )
+
+                if not values:
+                    continue
+
+                latest_value = values[-1].get(
+                    "value",
+                    0,
+                )
+
+                numeric_value = _clean_number(
+                    latest_value
+                )
+
+                if metric_name == "likes":
+                    result["likes"] = numeric_value
+
+                elif metric_name == "comments":
+                    result["comments"] = numeric_value
+
+                elif metric_name == "total_interactions":
+                    result["engagement"] = numeric_value
+
+                elif metric_name == "reach":
+                    result["reach"] = numeric_value
+
+                elif metric_name == "impressions":
+                    result["impressions"] = numeric_value
+
+                break
+
+        except Exception:
+            continue
+
+    if (
+        result["engagement"] == 0
+        and (
+            result["likes"] > 0
+            or result["comments"] > 0
+        )
+    ):
+        result["engagement"] = (
+            result["likes"]
+            + result["comments"]
+        )
+
+    return result
 
 
 # ============================================================
@@ -145,6 +276,7 @@ async def get_facebook_overview(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -181,11 +313,14 @@ async def get_facebook_overview(
             account.account_name,
         ),
         "profile_picture": (
-            page_data.get("picture", {})
+            page_data
+            .get("picture", {})
             .get("data", {})
             .get("url")
         ),
-        "category": page_data.get("category"),
+        "category": page_data.get(
+            "category"
+        ),
         "followers": int(
             page_data.get(
                 "followers_count",
@@ -200,7 +335,9 @@ async def get_facebook_overview(
             )
             or 0
         ),
-        "page_url": page_data.get("link"),
+        "page_url": page_data.get(
+            "link"
+        ),
     }
 
 
@@ -209,6 +346,7 @@ async def get_facebook_audience(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -258,6 +396,7 @@ async def get_facebook_insights(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -267,38 +406,53 @@ async def get_facebook_insights(
     page_id = account.account_id
     access_token = account.access_token
 
+    now = datetime.now(timezone.utc)
+
     since = (
-        datetime.now(timezone.utc)
-        - timedelta(days=30)
+        now - timedelta(days=30)
     ).strftime("%Y-%m-%d")
 
-    until = datetime.now(
-        timezone.utc
-    ).strftime("%Y-%m-%d")
-
-    metrics = (
-        "page_impressions,"
-        "page_reach,"
-        "page_engaged_users,"
-        "page_post_engagements,"
-        "page_views_total,"
-        "page_fan_adds,"
-        "page_fan_removes"
+    until = now.strftime(
+        "%Y-%m-%d"
     )
 
-    data = await _graph_get(
-        f"{GRAPH_BASE_URL}/{page_id}/insights",
-        access_token,
-        {
-            "metric": metrics,
-            "period": "day",
-            "since": since,
-            "until": until,
-        },
-    )
+    insights_data = []
+
+    valid_metrics = [
+        "page_engaged_users",
+        "page_views_total",
+        "page_fan_adds",
+        "page_fan_removes",
+        "page_posts_impressions",
+    ]
+
+    for metric_name in valid_metrics:
+
+        try:
+
+            res = await _graph_get(
+                f"{GRAPH_BASE_URL}/{page_id}/insights",
+                access_token,
+                {
+                    "metric": metric_name,
+                    "period": "day",
+                    "since": since,
+                    "until": until,
+                },
+            )
+
+            insights_data.extend(
+                res.get(
+                    "data",
+                    [],
+                )
+            )
+
+        except HTTPException:
+            continue
 
     formatted = _format_insights(
-        data.get("data", [])
+        insights_data
     )
 
     totals = {
@@ -312,20 +466,17 @@ async def get_facebook_insights(
     }
 
     metric_mapping = {
-        "page_impressions": "impressions",
-        "page_reach": "reach",
         "page_engaged_users": "engaged_users",
-        "page_post_engagements": "post_engagements",
         "page_views_total": "page_views",
         "page_fan_adds": "fan_adds",
         "page_fan_removes": "fan_removes",
+        "page_posts_impressions": "impressions",
     }
 
-    for item in data.get("data", []):
-        metric_name = item.get("name")
+    for item in insights_data:
 
         output_name = metric_mapping.get(
-            metric_name
+            item.get("name")
         )
 
         if not output_name:
@@ -335,29 +486,25 @@ async def get_facebook_insights(
             "values",
             [],
         ):
-            value = value_item.get(
-                "value",
-                0,
+
+            totals[output_name] += _safe_number(
+                value_item.get(
+                    "value",
+                    0,
+                )
             )
-
-            try:
-                value = float(value)
-            except (
-                TypeError,
-                ValueError,
-            ):
-                value = 0
-
-            totals[output_name] += value
 
     return {
         "platform": "FACEBOOK",
         "report_type": "30_DAY_INSIGHTS",
         "period": {
             "start": since,
-            "end": until,
+            "until": until,
         },
-        "summary": totals,
+        "summary": {
+            k: _clean_number(v)
+            for k, v in totals.items()
+        },
         "data": formatted,
     }
 
@@ -367,6 +514,7 @@ async def get_facebook_trends(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -376,44 +524,63 @@ async def get_facebook_trends(
     page_id = account.account_id
     access_token = account.access_token
 
-    since_date = (
-        datetime.now(timezone.utc)
-        - timedelta(days=30)
-    ).strftime("%Y-%m-%d")
-
-    until_date = datetime.now(
+    now = datetime.now(
         timezone.utc
+    )
+
+    since_date = (
+        now - timedelta(days=30)
     ).strftime("%Y-%m-%d")
 
-    metrics = (
-        "page_impressions,"
-        "page_reach,"
-        "page_post_engagements"
+    until_date = now.strftime(
+        "%Y-%m-%d"
     )
 
-    data = await _graph_get(
-        f"{GRAPH_BASE_URL}/{page_id}/insights",
-        access_token,
-        {
-            "metric": metrics,
-            "period": "day",
-            "since": since_date,
-            "until": until_date,
-        },
-    )
+    trend_data = []
+
+    trend_metrics = [
+        "page_engaged_users",
+        "page_views_total",
+    ]
+
+    for metric_name in trend_metrics:
+
+        try:
+
+            res = await _graph_get(
+                f"{GRAPH_BASE_URL}/{page_id}/insights",
+                access_token,
+                {
+                    "metric": metric_name,
+                    "period": "day",
+                    "since": since_date,
+                    "until": until_date,
+                },
+            )
+
+            trend_data.extend(
+                res.get(
+                    "data",
+                    [],
+                )
+            )
+
+        except HTTPException:
+            continue
 
     trend_map = {}
 
-    for insight in data.get(
-        "data",
-        [],
-    ):
-        metric_name = insight.get("name")
+    for insight in trend_data:
+
+        metric_name = insight.get(
+            "name"
+        )
 
         for value_item in insight.get(
             "values",
             [],
         ):
+
             date_value = value_item.get(
                 "end_time"
             )
@@ -424,6 +591,7 @@ async def get_facebook_trends(
             date_key = date_value[:10]
 
             if date_key not in trend_map:
+
                 trend_map[date_key] = {
                     "date": date_key,
                     "impressions": 0,
@@ -431,43 +599,32 @@ async def get_facebook_trends(
                     "engagement": 0,
                 }
 
-            value = value_item.get(
-                "value",
-                0,
+            value = _clean_number(
+                value_item.get(
+                    "value",
+                    0,
+                )
             )
 
-            try:
-                value = float(value)
-            except (
-                TypeError,
-                ValueError,
-            ):
-                value = 0
+            if metric_name == "page_engaged_users":
 
-            if metric_name == "page_impressions":
-                trend_map[date_key][
-                    "impressions"
-                ] = value
-
-            elif metric_name == "page_reach":
-                trend_map[date_key][
-                    "reach"
-                ] = value
-
-            elif metric_name == "page_post_engagements":
                 trend_map[date_key][
                     "engagement"
                 ] = value
 
-    trends = sorted(
-        trend_map.values(),
-        key=lambda item: item["date"],
-    )
+            elif metric_name == "page_views_total":
+
+                trend_map[date_key][
+                    "impressions"
+                ] = value
 
     return {
         "platform": "FACEBOOK",
         "report_type": "30_DAY_TREND",
-        "data": trends,
+        "data": sorted(
+            trend_map.values(),
+            key=lambda i: i["date"],
+        ),
     }
 
 
@@ -476,6 +633,7 @@ async def get_facebook_posts(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -485,23 +643,94 @@ async def get_facebook_posts(
     page_id = account.account_id
     access_token = account.access_token
 
-    data = await _graph_get(
-        f"{GRAPH_BASE_URL}/{page_id}/posts",
-        access_token,
-        {
-            "fields": (
-                "id,"
-                "message,"
-                "created_time,"
-                "permalink_url,"
-                "shares,"
-                "likes.summary(true),"
-                "comments.summary(true),"
-                "reactions.summary(true)"
-            ),
-            "limit": 25,
-        },
-    )
+    try:
+
+        data = await _graph_get(
+            f"{GRAPH_BASE_URL}/{page_id}/posts",
+            access_token,
+            {
+                "fields": (
+                    "id,"
+                    "message,"
+                    "created_time,"
+                    "permalink_url,"
+                    "shares,"
+                    "likes.summary(true),"
+                    "comments.summary(true),"
+                    "reactions.summary(true)"
+                ),
+                "limit": 25,
+            },
+        )
+
+    except HTTPException as exc:
+
+        detail = exc.detail
+
+        error_message = ""
+
+        if isinstance(detail, dict):
+
+            error_data = detail.get(
+                "error",
+                {}
+            )
+
+            if isinstance(error_data, dict):
+
+                nested_error = error_data.get(
+                    "error",
+                    {}
+                )
+
+                if isinstance(
+                    nested_error,
+                    dict,
+                ):
+
+                    error_message = str(
+                        nested_error.get(
+                            "message",
+                            "",
+                        )
+                    )
+
+        if (
+            "pages_read_engagement"
+            in error_message
+            or "Page Public Content Access"
+            in error_message
+        ):
+
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "message": (
+                        "Facebook Page posts cannot "
+                        "currently be read by this app."
+                    ),
+                    "reason": (
+                        "Meta is rejecting the Page "
+                        "posts endpoint even though the "
+                        "stored Page access token is valid."
+                    ),
+                    "page_id": page_id,
+                    "account_id": account_id,
+                    "meta_error": error_message,
+                    "required_permission": (
+                        "pages_read_engagement"
+                    ),
+                    "next_step": (
+                        "Enable/obtain the required "
+                        "Meta Page access capability "
+                        "for this application, then "
+                        "reconnect the Facebook account "
+                        "to generate a fresh Page access token."
+                    ),
+                },
+            )
+
+        raise exc
 
     posts = []
 
@@ -509,32 +738,67 @@ async def get_facebook_posts(
         "data",
         [],
     ):
-        likes = (
-            post.get("likes", {})
-            .get("summary", {})
-            .get("total_count", 0)
+
+        likes = int(
+            post.get(
+                "likes",
+                {}
+            )
+            .get(
+                "summary",
+                {}
+            )
+            .get(
+                "total_count",
+                0,
+            )
         )
 
-        comments = (
-            post.get("comments", {})
-            .get("summary", {})
-            .get("total_count", 0)
+        comments = int(
+            post.get(
+                "comments",
+                {}
+            )
+            .get(
+                "summary",
+                {}
+            )
+            .get(
+                "total_count",
+                0,
+            )
         )
 
-        reactions = (
-            post.get("reactions", {})
-            .get("summary", {})
-            .get("total_count", 0)
+        reactions = int(
+            post.get(
+                "reactions",
+                {}
+            )
+            .get(
+                "summary",
+                {}
+            )
+            .get(
+                "total_count",
+                0,
+            )
         )
 
-        shares = (
-            post.get("shares", {})
-            .get("count", 0)
+        shares = int(
+            post.get(
+                "shares",
+                {}
+            ).get(
+                "count",
+                0,
+            )
         )
 
         posts.append(
             {
-                "id": post.get("id"),
+                "id": post.get(
+                    "id"
+                ),
                 "message": post.get(
                     "message",
                     "",
@@ -575,6 +839,7 @@ async def get_instagram_overview(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -610,7 +875,9 @@ async def get_instagram_overview(
             "username",
             account.account_name,
         ),
-        "name": data.get("name"),
+        "name": data.get(
+            "name"
+        ),
         "profile_picture": data.get(
             "profile_picture_url"
         ),
@@ -643,6 +910,7 @@ async def get_instagram_audience(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -704,6 +972,7 @@ async def get_instagram_insights(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -713,91 +982,148 @@ async def get_instagram_insights(
     ig_user_id = account.account_id
     access_token = account.access_token
 
-    metrics = (
-        "impressions,"
-        "reach,"
-        "profile_views,"
-        "website_clicks"
+    now = datetime.now(
+        timezone.utc
     )
 
     since = (
-        datetime.now(timezone.utc)
-        - timedelta(days=30)
+        now - timedelta(days=30)
     ).strftime("%Y-%m-%d")
 
-    until = datetime.now(
-        timezone.utc
-    ).strftime("%Y-%m-%d")
-
-    data = await _graph_get(
-        f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
-        access_token,
-        {
-            "metric": metrics,
-            "period": "day",
-            "since": since,
-            "until": until,
-        },
+    until = now.strftime(
+        "%Y-%m-%d"
     )
 
+    insights_data = []
+
+    try:
+
+        reach_data = await _graph_get(
+            f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
+            access_token,
+            {
+                "metric": "reach",
+                "period": "day",
+                "since": since,
+                "until": until,
+            },
+        )
+
+        insights_data.extend(
+            reach_data.get(
+                "data",
+                [],
+            )
+        )
+
+    except HTTPException:
+        pass
+
+    total_metrics = [
+        "profile_views",
+        "website_clicks",
+        "accounts_engaged",
+        "total_interactions",
+        "views",
+    ]
+
+    for metric_name in total_metrics:
+
+        try:
+
+            metric_data = await _graph_get(
+                f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
+                access_token,
+                {
+                    "metric": metric_name,
+                    "metric_type": "total_value",
+                    "period": "day",
+                    "since": since,
+                    "until": until,
+                },
+            )
+
+            insights_data.extend(
+                metric_data.get(
+                    "data",
+                    [],
+                )
+            )
+
+        except HTTPException:
+            pass
+
     formatted = _format_insights(
-        data.get("data", [])
+        insights_data
     )
 
     totals = {
-        "impressions": 0,
         "reach": 0,
         "profile_views": 0,
         "website_clicks": 0,
+        "accounts_engaged": 0,
+        "total_interactions": 0,
+        "views": 0,
     }
 
     metric_mapping = {
-        "impressions": "impressions",
-        "reach": "reach",
-        "profile_views": "profile_views",
-        "website_clicks": "website_clicks",
+        k: k
+        for k in totals.keys()
     }
 
-    for insight in data.get(
-        "data",
-        [],
-    ):
-        metric_name = insight.get("name")
+    for insight in insights_data:
 
         output_name = metric_mapping.get(
-            metric_name
+            insight.get("name")
         )
 
         if not output_name:
+            continue
+
+        total_val = insight.get(
+            "total_value"
+        )
+
+        if total_val is not None:
+
+            if isinstance(
+                total_val,
+                dict,
+            ):
+                total_val = total_val.get(
+                    "value",
+                    0,
+                )
+
+            totals[output_name] = _clean_number(
+                total_val
+            )
+
             continue
 
         for value_item in insight.get(
             "values",
             [],
         ):
-            value = value_item.get(
-                "value",
-                0,
+
+            totals[output_name] += _safe_number(
+                value_item.get(
+                    "value",
+                    0,
+                )
             )
-
-            try:
-                value = float(value)
-            except (
-                TypeError,
-                ValueError,
-            ):
-                value = 0
-
-            totals[output_name] += value
 
     return {
         "platform": "INSTAGRAM",
         "report_type": "30_DAY_INSIGHTS",
         "period": {
             "start": since,
-            "end": until,
+            "until": until,
         },
-        "summary": totals,
+        "summary": {
+            k: _clean_number(v)
+            for k, v in totals.items()
+        },
         "data": formatted,
     }
 
@@ -807,6 +1133,7 @@ async def get_instagram_trends(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -816,42 +1143,85 @@ async def get_instagram_trends(
     ig_user_id = account.account_id
     access_token = account.access_token
 
-    since = (
-        datetime.now(timezone.utc)
-        - timedelta(days=30)
-    ).strftime("%Y-%m-%d")
-
-    until = datetime.now(
+    now = datetime.now(
         timezone.utc
+    )
+
+    since = (
+        now - timedelta(days=30)
     ).strftime("%Y-%m-%d")
 
-    data = await _graph_get(
-        f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
-        access_token,
-        {
-            "metric": (
-                "impressions,"
-                "reach,"
-                "profile_views"
-            ),
-            "period": "day",
-            "since": since,
-            "until": until,
-        },
+    until = now.strftime(
+        "%Y-%m-%d"
     )
+
+    trend_data = []
+
+    try:
+
+        reach_data = await _graph_get(
+            f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
+            access_token,
+            {
+                "metric": "reach",
+                "period": "day",
+                "since": since,
+                "until": until,
+            },
+        )
+
+        trend_data.extend(
+            reach_data.get(
+                "data",
+                [],
+            )
+        )
+
+    except HTTPException:
+        pass
+
+    for metric_name in [
+        "profile_views",
+        "views",
+    ]:
+
+        try:
+
+            metric_data = await _graph_get(
+                f"{GRAPH_BASE_URL}/{ig_user_id}/insights",
+                access_token,
+                {
+                    "metric": metric_name,
+                    "metric_type": "total_value",
+                    "period": "day",
+                    "since": since,
+                    "until": until,
+                },
+            )
+
+            trend_data.extend(
+                metric_data.get(
+                    "data",
+                    [],
+                )
+            )
+
+        except HTTPException:
+            pass
 
     trend_map = {}
 
-    for insight in data.get(
-        "data",
-        [],
-    ):
-        metric_name = insight.get("name")
+    for insight in trend_data:
+
+        metric_name = insight.get(
+            "name"
+        )
 
         for value_item in insight.get(
             "values",
             [],
         ):
+
             end_time = value_item.get(
                 "end_time"
             )
@@ -862,50 +1232,38 @@ async def get_instagram_trends(
             date_key = end_time[:10]
 
             if date_key not in trend_map:
+
                 trend_map[date_key] = {
                     "date": date_key,
-                    "impressions": 0,
                     "reach": 0,
                     "profile_views": 0,
+                    "views": 0,
                 }
 
-            value = value_item.get(
-                "value",
-                0,
+            value = _clean_number(
+                value_item.get(
+                    "value",
+                    0,
+                )
             )
 
-            try:
-                value = float(value)
-            except (
-                TypeError,
-                ValueError,
-            ):
-                value = 0
+            if metric_name in [
+                "reach",
+                "profile_views",
+                "views",
+            ]:
 
-            if metric_name == "impressions":
                 trend_map[date_key][
-                    "impressions"
+                    metric_name
                 ] = value
-
-            elif metric_name == "reach":
-                trend_map[date_key][
-                    "reach"
-                ] = value
-
-            elif metric_name == "profile_views":
-                trend_map[date_key][
-                    "profile_views"
-                ] = value
-
-    trends = sorted(
-        trend_map.values(),
-        key=lambda item: item["date"],
-    )
 
     return {
         "platform": "INSTAGRAM",
         "report_type": "30_DAY_TREND",
-        "data": trends,
+        "data": sorted(
+            trend_map.values(),
+            key=lambda i: i["date"],
+        ),
     }
 
 
@@ -914,6 +1272,7 @@ async def get_instagram_media(
     account_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -949,6 +1308,11 @@ async def get_instagram_media(
         "data",
         [],
     ):
+
+        media_id = item.get(
+            "id"
+        )
+
         likes = int(
             item.get(
                 "like_count",
@@ -965,9 +1329,67 @@ async def get_instagram_media(
             or 0
         )
 
+        insights = {
+            "likes": likes,
+            "comments": comments,
+            "engagement": likes + comments,
+            "reach": 0,
+            "impressions": 0,
+        }
+
+        if media_id:
+
+            media_insights = (
+                await _get_instagram_media_insights(
+                    media_id,
+                    access_token,
+                )
+            )
+
+            if media_insights.get(
+                "likes",
+                0,
+            ) > 0:
+
+                insights["likes"] = (
+                    media_insights["likes"]
+                )
+
+            if media_insights.get(
+                "comments",
+                0,
+            ) > 0:
+
+                insights["comments"] = (
+                    media_insights["comments"]
+                )
+
+            if media_insights.get(
+                "engagement",
+                0,
+            ) > 0:
+
+                insights["engagement"] = (
+                    media_insights["engagement"]
+                )
+
+            insights["reach"] = (
+                media_insights.get(
+                    "reach",
+                    0,
+                )
+            )
+
+            insights["impressions"] = (
+                media_insights.get(
+                    "impressions",
+                    0,
+                )
+            )
+
         media.append(
             {
-                "id": item.get("id"),
+                "id": media_id,
                 "caption": item.get(
                     "caption",
                     "",
@@ -990,11 +1412,21 @@ async def get_instagram_media(
                 "timestamp": item.get(
                     "timestamp"
                 ),
-                "likes": likes,
-                "comments": comments,
-                "engagement": (
-                    likes + comments
-                ),
+                "likes": insights[
+                    "likes"
+                ],
+                "comments": insights[
+                    "comments"
+                ],
+                "engagement": insights[
+                    "engagement"
+                ],
+                "reach": insights[
+                    "reach"
+                ],
+                "impressions": insights[
+                    "impressions"
+                ],
             }
         )
 
@@ -1013,6 +1445,7 @@ async def get_instagram_media_analytics(
     media_id: str,
     db: Annotated[Session, Depends(get_db)],
 ) -> Dict:
+
     account = _get_account(
         db,
         account_id,
@@ -1056,6 +1489,40 @@ async def get_instagram_media_analytics(
         or 0
     )
 
+    insights = await _get_instagram_media_insights(
+        media_id,
+        access_token,
+    )
+
+    if insights.get(
+        "likes",
+        0,
+    ) > 0:
+
+        likes = insights[
+            "likes"
+        ]
+
+    if insights.get(
+        "comments",
+        0,
+    ) > 0:
+
+        comments = insights[
+            "comments"
+        ]
+
+    engagement = insights.get(
+        "engagement",
+        0,
+    )
+
+    if engagement == 0:
+        engagement = (
+            likes
+            + comments
+        )
+
     return {
         "platform": "INSTAGRAM",
         "media_id": media_id,
@@ -1084,8 +1551,14 @@ async def get_instagram_media_analytics(
             ),
             "likes": likes,
             "comments": comments,
-            "engagement": (
-                likes + comments
+            "engagement": engagement,
+            "reach": insights.get(
+                "reach",
+                0,
+            ),
+            "impressions": insights.get(
+                "impressions",
+                0,
             ),
         },
     }

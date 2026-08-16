@@ -1,13 +1,13 @@
+
 import os
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 
-# Environment
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -22,18 +22,16 @@ if not SECRET_KEY:
 if not ALGORITHM:
     raise RuntimeError("ALGORITHM is not configured.")
 
-# Password hashing
 pwd_context = CryptContext(
     schemes=["bcrypt"],
-    deprecated="auto"
+    deprecated="auto",
 )
 
-# OAuth2
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/users/login"
 )
 
-# Password helpers
+
 def hash_password(password: str):
     return pwd_context.hash(password)
 
@@ -48,7 +46,6 @@ def verify_password(
     )
 
 
-# Create access token
 def create_access_token(data: dict):
     to_encode = data.copy()
 
@@ -59,7 +56,7 @@ def create_access_token(data: dict):
 
     to_encode.update(
         {
-            "exp": expire
+            "exp": expire,
         }
     )
 
@@ -70,9 +67,8 @@ def create_access_token(data: dict):
     )
 
 
-# Get current user
 def get_current_user(
-    token: str = Depends(oauth2_scheme)
+    token: str = Depends(oauth2_scheme),
 ):
     try:
         payload = jwt.decode(
@@ -110,10 +106,9 @@ def get_current_user(
         )
 
 
-# Role checker
 def role_checker(allowed_roles):
     def checker(
-        current_user=Depends(get_current_user)
+        current_user=Depends(get_current_user),
     ):
         if current_user["role"] not in allowed_roles:
             raise HTTPException(
@@ -124,3 +119,34 @@ def role_checker(allowed_roles):
         return current_user
 
     return checker
+
+
+def require_role(*allowed_roles):
+    def checker(
+        current_user=Depends(get_current_user),
+    ):
+        current_role = current_user.get("role")
+
+        if hasattr(current_role, "value"):
+            current_role = current_role.value
+
+        current_role = str(current_role).lower()
+
+        normalized_roles = []
+
+        for role in allowed_roles:
+            if hasattr(role, "value"):
+                role = role.value
+
+            normalized_roles.append(str(role).lower())
+
+        if current_role not in normalized_roles:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied",
+            )
+
+        return current_user
+
+    return checker
+
