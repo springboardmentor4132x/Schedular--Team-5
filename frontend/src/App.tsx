@@ -12,6 +12,8 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardLayout } from './layouts/DashboardLayout';
 
 import { DashboardPage } from './pages/DashboardPage';
+import { MyPostsPage } from './pages/MyPostsPage';
+import { PublishingHubPage } from './pages/PublishingHubPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SocialAccountsPage } from './pages/SocialAccountsPage';
 import { CreatePostPage } from './pages/CreatePostPage';
@@ -64,7 +66,9 @@ function App() {
             element={<DashboardLayout />}
           >
 
-            {/* /app → /app/dashboard */}
+            {/* =================================================
+                /app → /app/dashboard
+            ================================================= */}
 
             <Route
               index
@@ -79,6 +83,7 @@ function App() {
 
             {/* =================================================
                 DASHBOARD
+                All authenticated users
             ================================================= */}
 
             <Route
@@ -88,7 +93,56 @@ function App() {
 
 
             {/* =================================================
+                MY POSTS
+                All four roles can access My Posts
+            ================================================= */}
+
+            <Route
+              path="posts"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<MyPostsPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                PUBLISHING HUB
+            ================================================= */}
+
+            <Route
+              path="publishing"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<PublishingHubPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
                 PROFILE
+                All authenticated users
             ================================================= */}
 
             <Route
@@ -99,6 +153,7 @@ function App() {
 
             {/* =================================================
                 SOCIAL ACCOUNTS
+                All four roles
             ================================================= */}
 
             <Route
@@ -170,6 +225,7 @@ function App() {
 
             {/* =================================================
                 CREATE POST
+                Content Creator only
             ================================================= */}
 
             <Route
@@ -190,7 +246,7 @@ function App() {
 
 
             {/* =================================================
-                DRAFTS MANAGEMENT
+                DRAFTS
             ================================================= */}
 
             <Route
@@ -243,6 +299,7 @@ function App() {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    'administrator',
                     'marketing_team',
                     'business_user',
                   ]}
@@ -280,6 +337,7 @@ function App() {
 
             {/* =================================================
                 NOTIFICATIONS
+                All four roles
             ================================================= */}
 
             <Route
@@ -290,6 +348,7 @@ function App() {
 
             {/* =================================================
                 SETTINGS
+                Administrator only
             ================================================= */}
 
             <Route
@@ -298,9 +357,6 @@ function App() {
                 <ProtectedRoute
                   allowedRoles={[
                     'administrator',
-                    'marketing_team',
-                    'content_creator',
-                    'business_user',
                   ]}
                 />
               }

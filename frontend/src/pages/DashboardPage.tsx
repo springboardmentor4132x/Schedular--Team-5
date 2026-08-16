@@ -8,10 +8,6 @@ import {
   Megaphone,
   Search,
   UserCircle,
-  CheckCircle,
-  Clock,
-  XCircle,
-  AlertCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -48,17 +44,6 @@ type Client = {
   full_name: string | null;
 };
 
-type StatusFilter =
-  | 'draft'
-  | 'pending_approval'
-  | 'scheduled'
-  | 'published'
-  | 'failed'
-  | 'cancelled'
-  | null;
-
-type SortOrder = 'newest' | 'oldest';
-
 
 /* =====================================================
    MAIN DASHBOARD
@@ -72,18 +57,6 @@ export function DashboardPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const refreshPosts = async () => {
-    try {
-      const response = await postService.getAll();
-
-      if (Array.isArray(response?.data)) {
-        setPosts(response.data);
-      }
-    } catch (error) {
-      console.error('Unable to refresh dashboard posts:', error);
-    }
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -217,29 +190,6 @@ export function DashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-
-    if (!token) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      refreshPosts();
-    }, 30000);
-
-    const handleFocus = () => {
-      refreshPosts();
-    };
-
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -285,7 +235,6 @@ export function DashboardPage() {
       <ContentCreatorDashboard
         username={username}
         posts={posts}
-        accounts={accounts}
       />
     );
   }
@@ -636,723 +585,99 @@ function MarketingTeamDashboard({
 
 /* =====================================================
    CONTENT CREATOR DASHBOARD
+   Simplified: welcome header + quick-glance stats only.
+   The interactive drafts/pending/scheduled/published/
+   failed/cancelled list now lives on MyPostsPage.
 ===================================================== */
 
 function ContentCreatorDashboard({
   username,
   posts,
-  accounts,
 }: {
   username: string;
   posts: any[];
-  accounts: any[];
 }) {
-  const [selectedStatus, setSelectedStatus] =
-    useState<StatusFilter>(null);
-
-  const [searchTerm, setSearchTerm] =
-    useState('');
-
-  const [sortOrder, setSortOrder] =
-    useState<SortOrder>('newest');
+  const navigate = useNavigate();
 
   const drafts = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'draft'
-  );
-
-  const pendingApproval = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'pending_approval'
-  );
+    (post) => normalizeStatus(post.status) === 'draft'
+  ).length;
 
   const scheduled = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'scheduled'
-  );
+    (post) => normalizeStatus(post.status) === 'scheduled'
+  ).length;
 
   const published = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'published'
-  );
-
-  const failed = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'failed'
-  );
-
-  const cancelled = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'cancelled'
-  );
-
-  const handleStatusClick = (
-    status: Exclude<StatusFilter, null>
-  ) => {
-    if (selectedStatus === status) {
-      setSelectedStatus(null);
-      setSearchTerm('');
-      return;
-    }
-
-    setSelectedStatus(status);
-    setSearchTerm('');
-  };
-
-  const getSelectedPosts = () => {
-    switch (selectedStatus) {
-      case 'draft':
-        return drafts;
-
-      case 'pending_approval':
-        return pendingApproval;
-
-      case 'scheduled':
-        return scheduled;
-
-      case 'published':
-        return published;
-
-      case 'failed':
-        return failed;
-
-      case 'cancelled':
-        return cancelled;
-
-      default:
-        return [];
-    }
-  };
-
-  const filteredPosts = getSelectedPosts()
-    .filter((post) => {
-      const search =
-        searchTerm.toLowerCase().trim();
-
-      if (!search) {
-        return true;
-      }
-
-      const content =
-        String(post.content || '')
-          .toLowerCase();
-
-      const campaign =
-        String(
-          post.campaign?.name ||
-          post.campaign?.title ||
-          post.campaign_name ||
-          ''
-        ).toLowerCase();
-
-      const embeddedAccounts =
-        Array.isArray(post.social_accounts)
-          ? post.social_accounts
-          : [];
-
-      const platformText =
-        embeddedAccounts
-          .map((account: any) =>
-            [
-              account.platform,
-              account.account_name,
-              account.account_id,
-            ]
-              .filter(Boolean)
-              .join(' ')
-          )
-          .join(' ')
-          .toLowerCase();
-
-      const fallbackAccounts =
-        Array.isArray(post.social_account_ids)
-          ? post.social_account_ids
-              .map((id: number) =>
-                accounts.find(
-                  (account: any) =>
-                    String(account.id) ===
-                    String(id)
-                )
-              )
-              .filter(Boolean)
-          : [];
-
-      const fallbackPlatformText =
-        fallbackAccounts
-          .map((account: any) =>
-            [
-              account.platform,
-              account.account_name,
-              account.account_id,
-            ]
-              .filter(Boolean)
-              .join(' ')
-          )
-          .join(' ')
-          .toLowerCase();
-
-      return (
-        content.includes(search) ||
-        campaign.includes(search) ||
-        platformText.includes(search) ||
-        fallbackPlatformText.includes(search)
-      );
-    })
-    .sort((a, b) => {
-      const dateA = getPostSortDate(a);
-      const dateB = getPostSortDate(b);
-
-      if (sortOrder === 'newest') {
-        return dateB - dateA;
-      }
-
-      return dateA - dateB;
-    });
+    (post) => normalizeStatus(post.status) === 'published'
+  ).length;
 
   return (
     <div className="space-y-6">
 
       <DashboardHeader
         title={`Welcome back, ${username}`}
-        description="Create and manage the content assigned to you."
+        description="Here's a quick look at your content activity."
       />
 
-      {/* =================================================
-          STATUS CARDS
-      ================================================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-        <StatusCard
-          title="My Drafts"
-          value={drafts.length}
+        <StatCard
+          title="Total Posts"
+          value={posts.length}
           icon={FileText}
-          active={selectedStatus === 'draft'}
-          onClick={() =>
-            handleStatusClick('draft')
-          }
         />
 
-        <StatusCard
-          title="Pending Approval"
-          value={pendingApproval.length}
-          icon={Clock}
-          active={
-            selectedStatus === 'pending_approval'
-          }
-          onClick={() =>
-            handleStatusClick(
-              'pending_approval'
-            )
-          }
+        <StatCard
+          title="Drafts"
+          value={drafts}
+          icon={FileText}
         />
 
-        <StatusCard
+        <StatCard
           title="Scheduled"
-          value={scheduled.length}
+          value={scheduled}
           icon={Calendar}
-          active={
-            selectedStatus === 'scheduled'
-          }
-          onClick={() =>
-            handleStatusClick('scheduled')
-          }
         />
 
-        <StatusCard
+        <StatCard
           title="Published"
-          value={published.length}
-          icon={CheckCircle}
-          active={
-            selectedStatus === 'published'
-          }
-          onClick={() =>
-            handleStatusClick('published')
-          }
-        />
-
-        <StatusCard
-          title="Failed"
-          value={failed.length}
-          icon={AlertCircle}
-          active={
-            selectedStatus === 'failed'
-          }
-          onClick={() =>
-            handleStatusClick('failed')
-          }
-        />
-
-        <StatusCard
-          title="Cancelled"
-          value={cancelled.length}
-          icon={XCircle}
-          active={
-            selectedStatus === 'cancelled'
-          }
-          onClick={() =>
-            handleStatusClick('cancelled')
-          }
+          value={published}
+          icon={BarChart3}
         />
 
       </div>
 
-      {/* =================================================
-          EMPTY STATE BEFORE STATUS SELECTION
-      ================================================= */}
+      <DashboardCard
+        title="My Content"
+        icon={FileText}
+      >
 
-      {!selectedStatus ? (
+        <div className="text-center py-10">
 
-        <DashboardCard
-          title="My Content"
-          icon={FileText}
-        >
+          <FileText className="w-10 h-10 mx-auto text-gray-300" />
 
-          <div className="text-center py-12">
-
-            <FileText className="w-10 h-10 mx-auto text-gray-300" />
-
-            <p className="mt-3 text-sm font-medium text-gray-600">
-              Select a content status above
-            </p>
-
-            <p className="mt-1 text-xs text-gray-400">
-              Click Drafts, Pending Approval, Scheduled,
-              Published, Failed, or Cancelled to view posts.
-            </p>
-
-          </div>
-
-        </DashboardCard>
-
-      ) : (
-
-        <DashboardCard
-          title={getStatusTitle(selectedStatus)}
-          icon={getStatusIcon(selectedStatus)}
-        >
-
-          {/* Search + Sort */}
-
-          <div className="flex flex-col sm:flex-row gap-3 mb-5">
-
-            <div className="relative flex-1">
-
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(event) =>
-                  setSearchTerm(
-                    event.target.value
-                  )
-                }
-                placeholder={`Search ${getStatusTitle(
-                  selectedStatus
-                ).toLowerCase()}...`}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-400"
-              />
-
-            </div>
-
-            <select
-              value={sortOrder}
-              onChange={(event) =>
-                setSortOrder(
-                  event.target.value as SortOrder
-                )
-              }
-              className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-400"
-            >
-              <option value="newest">
-                Newest first
-              </option>
-
-              <option value="oldest">
-                Oldest first
-              </option>
-            </select>
-
-          </div>
-
-          {/* Clear selection */}
-
-          <div className="flex justify-end mb-4">
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedStatus(null);
-                setSearchTerm('');
-              }}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              Clear selection
-            </button>
-
-          </div>
-
-          {/* Posts */}
-
-          {filteredPosts.length === 0 ? (
-
-            <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center">
-
-              <FileText className="w-8 h-8 mx-auto text-gray-400" />
-
-              <p className="mt-3 text-sm font-medium text-gray-700">
-                {searchTerm
-                  ? 'No matching posts found'
-                  : `No ${getStatusTitle(
-                      selectedStatus
-                    ).toLowerCase()} found`}
-              </p>
-
-              <p className="mt-1 text-xs text-gray-500">
-                {searchTerm
-                  ? 'Try a different search term.'
-                  : 'There are currently no posts in this status.'}
-              </p>
-
-            </div>
-
-          ) : (
-
-            <div className="space-y-3">
-
-              {filteredPosts.map(
-                (post: any) => (
-
-                  <CreatorPostRow
-                    key={post.id}
-                    post={post}
-                    accounts={accounts}
-                  />
-
-                )
-              )}
-
-            </div>
-
-          )}
-
-        </DashboardCard>
-
-      )}
-
-    </div>
-  );
-}
-
-
-/* =====================================================
-   CREATOR POST ROW
-===================================================== */
-
-function CreatorPostRow({
-  post,
-  accounts,
-}: {
-  post: any;
-  accounts: any[];
-}) {
-  const platforms =
-    getPostPlatforms(
-      post,
-      accounts
-    );
-
-  const status =
-    normalizeStatus(post.status);
-
-  return (
-    <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-
-      <div className="flex flex-col gap-3">
-
-        {/* Content */}
-
-        <div>
-
-          <p className="text-sm font-medium text-gray-900 whitespace-pre-wrap">
-            {post.content || 'No content'}
+          <p className="mt-3 text-sm font-medium text-gray-600">
+            Manage your drafts, scheduled, and published posts
           </p>
 
-        </div>
+          <p className="mt-1 text-xs text-gray-400">
+            Head over to My Posts to filter and search your content.
+          </p>
 
-        {/* Status + platforms */}
-
-        <div className="flex flex-wrap items-center gap-2">
-
-          <span
-            className={getStatusBadgeClass(
-              status
-            )}
+          <button
+            type="button"
+            onClick={() => navigate('/app/posts')}
+            className="mt-4 inline-flex items-center px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
           >
-            {formatStatus(status)}
-          </span>
-
-          {platforms.length > 0 ? (
-
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs font-medium text-gray-700">
-
-              <Share2 className="w-3.5 h-3.5 text-indigo-600" />
-
-              {platforms.join(', ')}
-
-            </span>
-
-          ) : (
-
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-gray-200 text-xs text-gray-500">
-
-              <Share2 className="w-3.5 h-3.5" />
-
-              No social account
-
-            </span>
-
-          )}
+            Go to My Posts
+          </button>
 
         </div>
 
-        {/* Scheduled time */}
-
-        {post.scheduled_time && (
-
-          <div className="text-xs text-gray-500">
-
-            Scheduled:{' '}
-
-            {formatDateTime(
-              post.scheduled_time
-            )}
-
-          </div>
-
-        )}
-
-        {/* Published time */}
-
-        {post.published_time && (
-
-          <div className="text-xs text-gray-500">
-
-            Published:{' '}
-
-            {formatDateTime(
-              post.published_time
-            )}
-
-          </div>
-
-        )}
-
-        {/* Failure information */}
-
-        {status === 'failed' && (
-          <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2">
-
-            <p className="text-xs font-medium text-red-700">
-              Publishing failed
-            </p>
-
-            {(post.error_message ||
-              post.failure_reason ||
-              post.error) && (
-
-              <p className="mt-1 text-xs text-red-600">
-                {post.error_message ||
-                  post.failure_reason ||
-                  post.error}
-              </p>
-
-            )}
-
-          </div>
-        )}
-
-        {/* Cancellation information */}
-
-        {status === 'cancelled' && (
-          <div className="rounded-lg bg-gray-100 border border-gray-200 px-3 py-2">
-
-            <p className="text-xs font-medium text-gray-700">
-              This post was cancelled.
-            </p>
-
-            {(post.cancelled_at ||
-              post.cancellation_reason) && (
-
-              <p className="mt-1 text-xs text-gray-500">
-                {post.cancellation_reason ||
-                  (post.cancelled_at
-                    ? `Cancelled: ${formatDateTime(
-                        post.cancelled_at
-                      )}`
-                    : '')}
-              </p>
-
-            )}
-
-          </div>
-        )}
-
-      </div>
+      </DashboardCard>
 
     </div>
   );
-}
-
-
-/* =====================================================
-   SOCIAL PLATFORM HELPERS
-===================================================== */
-
-function getPostPlatforms(
-  post: any,
-  accounts: any[]
-): string[] {
-  const platforms = new Set<string>();
-
-  const embeddedAccounts =
-    post.social_accounts ||
-    post.post_social_accounts ||
-    post.socialAccounts ||
-    [];
-
-  if (Array.isArray(embeddedAccounts)) {
-
-    embeddedAccounts.forEach(
-      (account: any) => {
-
-        const platform =
-          account?.platform ||
-          account?.social_account?.platform;
-
-        if (platform) {
-
-          platforms.add(
-            formatPlatform(platform)
-          );
-
-        }
-
-      }
-    );
-
-  }
-
-  const ids =
-    post.social_account_ids ||
-    post.socialAccountIds ||
-    [];
-
-  if (Array.isArray(ids)) {
-
-    ids.forEach(
-      (id: number | string) => {
-
-        const account =
-          accounts.find(
-            (item: any) =>
-              String(item.id) ===
-              String(id)
-          );
-
-        if (account?.platform) {
-
-          platforms.add(
-            formatPlatform(
-              account.platform
-            )
-          );
-
-        }
-
-      }
-    );
-
-  }
-
-  if (Array.isArray(embeddedAccounts)) {
-
-    embeddedAccounts.forEach(
-      (item: any) => {
-
-        const accountId =
-          item?.social_account_id ||
-          item?.socialAccountId ||
-          item?.social_account?.id;
-
-        if (accountId) {
-
-          const account =
-            accounts.find(
-              (accountItem: any) =>
-                String(accountItem.id) ===
-                String(accountId)
-            );
-
-          if (account?.platform) {
-
-            platforms.add(
-              formatPlatform(
-                account.platform
-              )
-            );
-
-          }
-
-        }
-
-      }
-    );
-
-  }
-
-  return Array.from(platforms);
-}
-
-
-function formatPlatform(
-  platform: string
-): string {
-
-  const normalized =
-    platform
-      .toLowerCase()
-      .replace(/[_-]/g, '');
-
-  if (normalized === 'facebook') {
-    return 'Facebook';
-  }
-
-  if (normalized === 'instagram') {
-    return 'Instagram';
-  }
-
-  if (normalized === 'linkedin') {
-    return 'LinkedIn';
-  }
-
-  if (normalized === 'youtube') {
-    return 'YouTube';
-  }
-
-  if (
-    normalized === 'twitter' ||
-    normalized === 'x'
-  ) {
-    return 'X';
-  }
-
-  if (normalized === 'pinterest') {
-    return 'Pinterest';
-  }
-
-  return platform;
 }
 
 
@@ -1366,199 +691,6 @@ function normalizeStatus(
   return String(status || '')
     .toLowerCase()
     .trim();
-}
-
-
-function getStatusTitle(
-  status: Exclude<StatusFilter, null>
-): string {
-
-  switch (status) {
-
-    case 'draft':
-      return 'My Drafts';
-
-    case 'pending_approval':
-      return 'Pending Approval';
-
-    case 'scheduled':
-      return 'Scheduled';
-
-    case 'published':
-      return 'Published';
-
-    case 'failed':
-      return 'Failed Posts';
-
-    case 'cancelled':
-      return 'Cancelled Posts';
-
-    default:
-      return 'Posts';
-
-  }
-}
-
-
-function getStatusIcon(
-  status: Exclude<StatusFilter, null>
-) {
-
-  switch (status) {
-
-    case 'draft':
-      return FileText;
-
-    case 'pending_approval':
-      return Clock;
-
-    case 'scheduled':
-      return Calendar;
-
-    case 'published':
-      return CheckCircle;
-
-    case 'failed':
-      return AlertCircle;
-
-    case 'cancelled':
-      return XCircle;
-
-    default:
-      return FileText;
-
-  }
-}
-
-
-function formatStatus(
-  status: string
-): string {
-
-  switch (normalizeStatus(status)) {
-
-    case 'draft':
-      return 'Draft';
-
-    case 'pending_approval':
-      return 'Pending Approval';
-
-    case 'scheduled':
-      return 'Scheduled';
-
-    case 'published':
-      return 'Published';
-
-    case 'publishing':
-      return 'Publishing';
-
-    case 'failed':
-      return 'Failed';
-
-    case 'cancelled':
-      return 'Cancelled';
-
-    default:
-      return status || 'Unknown';
-
-  }
-}
-
-
-function getStatusBadgeClass(
-  status: string
-): string {
-
-  const base =
-    'inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium';
-
-  switch (normalizeStatus(status)) {
-
-    case 'draft':
-      return `${base} bg-gray-100 text-gray-700`;
-
-    case 'pending_approval':
-      return `${base} bg-amber-100 text-amber-700`;
-
-    case 'scheduled':
-      return `${base} bg-blue-100 text-blue-700`;
-
-    case 'published':
-      return `${base} bg-emerald-100 text-emerald-700`;
-
-    case 'publishing':
-      return `${base} bg-indigo-100 text-indigo-700`;
-
-    case 'failed':
-      return `${base} bg-red-100 text-red-700`;
-
-    case 'cancelled':
-      return `${base} bg-gray-100 text-gray-600`;
-
-    default:
-      return `${base} bg-gray-100 text-gray-700`;
-
-  }
-}
-
-
-/* =====================================================
-   SORTING HELPERS
-===================================================== */
-
-function getPostSortDate(
-  post: any
-): number {
-
-  const value =
-    post.created_at ||
-    post.updated_at ||
-    post.scheduled_time ||
-    post.published_time ||
-    post.cancelled_at ||
-    null;
-
-  if (!value) {
-    return 0;
-  }
-
-  const timestamp =
-    new Date(value).getTime();
-
-  return Number.isNaN(timestamp)
-    ? 0
-    : timestamp;
-}
-
-
-/* =====================================================
-   DATE/TIME
-===================================================== */
-
-function formatDateTime(
-  value: string | null
-): string {
-
-  if (!value) {
-    return 'Not available';
-  }
-
-  try {
-
-    return new Date(value).toLocaleString(
-      'en-IN',
-      {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone: 'Asia/Kolkata',
-      }
-    );
-
-  } catch {
-
-    return value;
-
-  }
 }
 
 
@@ -1851,98 +983,6 @@ function StatCard({
       </div>
 
     </div>
-  );
-}
-
-
-/* =====================================================
-   CLICKABLE STATUS CARD
-===================================================== */
-
-function StatusCard({
-  title,
-  value,
-  icon: Icon,
-  active,
-  onClick,
-}: {
-  title: string;
-  value: string | number;
-  icon: any;
-  active: boolean;
-  onClick: () => void;
-}) {
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        w-full text-left
-        bg-white rounded-2xl border p-5 shadow-sm
-        transition-all duration-200
-        cursor-pointer
-        ${
-          active
-            ? 'border-indigo-500 ring-2 ring-indigo-100 shadow-md'
-            : 'border-gray-200 hover:border-indigo-300 hover:shadow-md'
-        }
-      `}
-    >
-
-      <div className="flex items-center justify-between">
-
-        <div>
-
-          <p
-            className={`text-sm font-medium ${
-              active
-                ? 'text-indigo-600'
-                : 'text-gray-500'
-            }`}
-          >
-            {title}
-          </p>
-
-          <p className="mt-2 text-3xl font-bold text-gray-900">
-            {value}
-          </p>
-
-        </div>
-
-        <div
-          className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-            active
-              ? 'bg-indigo-100'
-              : 'bg-indigo-50'
-          }`}
-        >
-
-          <Icon
-            className={`w-5 h-5 ${
-              active
-                ? 'text-indigo-700'
-                : 'text-indigo-600'
-            }`}
-          />
-
-        </div>
-
-      </div>
-
-      <p
-        className={`mt-3 text-xs ${
-          active
-            ? 'text-indigo-600'
-            : 'text-gray-400'
-        }`}
-      >
-        {active
-          ? 'Click again to close'
-          : 'Click to view posts'}
-      </p>
-
-    </button>
   );
 }
 

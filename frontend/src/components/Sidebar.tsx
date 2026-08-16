@@ -14,6 +14,10 @@ import {
   Zap,
   Users,
   UserCheck,
+  ClipboardList,
+  Send,
+  User,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 
@@ -33,6 +37,17 @@ const navItems = [
     to: '/app/dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
+    roles: [
+      'administrator',
+      'marketing_team',
+      'content_creator',
+      'business_user',
+    ],
+  },
+  {
+    to: '/app/posts',
+    label: 'My Posts',
+    icon: ClipboardList,
     roles: [
       'administrator',
       'marketing_team',
@@ -63,6 +78,7 @@ const navItems = [
     label: 'Campaigns',
     icon: Megaphone,
     roles: [
+      'administrator',
       'marketing_team',
       'business_user',
     ],
@@ -84,6 +100,16 @@ const navItems = [
     icon: FileText,
     roles: [
       'content_creator',
+    ],
+  },
+  {
+    to: '/app/publishing',
+    label: 'Publishing Hub',
+    icon: Send,
+    roles: [
+      'marketing_team',
+      'content_creator',
+      'business_user',
     ],
   },
   {
@@ -111,6 +137,17 @@ const navItems = [
     label: 'My Marketing Team',
     icon: UserCheck,
     roles: [
+      'business_user',
+    ],
+  },
+  {
+    to: '/app/profile',
+    label: 'Profile',
+    icon: User,
+    roles: [
+      'administrator',
+      'marketing_team',
+      'content_creator',
       'business_user',
     ],
   },
@@ -145,19 +182,23 @@ export function Sidebar({
       return item.roles.includes(role);
     });
 
+  const handleSignOut = () => {
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  };
+
   return (
     <>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
-          />
-        )}
-      </AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+        />
+      )}
 
       <motion.aside
         initial={false}
@@ -277,6 +318,14 @@ export function Sidebar({
               </button>
             </div>
           </div>
+
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 mt-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-red-600 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </button>
         </div>
       </motion.aside>
     </>

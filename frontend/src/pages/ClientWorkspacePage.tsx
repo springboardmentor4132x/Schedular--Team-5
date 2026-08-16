@@ -139,6 +139,12 @@ export function ClientWorkspacePage() {
   const [isPostModalOpen, setIsPostModalOpen] =
     useState(false);
 
+  const [deletePostTarget, setDeletePostTarget] =
+    useState<any>(null);
+
+  const [deletingPost, setDeletingPost] =
+    useState(false);
+
   const [editingPostId, setEditingPostId] =
     useState<string | null>(null);
 
@@ -1876,62 +1882,190 @@ export function ClientWorkspacePage() {
       }
     };
 
-  const handleDeletePost =
-    async (
-      postId:
-        | string
-        | number
-    ) => {
-      if (
-        !window.confirm(
-          'Are you sure you want to delete this scheduled post?'
-        )
-      ) {
-        return;
-      }
+  const handleDeletePost = (
+    post: any
+  ) => {
+    setDeletePostTarget(post);
+  };
 
-      try {
-        await postService.delete(
-          postId
+  const closeDeletePostModal = () => {
+    if (deletingPost) {
+      return;
+    }
+
+    setDeletePostTarget(null);
+  };
+
+  const handleDeleteFromAllPlatforms = async () => {
+    if (!deletePostTarget?.id) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this post from all connected platforms and locally?'
+      )
+    ) {
+      return;
+    }
+
+    setDeletingPost(true);
+
+    try {
+      await postService.delete(
+        deletePostTarget.id
+      );
+
+      setPosts(
+        (previous) =>
+          previous.filter(
+            (post) =>
+              String(post.id) !==
+              String(deletePostTarget.id)
+          )
+      );
+
+      setDeletePostTarget(null);
+    } catch (error: any) {
+      console.error(
+        'Failed to delete post from all platforms:',
+        error
+      );
+
+      const status =
+        error?.response?.status;
+
+      if (status === 401) {
+        setDashboardError(
+          'Your login session is invalid or expired.'
         );
-
-        setPosts(
-          (previous) =>
-            previous.filter(
-              (post) =>
-                String(
-                  post.id
-                ) !==
-                String(postId)
-            )
+      } else if (status === 403) {
+        setDashboardError(
+          'You are not authorized to delete this post.'
         );
-      } catch (error: any) {
-        console.error(
-          'Failed to delete post:',
-          error
-        );
-
-        const status =
-          error?.response?.status;
-
-        if (status === 401) {
-          setDashboardError(
-            'Your login session is invalid or expired.'
-          );
-        } else if (
-          status === 403
-        ) {
-          setDashboardError(
-            'You are not authorized to delete this post.'
-          );
-        } else {
-          setDashboardError(
+      } else {
+        setDashboardError(
+          error?.response?.data?.detail ||
             error?.message ||
-              'Failed to delete post.'
-          );
-        }
+            'Failed to delete post from all platforms.'
+        );
       }
-    };
+    } finally {
+      setDeletingPost(false);
+    }
+  };
+
+  const handleDeleteFromSocialAccount = async (
+    socialAccountId: string | number
+  ) => {
+    if (!deletePostTarget?.id) {
+      return;
+    }
+
+    const account =
+      socialAccounts.find(
+        (item: any) =>
+          String(item.id) ===
+          String(socialAccountId)
+      );
+
+    const accountName =
+      account?.account_name ||
+      account?.name ||
+      account?.platform_username ||
+      `Account ${socialAccountId}`;
+
+    const platform = account
+      ? getPlatformName(account)
+      : 'Social Account';
+
+    if (
+      !window.confirm(
+        `Are you sure you want to delete this post from ${platform} - ${accountName}?`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingPost(true);
+
+    try {
+      await postService.deleteFromSocialAccount(
+        deletePostTarget.id,
+        socialAccountId
+      );
+
+      setPosts(
+        (previous) =>
+          previous.map(
+            (post) => {
+              if (
+                String(post.id) !==
+                String(deletePostTarget.id)
+              ) {
+                return post;
+              }
+
+              const updatedIds =
+                Array.isArray(
+                  post.social_account_ids
+                )
+                  ? post.social_account_ids.filter(
+                      (id: any) =>
+                        String(id) !==
+                        String(socialAccountId)
+                    )
+                  : [];
+
+              const updatedAccounts =
+                Array.isArray(
+                  post.social_accounts
+                )
+                  ? post.social_accounts.filter(
+                      (item: any) =>
+                        String(item.id) !==
+                        String(socialAccountId)
+                    )
+                  : post.social_accounts;
+
+              return {
+                ...post,
+                social_account_ids: updatedIds,
+                social_accounts: updatedAccounts,
+              };
+            }
+          )
+      );
+
+      setDeletePostTarget(null);
+    } catch (error: any) {
+      console.error(
+        'Failed to delete post from social account:',
+        error
+      );
+
+      const status =
+        error?.response?.status;
+
+      if (status === 401) {
+        setDashboardError(
+          'Your login session is invalid or expired.'
+        );
+      } else if (status === 403) {
+        setDashboardError(
+          'You are not authorized to delete this post from this social account.'
+        );
+      } else {
+        setDashboardError(
+          error?.response?.data?.detail ||
+            error?.message ||
+            'Failed to delete post from this social account.'
+        );
+      }
+    } finally {
+      setDeletingPost(false);
+    }
+  };
 
   const sortedPosts =
     [...posts].sort(
@@ -2394,7 +2528,7 @@ export function ClientWorkspacePage() {
                                 type="button"
                                 onClick={() =>
                                   handleDeletePost(
-                                    post.id
+                                    post
                                   )
                                 }
                                 title="Delete Post"
@@ -2444,6 +2578,182 @@ export function ClientWorkspacePage() {
             </Card>
           </div>
         </div>
+
+        <AnimatePresence>
+          {deletePostTarget && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+              <motion.div
+                initial={{
+                  opacity: 0,
+                }}
+                animate={{
+                  opacity: 1,
+                }}
+                exit={{
+                  opacity: 0,
+                }}
+                className="absolute inset-0 bg-slate-900/60"
+                onClick={closeDeletePostModal}
+              />
+
+              <motion.div
+                initial={{
+                  opacity: 0,
+                  scale: 0.95,
+                  y: 16,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.95,
+                  y: 16,
+                }}
+                className="relative w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden z-10"
+              >
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="font-bold text-gray-900">
+                    Delete Post
+                  </h3>
+
+                  <button
+                    type="button"
+                    onClick={closeDeletePostModal}
+                    disabled={deletingPost}
+                    className="p-1 rounded-lg text-gray-400 hover:bg-gray-50 cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      Where do you want to delete this post?
+                    </p>
+
+                    <p className="text-xs text-gray-500 mt-1">
+                      Choose whether to remove the post from all platforms or only one connected account.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDeleteFromAllPlatforms}
+                    disabled={deletingPost}
+                    className="w-full text-left p-4 border border-red-200 bg-red-50 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center">
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-bold text-red-700">
+                          Delete from all platforms
+                        </p>
+
+                        <p className="text-xs text-red-600 mt-0.5">
+                          Remove the post from every connected platform and delete it locally.
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                      Delete from one account
+                    </p>
+
+                    {Array.isArray(
+                      deletePostTarget.social_account_ids
+                    ) &&
+                    deletePostTarget.social_account_ids.length >
+                      0 ? (
+                      <div className="space-y-2">
+                        {deletePostTarget.social_account_ids.map(
+                          (
+                            socialAccountId: string | number
+                          ) => {
+                            const account =
+                              socialAccounts.find(
+                                (item: any) =>
+                                  String(item.id) ===
+                                  String(socialAccountId)
+                              );
+
+                            const accountName =
+                              account?.account_name ||
+                              account?.name ||
+                              account?.platform_username ||
+                              `Account ${socialAccountId}`;
+
+                            const platform =
+                              account
+                                ? getPlatformName(account)
+                                : 'Social Account';
+
+                            return (
+                              <button
+                                key={String(
+                                  socialAccountId
+                                )}
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteFromSocialAccount(
+                                    socialAccountId
+                                  )
+                                }
+                                disabled={deletingPost}
+                                className="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-colors text-left disabled:opacity-50 disabled:pointer-events-none"
+                              >
+                                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                  <Link2 className="w-4 h-4 text-indigo-600" />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-gray-800 truncate">
+                                    {accountName}
+                                  </p>
+
+                                  <p className="text-xs text-gray-500">
+                                    {platform}
+                                  </p>
+                                </div>
+
+                                <Trash2 className="w-4 h-4 text-gray-400" />
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
+                        <p className="text-xs text-gray-500">
+                          No social accounts are associated with this post.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={deletingPost}
+                      onClick={closeDeletePostModal}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isCampaignModalOpen && (
