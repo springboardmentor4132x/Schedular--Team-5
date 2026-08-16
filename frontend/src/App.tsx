@@ -348,7 +348,7 @@ function App() {
 
             {/* =================================================
                 SETTINGS
-                Administrator only
+                All four roles
             ================================================= */}
 
             <Route
@@ -357,6 +357,9 @@ function App() {
                 <ProtectedRoute
                   allowedRoles={[
                     'administrator',
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
                   ]}
                 />
               }

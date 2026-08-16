@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -53,6 +52,32 @@ type UserData = {
   bio?: string | null;
 };
 
+type NotificationPreferences = {
+  id?: number;
+  user_id?: number;
+
+  publishing_notifications_enabled: boolean;
+  campaign_notifications_enabled: boolean;
+  account_activity_notifications_enabled: boolean;
+  team_collaboration_notifications_enabled: boolean;
+  system_notifications_enabled: boolean;
+  in_app_notifications_enabled: boolean;
+  email_notifications_enabled: boolean;
+  push_notifications_enabled: boolean;
+
+  email_frequency: string;
+  promotional_emails_enabled: boolean;
+
+  created_at?: string;
+  updated_at?: string;
+};
+
+type EmailPreferences = {
+  email_notifications_enabled: boolean;
+  email_frequency: string;
+  promotional_emails_enabled: boolean;
+};
+
 const tabs: {
   key: Tab;
   label: string;
@@ -90,14 +115,38 @@ export function SettingsPage() {
   const [theme, setTheme] =
     useState<'light' | 'dark' | 'system'>('light');
 
+  /*
+   * ---------------------------------------------------------
+   * NOTIFICATION PREFERENCES
+   * ---------------------------------------------------------
+   */
+
   const [notifPrefs, setNotifPrefs] =
-    useState({
-      scheduledPosts: true,
-      campaignAlerts: true,
-      weeklyReport: true,
-      productUpdates: false,
-      teamActivity: true,
+    useState<NotificationPreferences>({
+      publishing_notifications_enabled: true,
+      campaign_notifications_enabled: true,
+      account_activity_notifications_enabled: true,
+      team_collaboration_notifications_enabled: true,
+      system_notifications_enabled: true,
+      in_app_notifications_enabled: true,
+      email_notifications_enabled: true,
+      push_notifications_enabled: false,
+      email_frequency: 'immediate',
+      promotional_emails_enabled: false,
     });
+
+  const [emailPrefs, setEmailPrefs] =
+    useState<EmailPreferences>({
+      email_notifications_enabled: true,
+      email_frequency: 'immediate',
+      promotional_emails_enabled: false,
+    });
+
+  const [notificationsLoading, setNotificationsLoading] =
+    useState(false);
+
+  const [notificationsSaving, setNotificationsSaving] =
+    useState(false);
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -155,6 +204,366 @@ export function SettingsPage() {
 
   /*
    * ---------------------------------------------------------
+   * NOTIFICATION API HELPERS
+   * ---------------------------------------------------------
+   */
+
+  const getAuthHeaders = () => {
+    const token =
+      localStorage.getItem('auth_token');
+
+    return {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : {}),
+    };
+  };
+
+  const loadNotificationPreferences =
+    async () => {
+      try {
+        setNotificationsLoading(true);
+        setError('');
+
+        const response =
+          await fetch(
+            'http://127.0.0.1:8000/notification-preferences',
+            {
+              method: 'GET',
+              headers: getAuthHeaders(),
+            }
+          );
+
+        if (!response.ok) {
+          const errorData =
+            await response.json().catch(
+              () => null
+            );
+
+          throw new Error(
+            errorData?.detail ||
+              'Unable to load notification preferences.'
+          );
+        }
+
+        const data =
+          await response.json();
+
+        setNotifPrefs(data);
+
+        /*
+         * Keep the dedicated email state
+         * synchronized with the main preferences.
+         */
+        setEmailPrefs({
+          email_notifications_enabled:
+            data.email_notifications_enabled,
+          email_frequency:
+            data.email_frequency,
+          promotional_emails_enabled:
+            data.promotional_emails_enabled,
+        });
+
+      } catch (err: any) {
+        console.error(
+          'Unable to load notification preferences:',
+          err
+        );
+
+        setError(
+          err?.message ||
+            'Unable to load notification preferences.'
+        );
+      } finally {
+        setNotificationsLoading(false);
+      }
+    };
+
+  const loadEmailPreferences =
+    async () => {
+      try {
+        const response =
+          await fetch(
+            'http://127.0.0.1:8000/notification-preferences/email',
+            {
+              method: 'GET',
+              headers: getAuthHeaders(),
+            }
+          );
+
+        if (!response.ok) {
+          const errorData =
+            await response.json().catch(
+              () => null
+            );
+
+          throw new Error(
+            errorData?.detail ||
+              'Unable to load email preferences.'
+          );
+        }
+
+        const data =
+          await response.json();
+
+        setEmailPrefs(data);
+
+      } catch (err) {
+        console.error(
+          'Unable to load email preferences:',
+          err
+        );
+      }
+    };
+
+  /*
+   * ---------------------------------------------------------
+   * LOAD NOTIFICATIONS WHEN TAB IS OPENED
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') {
+      return;
+    }
+
+    loadNotificationPreferences();
+    loadEmailPreferences();
+  }, [activeTab]);
+
+  /*
+   * ---------------------------------------------------------
+   * SAVE NOTIFICATION PREFERENCES
+   * ---------------------------------------------------------
+   */
+
+  const handleSaveNotificationPreferences =
+    async () => {
+      try {
+        setNotificationsSaving(true);
+        setError('');
+        setSuccessMessage('');
+        setSaved(false);
+
+        /*
+         * Main notification preferences.
+         */
+        const mainPayload = {
+          publishing_notifications_enabled:
+            notifPrefs.publishing_notifications_enabled,
+
+          campaign_notifications_enabled:
+            notifPrefs.campaign_notifications_enabled,
+
+          account_activity_notifications_enabled:
+            notifPrefs.account_activity_notifications_enabled,
+
+          team_collaboration_notifications_enabled:
+            notifPrefs.team_collaboration_notifications_enabled,
+
+          system_notifications_enabled:
+            notifPrefs.system_notifications_enabled,
+
+          in_app_notifications_enabled:
+            notifPrefs.in_app_notifications_enabled,
+
+          email_notifications_enabled:
+            emailPrefs.email_notifications_enabled,
+
+          push_notifications_enabled:
+            notifPrefs.push_notifications_enabled,
+
+          email_frequency:
+            emailPrefs.email_frequency,
+
+          promotional_emails_enabled:
+            emailPrefs.promotional_emails_enabled,
+        };
+
+        const mainResponse =
+          await fetch(
+            'http://127.0.0.1:8000/notification-preferences',
+            {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify(
+                mainPayload
+              ),
+            }
+          );
+
+        if (!mainResponse.ok) {
+          const errorData =
+            await mainResponse.json().catch(
+              () => null
+            );
+
+          throw new Error(
+            errorData?.detail ||
+              'Unable to save notification preferences.'
+          );
+        }
+
+        const updatedMainData =
+          await mainResponse.json();
+
+        /*
+         * Dedicated email preferences endpoint.
+         */
+        const emailPayload = {
+          email_notifications_enabled:
+            emailPrefs.email_notifications_enabled,
+
+          email_frequency:
+            emailPrefs.email_frequency,
+
+          promotional_emails_enabled:
+            emailPrefs.promotional_emails_enabled,
+        };
+
+        const emailResponse =
+          await fetch(
+            'http://127.0.0.1:8000/notification-preferences/email',
+            {
+              method: 'PATCH',
+              headers: getAuthHeaders(),
+              body: JSON.stringify(
+                emailPayload
+              ),
+            }
+          );
+
+        if (!emailResponse.ok) {
+          const errorData =
+            await emailResponse.json().catch(
+              () => null
+            );
+
+          throw new Error(
+            errorData?.detail ||
+              'Unable to save email preferences.'
+          );
+        }
+
+        const updatedEmailData =
+          await emailResponse.json();
+
+        /*
+         * Update frontend with actual backend values.
+         */
+        setNotifPrefs(
+          updatedMainData
+        );
+
+        setEmailPrefs(
+          updatedEmailData
+        );
+
+        setSaved(true);
+
+        setSuccessMessage(
+          'Notification preferences saved successfully.'
+        );
+
+        setTimeout(() => {
+          setSaved(false);
+          setSuccessMessage('');
+        }, 2500);
+
+      } catch (err: any) {
+        console.error(
+          'Unable to save notification preferences:',
+          err
+        );
+
+        setError(
+          err?.message ||
+            'Unable to save notification preferences.'
+        );
+      } finally {
+        setNotificationsSaving(false);
+      }
+    };
+
+  /*
+   * ---------------------------------------------------------
+   * NOTIFICATION TOGGLE HELPER
+   * ---------------------------------------------------------
+   */
+
+  const toggleNotification =
+    (
+      key: keyof NotificationPreferences
+    ) => {
+      setNotifPrefs((previous) => ({
+        ...previous,
+        [key]:
+          !previous[key],
+      }));
+    };
+
+  /*
+   * ---------------------------------------------------------
+   * EMAIL PREFERENCE UPDATE
+   * ---------------------------------------------------------
+   */
+
+  const updateEmailPreference =
+    (
+      key: keyof EmailPreferences,
+      value:
+        | boolean
+        | string
+    ) => {
+      setEmailPrefs((previous) => ({
+        ...previous,
+        [key]: value,
+      }));
+
+      /*
+       * Keep the main notification state
+       * synchronized with email settings.
+       */
+      if (
+        key ===
+        'email_notifications_enabled'
+      ) {
+        setNotifPrefs((previous) => ({
+          ...previous,
+          email_notifications_enabled:
+            value as boolean,
+        }));
+      }
+
+      if (
+        key ===
+        'email_frequency'
+      ) {
+        setNotifPrefs((previous) => ({
+          ...previous,
+          email_frequency:
+            value as string,
+        }));
+      }
+
+      if (
+        key ===
+        'promotional_emails_enabled'
+      ) {
+        setNotifPrefs((previous) => ({
+          ...previous,
+          promotional_emails_enabled:
+            value as boolean,
+        }));
+      }
+    };
+
+  /*
+   * ---------------------------------------------------------
    * HELPERS
    * ---------------------------------------------------------
    */
@@ -205,10 +614,6 @@ export function SettingsPage() {
             user.bio || '',
         });
 
-      /*
-       * If backend returns the updated user,
-       * use it. Otherwise keep our current state.
-       */
       if (response.data) {
         setUser((previous) => ({
           ...previous,
@@ -217,6 +622,7 @@ export function SettingsPage() {
       }
 
       setSaved(true);
+
       setSuccessMessage(
         'Profile changes saved successfully.'
       );
@@ -248,11 +654,6 @@ export function SettingsPage() {
    * ---------------------------------------------------------
    * PHOTO SELECTION
    * ---------------------------------------------------------
-   *
-   * This selects a local image and displays it immediately.
-   *
-   * The actual permanent avatar storage requires an avatar
-   * field/endpoint in the backend. We do NOT invent one here.
    */
 
   const handlePhotoClick = () => {
@@ -281,13 +682,6 @@ export function SettingsPage() {
 
     setSelectedPhoto(previewUrl);
 
-    /*
-     * Upload the image through the existing upload service.
-     *
-     * We don't assign the returned URL to the user profile
-     * because the current User API does not expose an avatar
-     * field in the code provided earlier.
-     */
     uploadService
       .uploadMedia(file)
       .then((response) => {
@@ -431,7 +825,6 @@ export function SettingsPage() {
         </p>
       </div>
 
-
       {/* GLOBAL ERROR */}
 
       {error && (
@@ -448,7 +841,6 @@ export function SettingsPage() {
         </div>
       )}
 
-
       {/* GLOBAL SUCCESS */}
 
       {successMessage && (
@@ -456,7 +848,6 @@ export function SettingsPage() {
           {successMessage}
         </div>
       )}
-
 
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
 
@@ -490,7 +881,6 @@ export function SettingsPage() {
           </nav>
 
         </Card>
-
 
         {/* ===================================================
             CONTENT
@@ -526,7 +916,6 @@ export function SettingsPage() {
                 Update your personal details and photo
               </p>
 
-
               {/* AVATAR */}
 
               <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
@@ -554,7 +943,6 @@ export function SettingsPage() {
                   </button>
 
                 </div>
-
 
                 <div>
 
@@ -593,7 +981,6 @@ export function SettingsPage() {
                 </div>
 
               </div>
-
 
               {/* PROFILE FIELDS */}
 
@@ -707,7 +1094,6 @@ export function SettingsPage() {
 
               </div>
 
-
               {/* BIO */}
 
               <div className="mt-4">
@@ -733,7 +1119,6 @@ export function SettingsPage() {
                 />
 
               </div>
-
 
               {/* SAVE */}
 
@@ -783,7 +1168,6 @@ export function SettingsPage() {
             </Card>
           )}
 
-
           {/* =================================================
               NOTIFICATIONS
           ================================================= */}
@@ -791,79 +1175,213 @@ export function SettingsPage() {
           {activeTab === 'notifications' && (
             <Card className="p-6">
 
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                Notification Preferences
-              </h2>
+              <div className="flex items-start justify-between gap-4 mb-6">
 
-              <p className="text-sm text-gray-500 mb-6">
-                Choose what notifications you want to receive
-              </p>
+                <div>
 
-              <div className="space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                    Notification Preferences
+                  </h2>
 
-                {[
-                  {
-                    key: 'scheduledPosts',
-                    title: 'Scheduled Post Reminders',
-                    desc: 'Get notified before your posts go live',
-                  },
-                  {
-                    key: 'campaignAlerts',
-                    title: 'Campaign Alerts',
-                    desc: 'Important updates about your active campaigns',
-                  },
-                  {
-                    key: 'weeklyReport',
-                    title: 'Weekly Performance Report',
-                    desc: 'Summary of your social media performance',
-                  },
-                  {
-                    key: 'productUpdates',
-                    title: 'Product Updates',
-                    desc: 'News about new features and improvements',
-                  },
-                  {
-                    key: 'teamActivity',
-                    title: 'Team Activity',
-                    desc: 'When team members join or make changes',
-                  },
-                ].map((item) => {
+                  <p className="text-sm text-gray-500">
+                    Choose what notifications you want to receive
+                  </p>
 
-                  const enabled =
-                    notifPrefs[
-                      item.key as keyof typeof notifPrefs
-                    ];
+                </div>
 
-                  return (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:bg-gray-50/50 transition-colors"
-                    >
+                {notificationsLoading && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                    Loading...
+                  </div>
+                )}
 
-                      <div>
+              </div>
+
+              {notificationsLoading ? (
+                <div className="py-12 text-center text-sm text-gray-500">
+                  Loading notification preferences...
+                </div>
+              ) : (
+                <>
+
+                  {/* =================================================
+                      GENERAL NOTIFICATIONS
+                  ================================================= */}
+
+                  <div className="space-y-4">
+
+                    {[
+                      {
+                        key:
+                          'publishing_notifications_enabled' as const,
+                        title:
+                          'Publishing Notifications',
+                        desc:
+                          'Get notified about scheduled and published posts',
+                      },
+
+                      {
+                        key:
+                          'campaign_notifications_enabled' as const,
+                        title:
+                          'Campaign Notifications',
+                        desc:
+                          'Receive important updates about your campaigns',
+                      },
+
+                      {
+                        key:
+                          'account_activity_notifications_enabled' as const,
+                        title:
+                          'Account Activity',
+                        desc:
+                          'Get notified about important account activity',
+                      },
+
+                      {
+                        key:
+                          'team_collaboration_notifications_enabled' as const,
+                        title:
+                          'Team Collaboration',
+                        desc:
+                          'Receive notifications when team members collaborate',
+                      },
+
+                      {
+                        key:
+                          'system_notifications_enabled' as const,
+                        title:
+                          'System Notifications',
+                        desc:
+                          'Receive important system and application notifications',
+                      },
+
+                      {
+                        key:
+                          'in_app_notifications_enabled' as const,
+                        title:
+                          'In-App Notifications',
+                        desc:
+                          'Show notifications inside the SocialPilot application',
+                      },
+
+                      {
+                        key:
+                          'push_notifications_enabled' as const,
+                        title:
+                          'Push Notifications',
+                        desc:
+                          'Receive notifications through browser or device push notifications',
+                      },
+
+                    ].map((item) => {
+
+                      const enabled =
+                        notifPrefs[
+                          item.key
+                        ];
+
+                      return (
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:bg-gray-50/50 transition-colors"
+                        >
+
+                          <div className="pr-4">
+
+                            <p className="text-sm font-medium text-gray-900">
+                              {item.title}
+                            </p>
+
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {item.desc}
+                            </p>
+
+                          </div>
+
+                          <button
+                            type="button"
+                            aria-label={`Toggle ${item.title}`}
+                            onClick={() =>
+                              toggleNotification(
+                                item.key
+                              )
+                            }
+                            className={cn(
+                              'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
+                              enabled
+                                ? 'bg-indigo-600'
+                                : 'bg-gray-300'
+                            )}
+                          >
+
+                            <motion.div
+                              animate={{
+                                x: enabled
+                                  ? 22
+                                  : 2,
+                              }}
+                              transition={{
+                                type: 'spring',
+                                stiffness: 500,
+                                damping: 30,
+                              }}
+                              className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-md"
+                            />
+
+                          </button>
+
+                        </div>
+                      );
+                    })}
+
+                  </div>
+
+                  {/* =================================================
+                      EMAIL NOTIFICATIONS
+                  ================================================= */}
+
+                  <div className="mt-8 pt-6 border-t border-gray-100">
+
+                    <div className="flex items-center gap-2 mb-4">
+
+                      <Mail className="w-4 h-4 text-indigo-600" />
+
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        Email Notifications
+                      </h3>
+
+                    </div>
+
+                    {/* EMAIL ENABLED */}
+
+                    <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200">
+
+                      <div className="pr-4">
 
                         <p className="text-sm font-medium text-gray-900">
-                          {item.title}
+                          Email Notifications
                         </p>
 
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {item.desc}
+                          Receive notification emails in your inbox
                         </p>
 
                       </div>
 
                       <button
                         type="button"
+                        aria-label="Toggle email notifications"
                         onClick={() =>
-                          setNotifPrefs({
-                            ...notifPrefs,
-                            [item.key]:
-                              !enabled,
-                          })
+                          updateEmailPreference(
+                            'email_notifications_enabled',
+                            !emailPrefs.email_notifications_enabled
+                          )
                         }
                         className={cn(
                           'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
-                          enabled
+                          emailPrefs.email_notifications_enabled
                             ? 'bg-indigo-600'
                             : 'bg-gray-300'
                         )}
@@ -871,9 +1389,10 @@ export function SettingsPage() {
 
                         <motion.div
                           animate={{
-                            x: enabled
-                              ? 22
-                              : 2,
+                            x:
+                              emailPrefs.email_notifications_enabled
+                                ? 22
+                                : 2,
                           }}
                           transition={{
                             type: 'spring',
@@ -886,31 +1405,140 @@ export function SettingsPage() {
                       </button>
 
                     </div>
-                  );
-                })}
 
-              </div>
+                    {/* EMAIL FREQUENCY */}
 
-              <div className="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+                    <div className="mt-4 p-4 rounded-xl border border-gray-200">
 
-                <Button
-                  icon={
-                    saved ? (
-                      <Check className="w-4 h-4" />
-                    ) : undefined
-                  }
-                  onClick={handleSaveProfile}
-                >
-                  {saved
-                    ? 'Saved!'
-                    : 'Save Preferences'}
-                </Button>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Email Frequency
+                      </label>
 
-              </div>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Choose how frequently you want to receive email notifications.
+                      </p>
+
+                      <select
+                        value={
+                          emailPrefs.email_frequency
+                        }
+                        onChange={(event) =>
+                          updateEmailPreference(
+                            'email_frequency',
+                            event.target.value
+                          )
+                        }
+                        className="w-full sm:w-64 px-3 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      >
+
+                        <option value="immediate">
+                          Immediate
+                        </option>
+
+                        <option value="daily">
+                          Daily
+                        </option>
+
+                        <option value="weekly">
+                          Weekly
+                        </option>
+
+                      </select>
+
+                    </div>
+
+                    {/* PROMOTIONAL EMAILS */}
+
+                    <div className="flex items-center justify-between mt-4 p-4 rounded-xl border border-gray-200">
+
+                      <div className="pr-4">
+
+                        <p className="text-sm font-medium text-gray-900">
+                          Promotional Emails
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Receive product news, offers, and promotional updates
+                        </p>
+
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="Toggle promotional emails"
+                        onClick={() =>
+                          updateEmailPreference(
+                            'promotional_emails_enabled',
+                            !emailPrefs.promotional_emails_enabled
+                          )
+                        }
+                        className={cn(
+                          'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
+                          emailPrefs.promotional_emails_enabled
+                            ? 'bg-indigo-600'
+                            : 'bg-gray-300'
+                        )}
+                      >
+
+                        <motion.div
+                          animate={{
+                            x:
+                              emailPrefs.promotional_emails_enabled
+                                ? 22
+                                : 2,
+                          }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 500,
+                            damping: 30,
+                          }}
+                          className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-md"
+                        />
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                  {/* =================================================
+                      SAVE NOTIFICATION PREFERENCES
+                  ================================================= */}
+
+                  <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+
+                    <p className="text-xs text-gray-500">
+                      Changes are saved to your account.
+                    </p>
+
+                    <Button
+                      icon={
+                        saved ? (
+                          <Check className="w-4 h-4" />
+                        ) : undefined
+                      }
+                      onClick={
+                        handleSaveNotificationPreferences
+                      }
+                      disabled={
+                        notificationsSaving ||
+                        notificationsLoading
+                      }
+                    >
+                      {notificationsSaving
+                        ? 'Saving...'
+                        : saved
+                        ? 'Saved!'
+                        : 'Save Preferences'}
+                    </Button>
+
+                  </div>
+
+                </>
+              )}
 
             </Card>
           )}
-
 
           {/* =================================================
               SECURITY
@@ -1035,7 +1663,6 @@ export function SettingsPage() {
 
               </Card>
 
-
               <Card className="p-6">
 
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
@@ -1076,7 +1703,6 @@ export function SettingsPage() {
 
               </Card>
 
-
               <Card className="p-6 border-red-200">
 
                 <h2 className="text-lg font-semibold text-red-700 mb-1">
@@ -1114,7 +1740,6 @@ export function SettingsPage() {
                     </Button>
 
                   </div>
-
 
                   <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200">
 
@@ -1160,7 +1785,6 @@ export function SettingsPage() {
 
             </div>
           )}
-
 
           {/* =================================================
               APPEARANCE
@@ -1250,7 +1874,6 @@ export function SettingsPage() {
 
               </div>
 
-
               <div className="mt-6 pt-6 border-t border-gray-100">
 
                 <p className="text-sm font-medium text-gray-700 mb-3">
@@ -1274,9 +1897,11 @@ export function SettingsPage() {
                           : 'border-gray-200 text-gray-700 hover:border-gray-300'
                       )}
                     >
+
                       <span className="text-sm font-medium">
                         {density}
                       </span>
+
                     </button>
 
                   ))}
@@ -1284,7 +1909,6 @@ export function SettingsPage() {
                 </div>
 
               </div>
-
 
               <div className="mt-6 flex justify-end">
 
@@ -1311,7 +1935,6 @@ export function SettingsPage() {
 
             </Card>
           )}
-
 
           {/* =================================================
               TEAM
@@ -1364,4 +1987,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

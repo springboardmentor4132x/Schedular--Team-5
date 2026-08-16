@@ -1,3 +1,4 @@
+
 import os
 from contextlib import asynccontextmanager
 from typing import Dict
@@ -19,6 +20,9 @@ from api.routers.campaign import router as campaign_router
 from api.routers.upload import router as upload_router
 from api.routers.client import router as client_router
 from api.routers.notification import router as notification_router
+from api.routers.notification_preference import (
+    router as notification_preference_router
+)
 from api.routers.analytics_router import router as analytics_router
 
 from api.routers import youtube
@@ -85,6 +89,10 @@ def health_check() -> Dict:
     }
 
 
+# =========================================================
+# EXISTING ROUTERS
+# =========================================================
+
 app.include_router(youtube.router)
 app.include_router(linkedin.router)
 
@@ -100,6 +108,20 @@ app.include_router(client_router)
 
 app.include_router(business_assignment_router)
 app.include_router(notification_router)
+
+
+# =========================================================
+# NOTIFICATION PREFERENCES
+# =========================================================
+
+app.include_router(
+    notification_preference_router
+)
+
+
+# =========================================================
+# EXISTING SCHEDULING / ANALYTICS ROUTERS
+# =========================================================
 
 app.include_router(schedule.router)
 
