@@ -315,34 +315,7 @@ export default function CreatePostPage() {
           </button>
 
           
-          <button
-  type="button"
-  className="cp-sidebar-item"
-  onClick={() => navigate("/app/calendar")}
->
           
-            <span className="cp-side-icon">
-              ◷
-            </span>
-
-            <span>
-              Scheduled Posts
-            </span>
-          </button>
-
-          <button
-  type="button"
-  className="cp-sidebar-item"
-  onClick={() => navigate("/app/campaigns")}
->
-            <span className="cp-side-icon">
-              ◆
-            </span>
-
-            <span>
-              Campaigns
-            </span>
-          </button>
 
         </nav>
 
@@ -392,14 +365,13 @@ export default function CreatePostPage() {
           <div className="cp-top-actions">
 
             <button
-              type="button"
-              className="cp-clear-button"
-              onClick={handleClear}
-            >
-              <Trash2 />
-
-              Clear
-            </button>
+  type="button"
+  className="cp-clear-button"
+  onClick={handleClear}
+>
+  <Trash2 size={18} />
+  Clear
+</button>
 
             <div className="cp-profile">
 

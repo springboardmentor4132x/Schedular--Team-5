@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -17,6 +18,12 @@ import { TeamActivityPage } from "./pages/TeamActivityPage";
 
 import { SettingsPage } from "./pages/SettingsPage";
 import ContentLibraryPage from "./pages/ContentLibraryPage";
+import ReportsPage from "./pages/ReportsPage";
+import GenerateReportPage from "./pages/GenerateReportPage";
+import ReportPreviewPage from "./pages/ReportPreviewPage";
+import DownloadCenterPage from "./pages/DownloadCenterPage";
+import PlatformComparisonReportPage from "./pages/PlatformComparisonReportPage";
+
 
 function App() {
   return (
@@ -25,7 +32,7 @@ function App() {
 
         <Route
           path="/"
-          element={<Navigate to="/register" replace />}
+          element={<LandingPage />}
         />
 
         <Route
@@ -37,6 +44,10 @@ function App() {
           path="/login"
           element={<LoginPage />}
         />
+        <Route
+  path="/signin"
+  element={<LoginPage />}
+/>
 
         {/* DASHBOARD */}
         <Route
@@ -75,9 +86,6 @@ function App() {
           element={<AnalyticsPage />}
         />
 
-        {/* =========================
-            MODULE 7 - NOTIFICATIONS
-           ========================= */}
 
         <Route
           path="/app/notifications"
@@ -103,6 +111,32 @@ function App() {
           path="/app/notifications/team-activity"
           element={<TeamActivityPage />}
         />
+
+
+<Route
+  path="/app/reports"
+  element={<ReportsPage />}
+/>
+
+<Route
+  path="/app/reports/generate"
+  element={<GenerateReportPage />}
+/>
+
+<Route
+  path="/app/reports/preview"
+  element={<ReportPreviewPage />}
+/>
+
+<Route
+  path="/app/reports/downloads"
+  element={<DownloadCenterPage />}
+/>
+
+<Route
+  path="/app/reports/platform-comparison"
+  element={<PlatformComparisonReportPage />}
+/>
 
         {/* SETTINGS */}
         <Route

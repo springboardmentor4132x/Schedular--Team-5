@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   LayoutDashboard,
   Share2,
@@ -9,12 +10,63 @@ import {
   Search,
   Plus,
 } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export function DashboardPage() {
   const navigate = useNavigate();
 
   const username = "anika_123";
+
+  const [search, setSearch] = useState("");
+
+  const searchItems = [
+    {
+      name: "Create Post",
+      keywords: "post posts create content",
+      path: "/app/create-post",
+    },
+    {
+      name: "Social Accounts",
+      keywords: "account accounts social",
+      path: "/app/social-accounts",
+    },
+    {
+      name: "Calendar",
+      keywords: "calendar scheduled schedule",
+      path: "/app/calendar",
+    },
+    {
+      name: "Campaigns",
+      keywords: "campaign campaigns",
+      path: "/app/campaigns",
+    },
+    {
+      name: "Analytics",
+      keywords: "analytics analysis statistics",
+      path: "/app/analytics",
+    },
+    {
+      name: "Notifications",
+      keywords: "notification notifications bell alerts",
+      path: "/app/notifications",
+    },
+  ];
+
+  const filteredResults =
+    search.trim().length > 0
+      ? searchItems.filter((item) => {
+          const query = search.toLowerCase().trim();
+
+          return (
+            item.name.toLowerCase().includes(query) ||
+            item.keywords.toLowerCase().includes(query)
+          );
+        })
+      : [];
+
+  const goTo = (path: string) => {
+    navigate(path);
+  };
 
   return (
     <div className="dashboard-page">
@@ -27,7 +79,9 @@ export function DashboardPage() {
 
           <div>
             <div className="brand-name">SocialPilot</div>
-            <div className="brand-subtitle">Campaign Manager</div>
+            <div className="brand-subtitle">
+              Campaign Manager
+            </div>
           </div>
         </div>
 
@@ -44,58 +98,58 @@ export function DashboardPage() {
           </div>
 
           <div
-  className="menu-item"
-  onClick={() => navigate("/app/social-accounts")}
->
-  <Share2 size={21} />
-  <span>Social Accounts</span>
-</div>
+            className="menu-item"
+            onClick={() => goTo("/app/social-accounts")}
+          >
+            <Share2 size={21} />
+            <span>Social Accounts</span>
+          </div>
 
-   <div
-  className="menu-item"
-  onClick={() => navigate("/app/create-post")}
->
-  <FileText size={21} />
-  <span>Create Post</span>
-</div>       
+          <div
+            className="menu-item"
+            onClick={() => goTo("/app/create-post")}
+          >
+            <FileText size={21} />
+            <span>Create Post</span>
+          </div>
 
-      <div
-  className="menu-item"
-  onClick={() => navigate("/app/calendar")}
->
-  <CalendarDays size={21} />
-  <span>Calendar</span>
-</div>  
+          <div
+            className="menu-item"
+            onClick={() => goTo("/app/calendar")}
+          >
+            <CalendarDays size={21} />
+            <span>Calendar</span>
+          </div>
 
-        
-<div
-  className="menu-item"
-  onClick={() => navigate("/app/campaigns")}
->
-  <Megaphone size={21} />
-  <span>Campaigns</span>
-</div>
-          
-           <div
-  className="menu-item"
-  onClick={() => navigate("/app/analytics")}
->
-  <BarChart3 size={21} />
-  <span>Analytics</span>
-</div>
+          <div
+            className="menu-item"
+            onClick={() => goTo("/app/campaigns")}
+          >
+            <Megaphone size={21} />
+            <span>Campaigns</span>
+          </div>
 
-<div
-  className="menu-item"
-  onClick={() => navigate("/app/notifications")}
->
-  <Bell size={21} />
-  <span>Notifications</span>
-</div>
+          <div
+            className="menu-item"
+            onClick={() => goTo("/app/analytics")}
+          >
+            <BarChart3 size={21} />
+            <span>Analytics</span>
+          </div>
+
+          <div
+            className="menu-item"
+            onClick={() => goTo("/app/notifications")}
+          >
+            <Bell size={21} />
+            <span>Notifications</span>
+          </div>
 
         </nav>
 
         <div className="sidebar-bottom">
           <div className="upgrade-box">
+
             <div className="upgrade-title">
               Upgrade your plan
             </div>
@@ -105,49 +159,87 @@ export function DashboardPage() {
             </div>
 
             <button className="upgrade-button">
-              Upgradeam
+              Upgrade
             </button>
+
           </div>
         </div>
 
       </aside>
-
       {/* MAIN AREA */}
       <main className="main-area">
 
         {/* TOP BAR */}
         <header className="top-bar">
 
-          <div className="search-box">
-            <Search size={20} />
+          <div className="search-wrapper">
 
-            <input
-              type="text"
-              placeholder="Search posts, campaigns, accounts..."
-            />
+            <div className="search-box">
+              <Search size={20} />
+
+              <input
+                type="text"
+                placeholder="Search posts, campaigns, accounts..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            {search.trim() !== "" && (
+              <div className="search-results">
+
+                {filteredResults.length > 0 ? (
+                  filteredResults.map((item) => (
+                    <button
+                      key={item.path}
+                      className="search-result-item"
+                      onClick={() => {
+                        setSearch("");
+                        goTo(item.path);
+                      }}
+                    >
+                      <Search size={16} />
+                      <span>{item.name}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="no-search-results">
+                    No matching results
+                  </div>
+                )}
+
+              </div>
+            )}
+
           </div>
 
           <div className="top-right">
 
             <button
-  className="create-button"
-  onClick={() => navigate("/app/create-post")}
->
+              className="create-button"
+              onClick={() => goTo("/app/create-post")}
+            >
               <Plus size={18} />
               Create Post
             </button>
 
-            <button className="notification-button">
+            <button
+              className="notification-button"
+              onClick={() => goTo("/app/notifications")}
+              aria-label="Notifications"
+            >
               <Bell size={20} />
               <span className="notification-dot"></span>
             </button>
 
             <div className="profile">
+
               <div className="profile-avatar">
                 A
               </div>
 
               <div className="profile-info">
+
                 <div className="profile-name">
                   {username}
                 </div>
@@ -155,7 +247,9 @@ export function DashboardPage() {
                 <div className="profile-role">
                   Team Member
                 </div>
+
               </div>
+
             </div>
 
           </div>
@@ -169,6 +263,7 @@ export function DashboardPage() {
           <section className="welcome-section">
 
             <div>
+
               <h1>
                 Welcome back, {username} 👋
               </h1>
@@ -176,6 +271,7 @@ export function DashboardPage() {
               <p>
                 Create and manage the content assigned to you.
               </p>
+
             </div>
 
           </section>
@@ -261,32 +357,29 @@ export function DashboardPage() {
           </section>
 
           {/* MY CONTENT */}
-
           <section className="content-card">
 
             <div className="content-card-header">
 
               <div>
+
                 <div className="content-title-row">
+
                   <FileText size={21} />
 
                   <h2>
                     My Content
                   </h2>
+
                 </div>
 
                 <p>
                   Your assigned and scheduled content will appear here.
                 </p>
+
               </div>
 
-              <button
-  className="content-create-button"
-  onClick={() => navigate("/app/create-post")}
->
-                <Plus size={17} />
-                Create Post
-              </button>
+  
 
             </div>
 
@@ -304,7 +397,10 @@ export function DashboardPage() {
                 Create your first post to get started.
               </p>
 
-              <button className="empty-button">
+              <button
+                className="empty-button"
+                onClick={() => goTo("/app/create-post")}
+              >
                 <Plus size={18} />
                 Create your first post
               </button>
@@ -320,10 +416,6 @@ export function DashboardPage() {
     </div>
   );
 }
-/* ================================
-   DASHBOARD STYLES
-================================ */
-
 const dashboardStyles = `
   * {
     box-sizing: border-box;
@@ -485,8 +577,16 @@ const dashboardStyles = `
     gap: 20px;
   }
 
+  /* SEARCH */
+
+  .search-wrapper {
+    position: relative;
+    flex:1;
+    max-width: 650px;
+  }
+
   .search-box {
-    width: min(520px, 50%);
+    width: 100%;
     height: 42px;
     border: 1px solid #e1e6ee;
     border-radius: 10px;
@@ -511,6 +611,45 @@ const dashboardStyles = `
     color: #9aa3b2;
   }
 
+  .search-results {
+    position: absolute;
+    top: 48px;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #ffffff;
+    border: 1px solid #e1e6ee;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(23, 32, 51, 0.12);
+    overflow: hidden;
+  }
+
+  .search-result-item {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: none;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    color: #344054;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .search-result-item:hover {
+    background: #f5f7fb;
+    color: #2563eb;
+  }
+
+  .no-search-results {
+    padding: 14px;
+    color: #8b94a3;
+    font-size: 13px;
+  }
+
   .top-right {
     display: flex;
     align-items: center;
@@ -532,6 +671,10 @@ const dashboardStyles = `
     cursor: pointer;
   }
 
+  .create-button:hover {
+    background: #1d4ed8;
+  }
+
   .notification-button {
     position: relative;
     width: 38px;
@@ -544,6 +687,11 @@ const dashboardStyles = `
     align-items: center;
     justify-content: center;
     cursor: pointer;
+  }
+
+  .notification-button:hover {
+    background: #f7f9fc;
+    color: #2563eb;
   }
 
   .notification-dot {
@@ -779,6 +927,10 @@ const dashboardStyles = `
     cursor: pointer;
   }
 
+  .empty-button:hover {
+    background: #1d4ed8;
+  }
+
   /* RESPONSIVE */
 
   @media (max-width: 1000px) {
@@ -815,7 +967,7 @@ const dashboardStyles = `
       padding: 0 15px;
     }
 
-    .search-box {
+    .search-wrapper {
       width: 100%;
     }
 
@@ -847,7 +999,6 @@ const dashboardStyles = `
   }
 `;
 
-/* Inject styles */
 if (
   typeof document !== "undefined" &&
   !document.getElementById("socialpilot-dashboard-styles")

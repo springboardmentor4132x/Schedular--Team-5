@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -15,10 +16,18 @@ const RegisterPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agree, setAgree] = useState(false);
 
+  const [successMessage, setSuccessMessage] = useState("");
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!fullName || !username || !email || !password || !confirmPassword) {
+    if (
+      !fullName.trim() ||
+      !username.trim() ||
+      !email.trim() ||
+      !password ||
+      !confirmPassword
+    ) {
       alert("Please fill all fields.");
       return;
     }
@@ -33,11 +42,40 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
+    // Account creation successful
+    setSuccessMessage("Account created successfully!");
+  };
+
+  const handleSuccessOk = () => {
+    setSuccessMessage("");
     navigate("/login");
   };
 
   return (
     <div className="register-page">
+
+      {/* SUCCESS POPUP */}
+      {successMessage && (
+        <div className="success-overlay">
+          <div className="success-popup">
+            <div className="success-icon">✓</div>
+
+            <h2>Success!</h2>
+
+            <p>{successMessage}</p>
+
+            <button
+              type="button"
+              className="success-button"
+              onClick={handleSuccessOk}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LEFT SIDE */}
       <div className="register-left">
 
         <div className="brand">
@@ -55,6 +93,7 @@ const RegisterPage: React.FC = () => {
 
           <form onSubmit={handleSubmit}>
 
+            {/* FULL NAME */}
             <div className="field">
               <label>Full name</label>
 
@@ -70,6 +109,7 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
+            {/* USERNAME */}
             <div className="field">
               <label>Username</label>
 
@@ -85,6 +125,7 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
+            {/* EMAIL */}
             <div className="field">
               <label>Email address</label>
 
@@ -100,6 +141,7 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
+            {/* ROLE */}
             <div className="field">
               <label>Select account role</label>
 
@@ -116,6 +158,7 @@ const RegisterPage: React.FC = () => {
               </select>
             </div>
 
+            {/* PASSWORD */}
             <div className="field">
               <label>Password</label>
 
@@ -132,17 +175,25 @@ const RegisterPage: React.FC = () => {
                 <button
                   type="button"
                   className="show-button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
 
               <div className="strength">
-                <span className={password.length >= 1 ? "active" : ""} />
-                <span className={password.length >= 6 ? "active" : ""} />
-                <span className={password.length >= 8 ? "active" : ""} />
-                <span className={password.length >= 10 ? "active" : ""} />
+                <span
+                  className={password.length >= 1 ? "active" : ""}
+                />
+                <span
+                  className={password.length >= 6 ? "active" : ""}
+                />
+                <span
+                  className={password.length >= 8 ? "active" : ""}
+                />
+                <span
+                  className={password.length >= 10 ? "active" : ""}
+                />
 
                 <small>
                   {password.length >= 10
@@ -154,6 +205,7 @@ const RegisterPage: React.FC = () => {
               </div>
             </div>
 
+            {/* CONFIRM PASSWORD */}
             <div className="field">
               <label>Confirm password</label>
 
@@ -170,12 +222,14 @@ const RegisterPage: React.FC = () => {
                 <button
                   type="button"
                   className="show-button"
-                  onClick={() => setShowConfirm(!showConfirm)}
+                  onClick={() => setShowConfirm((prev) => !prev)}
                 >
                   {showConfirm ? "Hide" : "Show"}
                 </button>
               </div>
             </div>
+
+            {/* TERMS */}
             <div className="terms">
               <input
                 type="checkbox"
@@ -185,11 +239,12 @@ const RegisterPage: React.FC = () => {
 
               <span>
                 I agree to{" "}
-                <a href="#">Terms of Service</a> and{" "}
-                <a href="#">Privacy Policy</a>
+                <a href="#terms">Terms of Service</a> and{" "}
+                <a href="#privacy">Privacy Policy</a>
               </span>
             </div>
 
+            {/* CREATE ACCOUNT */}
             <button
               type="submit"
               className="create-button"
@@ -201,12 +256,19 @@ const RegisterPage: React.FC = () => {
 
           <div className="signin-text">
             Already have an account?{" "}
-            <a href="/login">Sign in</a>
+            <button
+              type="button"
+              className="signin-link"
+              onClick={() => navigate("/login")}
+            >
+              Sign in
+            </button>
           </div>
 
         </div>
       </div>
 
+      {/* RIGHT SIDE */}
       <div className="register-right">
 
         <div className="right-content">
@@ -250,6 +312,7 @@ const RegisterPage: React.FC = () => {
           </div>
 
           <div className="review">
+
             <div className="avatars">
               <span>👩</span>
               <span>👨</span>
@@ -261,10 +324,13 @@ const RegisterPage: React.FC = () => {
               <div className="stars">★★★★★</div>
               <small>4.9/5 from 2,500+ reviews</small>
             </div>
+
           </div>
 
         </div>
       </div>
+
+      {/* CSS */}
       <style>{`
         * {
           box-sizing: border-box;
@@ -280,6 +346,8 @@ const RegisterPage: React.FC = () => {
           display: flex;
           background: #f7f8fb;
         }
+
+        /* LEFT */
 
         .register-left {
           width: 50%;
@@ -354,6 +422,11 @@ const RegisterPage: React.FC = () => {
           background: white;
         }
 
+        .input-box:focus-within {
+          border-color: #5946df;
+          box-shadow: 0 0 0 3px rgba(89, 70, 223, 0.08);
+        }
+
         .input-box > span {
           margin-left: 13px;
           color: #999fa9;
@@ -381,6 +454,10 @@ const RegisterPage: React.FC = () => {
           font-size: 14px;
         }
 
+        .select-box:focus {
+          border-color: #5946df;
+        }
+
         .show-button {
           border: none;
           background: transparent;
@@ -388,6 +465,10 @@ const RegisterPage: React.FC = () => {
           cursor: pointer;
           font-size: 11px;
           padding: 0 13px;
+        }
+
+        .show-button:hover {
+          color: #5946df;
         }
 
         .strength {
@@ -446,6 +527,7 @@ const RegisterPage: React.FC = () => {
           font-size: 14px;
           font-weight: 700;
           cursor: pointer;
+          transition: 0.2s;
         }
 
         .create-button:hover {
@@ -459,11 +541,17 @@ const RegisterPage: React.FC = () => {
           font-size: 13px;
         }
 
-        .signin-text a {
+        .signin-link {
+          border: none;
+          background: transparent;
           color: #5040c7;
-          text-decoration: none;
           font-weight: 600;
+          cursor: pointer;
+          font-size: 13px;
+          padding: 0;
         }
+
+        /* RIGHT */
 
         .register-right {
           width: 50%;
@@ -493,7 +581,8 @@ const RegisterPage: React.FC = () => {
           font-size: 11px;
           margin-bottom: 25px;
         }
-          .right-content h2 {
+
+        .right-content h2 {
           margin: 0;
           font-size: 46px;
           line-height: 1.08;
@@ -566,6 +655,73 @@ const RegisterPage: React.FC = () => {
           font-size: 11px;
         }
 
+        /* SUCCESS POPUP */
+
+        .success-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          background: rgba(0, 0, 0, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .success-popup {
+          width: 100%;
+          max-width: 390px;
+          background: white;
+          border-radius: 16px;
+          padding: 32px;
+          text-align: center;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+
+        .success-icon {
+          width: 58px;
+          height: 58px;
+          margin: 0 auto 15px;
+          border-radius: 50%;
+          background: #e8f7ee;
+          color: #21864b;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 30px;
+          font-weight: bold;
+        }
+
+        .success-popup h2 {
+          margin: 0 0 8px;
+          color: #171a25;
+          font-size: 24px;
+        }
+
+        .success-popup p {
+          margin: 0 0 24px;
+          color: #666b76;
+          font-size: 14px;
+        }
+
+        .success-button {
+          width: 100%;
+          height: 44px;
+          border: none;
+          border-radius: 8px;
+          background: #5946df;
+          color: white;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .success-button:hover {
+          background: #4936cf;
+        }
+
+        /* RESPONSIVE */
+
         @media (max-width: 900px) {
           .register-page {
             flex-direction: column;
@@ -579,10 +735,33 @@ const RegisterPage: React.FC = () => {
           .register-right {
             min-height: 500px;
           }
+
+          .right-content h2 {
+            font-size: 38px;
+          }
         }
-        `}</style>
+
+        @media (max-width: 600px) {
+          .register-left {
+            padding: 30px 20px;
+          }
+
+          .register-right {
+            padding: 50px 20px;
+          }
+
+          h1 {
+            font-size: 28px;
+          }
+
+          .right-content h2 {
+            font-size: 32px;
+          }
+        }
+      `}</style>
+
     </div>
   );
-}
+};
 
 export default RegisterPage;
