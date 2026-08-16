@@ -1,142 +1,394 @@
 from api.database.session import SessionLocal
-from api.models.notification import Notification
+from api.models.notification_preference import NotificationPreference
 
+# =========================================================
 
-def get_notifications(user_id: int):
-    db = SessionLocal()
+# GET NOTIFICATION SETTINGS
 
-    try:
-        return (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id
-            )
-            .order_by(
-                Notification.created_at.desc()
-            )
-            .all()
-        )
+# =========================================================
 
-    finally:
-        db.close()
-
-
-def mark_notification_as_read(
-    user_id: int,
-    notification_id: int,
+def get_notification_settings(
+user_id: int,
 ):
-    db = SessionLocal()
+"""
+Get notification preferences for the specified user.
 
-    try:
-        notification = (
-            db.query(Notification)
-            .filter(
-                Notification.id == notification_id,
-                Notification.user_id == user_id,
-            )
-            .first()
+```
+If the user does not have a preference record yet,
+create one with the model's default values.
+"""
+
+db = SessionLocal()
+
+try:
+    preference = (
+        db.query(NotificationPreference)
+        .filter(
+            NotificationPreference.user_id == user_id
+        )
+        .first()
+    )
+
+    # -------------------------------------------------
+    # CREATE DEFAULT PREFERENCES IF NOT FOUND
+    # -------------------------------------------------
+
+    if not preference:
+
+        preference = NotificationPreference(
+            user_id=user_id,
         )
 
-        if not notification:
-            raise ValueError(
-                f"Notification {notification_id} not found"
-            )
-
-        notification.is_read = True
-
+        db.add(preference)
         db.commit()
-        db.refresh(notification)
+        db.refresh(preference)
 
-        return notification
+        print("=================================================", flush=True)
+        print(
+            ">>> DEFAULT NOTIFICATION PREFERENCES CREATED",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> PREFERENCE ID: {preference.id}",
+            flush=True,
+        )
+        print("=================================================", flush=True)
 
-    finally:
-        db.close()
+    else:
 
+        print("=================================================", flush=True)
+        print(
+            ">>> NOTIFICATION PREFERENCES FOUND",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> PREFERENCE ID: {preference.id}",
+            flush=True,
+        )
+        print("=================================================", flush=True)
 
-def mark_all_notifications_as_read(
-    user_id: int,
+    return preference
+
+finally:
+    db.close()
+```
+
+# =========================================================
+
+# UPDATE NOTIFICATION SETTINGS
+
+# =========================================================
+
+def update_notification_settings(
+user_id: int,
+updates: dict,
 ):
-    db = SessionLocal()
+"""
+Update notification preferences for the specified user.
 
-    try:
-        notifications = (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id,
-                Notification.is_read == False,
-            )
-            .all()
+```
+Only fields supplied in the updates dictionary are changed.
+"""
+
+db = SessionLocal()
+
+try:
+    preference = (
+        db.query(NotificationPreference)
+        .filter(
+            NotificationPreference.user_id == user_id
+        )
+        .first()
+    )
+
+    # -------------------------------------------------
+    # CREATE DEFAULT RECORD IF IT DOES NOT EXIST
+    # -------------------------------------------------
+
+    if not preference:
+
+        preference = NotificationPreference(
+            user_id=user_id,
         )
 
-        for notification in notifications:
-            notification.is_read = True
+        db.add(preference)
+        db.flush()
 
-        db.commit()
+        print("=================================================", flush=True)
+        print(
+            ">>> CREATED DEFAULT PREFERENCES BEFORE UPDATE",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print("=================================================", flush=True)
 
-        return {
-            "message": "All notifications marked as read"
-        }
+    # -------------------------------------------------
+    # UPDATE ONLY PROVIDED FIELDS
+    # -------------------------------------------------
 
-    finally:
-        db.close()
+    allowed_fields = {
+        "publishing_notifications_enabled",
+        "campaign_notifications_enabled",
+        "account_activity_notifications_enabled",
+        "team_collaboration_notifications_enabled",
+        "system_notifications_enabled",
+        "in_app_notifications_enabled",
+        "email_notifications_enabled",
+        "push_notifications_enabled",
+        "email_frequency",
+        "promotional_emails_enabled",
+    }
 
+    for field, value in updates.items():
 
-def delete_notification(
-    user_id: int,
-    notification_id: int,
+        if field not in allowed_fields:
+            continue
+
+        if value is None:
+            continue
+
+        setattr(
+            preference,
+            field,
+            value,
+        )
+
+    db.commit()
+    db.refresh(preference)
+
+    print("=================================================", flush=True)
+    print(
+        ">>> NOTIFICATION PREFERENCES UPDATED",
+        flush=True,
+    )
+    print(
+        f">>> USER ID: {user_id}",
+        flush=True,
+    )
+    print(
+        f">>> PREFERENCE ID: {preference.id}",
+        flush=True,
+    )
+    print(
+        f">>> EMAIL ENABLED: "
+        f"{preference.email_notifications_enabled}",
+        flush=True,
+    )
+    print(
+        f">>> EMAIL FREQUENCY: "
+        f"{preference.email_frequency}",
+        flush=True,
+    )
+    print("=================================================", flush=True)
+
+    return preference
+
+except Exception as exc:
+
+    db.rollback()
+
+    print("=================================================", flush=True)
+    print(
+        ">>> NOTIFICATION PREFERENCES UPDATE FAILED",
+        flush=True,
+    )
+    print(
+        f">>> USER ID: {user_id}",
+        flush=True,
+    )
+    print(
+        f">>> ERROR: {exc}",
+        flush=True,
+    )
+    print("=================================================", flush=True)
+
+    raise
+
+finally:
+    db.close()
+```
+
+# =========================================================
+
+# GET EMAIL PREFERENCES
+
+# =========================================================
+
+def get_email_preferences(
+user_id: int,
 ):
-    db = SessionLocal()
+"""
+Get only the email-related notification preferences.
+"""
 
-    try:
-        notification = (
-            db.query(Notification)
-            .filter(
-                Notification.id == notification_id,
-                Notification.user_id == user_id,
-            )
-            .first()
+```
+db = SessionLocal()
+
+try:
+    preference = (
+        db.query(NotificationPreference)
+        .filter(
+            NotificationPreference.user_id == user_id
+        )
+        .first()
+    )
+
+    # -------------------------------------------------
+    # CREATE DEFAULT PREFERENCES IF NOT FOUND
+    # -------------------------------------------------
+
+    if not preference:
+
+        preference = NotificationPreference(
+            user_id=user_id,
         )
 
-        if not notification:
-            raise ValueError(
-                f"Notification {notification_id} not found"
-            )
-
-        db.delete(notification)
+        db.add(preference)
         db.commit()
+        db.refresh(preference)
 
-        return {
-            "message": (
-                f"Notification {notification_id} deleted successfully"
-            )
-        }
+        print("=================================================", flush=True)
+        print(
+            ">>> DEFAULT EMAIL PREFERENCES CREATED",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print("=================================================", flush=True)
 
-    finally:
-        db.close()
+    return preference
 
+finally:
+    db.close()
+```
 
-def clear_notifications(
-    user_id: int,
+# =========================================================
+
+# UPDATE EMAIL PREFERENCES
+
+# =========================================================
+
+def update_email_preferences(
+user_id: int,
+updates: dict,
 ):
-    db = SessionLocal()
+"""
+Update only email-related notification preferences.
+"""
 
-    try:
-        notifications = (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id
-            )
-            .all()
+```
+db = SessionLocal()
+
+try:
+    preference = (
+        db.query(NotificationPreference)
+        .filter(
+            NotificationPreference.user_id == user_id
+        )
+        .first()
+    )
+
+    # -------------------------------------------------
+    # CREATE DEFAULT RECORD IF IT DOES NOT EXIST
+    # -------------------------------------------------
+
+    if not preference:
+
+        preference = NotificationPreference(
+            user_id=user_id,
         )
 
-        for notification in notifications:
-            db.delete(notification)
+        db.add(preference)
+        db.flush()
 
-        db.commit()
+    # -------------------------------------------------
+    # UPDATE EMAIL FIELDS ONLY
+    # -------------------------------------------------
 
-        return {
-            "message": "All notifications cleared successfully"
-        }
+    allowed_fields = {
+        "email_notifications_enabled",
+        "email_frequency",
+        "promotional_emails_enabled",
+    }
 
-    finally:
-        db.close()
+    for field, value in updates.items():
+
+        if field not in allowed_fields:
+            continue
+
+        if value is None:
+            continue
+
+        setattr(
+            preference,
+            field,
+            value,
+        )
+
+    db.commit()
+    db.refresh(preference)
+
+    print("=================================================", flush=True)
+    print(
+        ">>> EMAIL PREFERENCES UPDATED",
+        flush=True,
+    )
+    print(
+        f">>> USER ID: {user_id}",
+        flush=True,
+    )
+    print(
+        f">>> EMAIL ENABLED: "
+        f"{preference.email_notifications_enabled}",
+        flush=True,
+    )
+    print(
+        f">>> EMAIL FREQUENCY: "
+        f"{preference.email_frequency}",
+        flush=True,
+    )
+    print(
+        f">>> PROMOTIONAL EMAILS: "
+        f"{preference.promotional_emails_enabled}",
+        flush=True,
+    )
+    print("=================================================", flush=True)
+
+    return preference
+
+except Exception as exc:
+
+    db.rollback()
+
+    print("=================================================", flush=True)
+    print(
+        ">>> EMAIL PREFERENCES UPDATE FAILED",
+        flush=True,
+    )
+    print(
+        f">>> USER ID: {user_id}",
+        flush=True,
+    )
+    print(
+        f">>> ERROR: {exc}",
+        flush=True,
+    )
+    print("=================================================", flush=True)
+
+    raise
+
+finally:
+    db.close()

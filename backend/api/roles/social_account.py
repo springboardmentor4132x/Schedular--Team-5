@@ -6,5 +6,6 @@ class Platform(str, Enum):
     INSTAGRAM = "instagram"
     LINKEDIN = "linkedin"
     TWITTER = "twitter"
+    X = "x"
     YOUTUBE = "youtube"
     PINTEREST = "pinterest"

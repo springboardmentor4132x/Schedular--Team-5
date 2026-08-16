@@ -1,4 +1,3 @@
-
 import json
 import os
 import secrets
@@ -16,11 +15,11 @@ load_dotenv()
 # =========================================================
 
 PLATFORM_SCOPES = [
-    "pages_manage_posts",
     "pages_show_list",
+    "pages_manage_posts",
     "pages_read_engagement",
-   
 ]
+
 FACEBOOK_CLIENT_ID = os.getenv("FACEBOOK_CLIENT_ID")
 FACEBOOK_CLIENT_SECRET = os.getenv("FACEBOOK_CLIENT_SECRET")
 
@@ -28,16 +27,19 @@ FACEBOOK_REDIRECT_URI = (
     "http://localhost:8000/social-accounts/facebook/callback"
 )
 
+# Use the current Graph API version instead of v19.0.
+FACEBOOK_GRAPH_VERSION = "v25.0"
+
 FACEBOOK_OAUTH_URL = (
-    "https://www.facebook.com/v19.0/dialog/oauth"
+    f"https://www.facebook.com/{FACEBOOK_GRAPH_VERSION}/dialog/oauth"
 )
 
 FACEBOOK_TOKEN_URL = (
-    "https://graph.facebook.com/v19.0/oauth/access_token"
+    f"https://graph.facebook.com/{FACEBOOK_GRAPH_VERSION}/oauth/access_token"
 )
 
 FACEBOOK_GRAPH_URL = (
-    "https://graph.facebook.com/v19.0"
+    f"https://graph.facebook.com/{FACEBOOK_GRAPH_VERSION}"
 )
 
 
@@ -87,7 +89,12 @@ def sync(account_id: str):
     }
 
 
+# =========================================================
+# FACEBOOK LOGIN
+# =========================================================
+
 def get_login_url(state: str) -> str:
+
     scopes = ",".join(PLATFORM_SCOPES)
 
     return (
@@ -100,7 +107,14 @@ def get_login_url(state: str) -> str:
     )
 
 
-async def exchange_code_for_token(code: str) -> dict:
+# =========================================================
+# FACEBOOK TOKEN EXCHANGE
+# =========================================================
+
+async def exchange_code_for_token(
+    code: str,
+) -> dict:
+
     params = {
         "client_id": FACEBOOK_CLIENT_ID,
         "client_secret": FACEBOOK_CLIENT_SECRET,
@@ -108,79 +122,303 @@ async def exchange_code_for_token(code: str) -> dict:
         "code": code,
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        timeout=30.0,
+    ) as client:
+
         response = await client.get(
             FACEBOOK_TOKEN_URL,
             params=params,
         )
 
-        print(
-            ">>> FACEBOOK TOKEN EXCHANGE STATUS:",
-            response.status_code,
-            flush=True,
+    print(
+        ">>> FACEBOOK TOKEN EXCHANGE STATUS:",
+        response.status_code,
+        flush=True,
+    )
+
+    print(
+        ">>> FACEBOOK TOKEN EXCHANGE RESPONSE:",
+        response.text,
+        flush=True,
+    )
+
+    if response.status_code != 200:
+
+        raise Exception(
+            "Facebook token exchange failed. "
+            f"HTTP {response.status_code}: "
+            f"{response.text}"
         )
 
-        print(
-            ">>> FACEBOOK TOKEN EXCHANGE RESPONSE:",
-            response.text,
-            flush=True,
-        )
-
-        if response.status_code != 200:
-            raise Exception(
-                "Facebook token exchange failed. "
-                f"HTTP {response.status_code}: "
-                f"{response.text}"
-            )
-
-        return response.json()
+    return response.json()
 
 
-async def get_user_pages(
+# =========================================================
+# FACEBOOK USER DEBUG
+# =========================================================
+
+async def get_current_facebook_user(
     user_access_token: str,
-) -> list:
-    url = f"{FACEBOOK_GRAPH_URL}/me/accounts"
+) -> dict:
+
+    url = f"{FACEBOOK_GRAPH_URL}/me"
 
     params = {
         "access_token": user_access_token,
-        "fields": "id,name,access_token",
+        "fields": "id,name",
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(
+        timeout=30.0,
+    ) as client:
+
         response = await client.get(
             url,
             params=params,
         )
 
-        print(
-            ">>> FACEBOOK PAGES API STATUS:",
-            response.status_code,
-            flush=True,
+    print(
+        ">>> FACEBOOK /ME STATUS:",
+        response.status_code,
+        flush=True,
+    )
+
+    print(
+        ">>> FACEBOOK /ME RESPONSE:",
+        response.text,
+        flush=True,
+    )
+
+    if response.status_code != 200:
+
+        raise Exception(
+            "Facebook /me API failed. "
+            f"HTTP {response.status_code}: "
+            f"{response.text}"
+        )
+
+    return response.json()
+
+
+# =========================================================
+# FACEBOOK TOKEN PERMISSIONS DEBUG
+# =========================================================
+
+async def get_token_permissions(
+    user_access_token: str,
+) -> dict:
+
+    url = f"{FACEBOOK_GRAPH_URL}/me/permissions"
+
+    params = {
+        "access_token": user_access_token,
+    }
+
+    async with httpx.AsyncClient(
+        timeout=30.0,
+    ) as client:
+
+        response = await client.get(
+            url,
+            params=params,
+        )
+
+    print(
+        ">>> FACEBOOK PERMISSIONS STATUS:",
+        response.status_code,
+        flush=True,
+    )
+
+    print(
+        ">>> FACEBOOK PERMISSIONS RESPONSE:",
+        response.text,
+        flush=True,
+    )
+
+    if response.status_code != 200:
+
+        raise Exception(
+            "Facebook permissions API failed. "
+            f"HTTP {response.status_code}: "
+            f"{response.text}"
+        )
+
+    return response.json()
+
+
+# =========================================================
+# FACEBOOK PAGE LOOKUP
+# =========================================================
+
+async def get_user_pages(
+    user_access_token: str,
+) -> list:
+
+    # -----------------------------------------------------
+    # STEP 1 - Verify which Facebook user issued the token
+    # -----------------------------------------------------
+
+    try:
+
+        facebook_user = (
+            await get_current_facebook_user(
+                user_access_token
+            )
         )
 
         print(
-            ">>> FACEBOOK PAGES API RESPONSE:",
-            response.text,
+            ">>> FACEBOOK AUTHENTICATED USER:",
+            facebook_user,
             flush=True,
         )
 
-        if response.status_code != 200:
-            raise Exception(
-                "Facebook Pages API Error "
-                f"(HTTP {response.status_code}): "
-                f"{response.text}"
+    except Exception as exc:
+
+        print(
+            ">>> WARNING: COULD NOT VERIFY FACEBOOK USER:",
+            str(exc),
+            flush=True,
+        )
+
+    # -----------------------------------------------------
+    # STEP 2 - Check permissions granted to the token
+    # -----------------------------------------------------
+
+    try:
+
+        permissions = (
+            await get_token_permissions(
+                user_access_token
+            )
+        )
+
+        print(
+            ">>> FACEBOOK TOKEN PERMISSIONS:",
+            permissions,
+            flush=True,
+        )
+
+    except Exception as exc:
+
+        print(
+            ">>> WARNING: COULD NOT READ FACEBOOK "
+            "TOKEN PERMISSIONS:",
+            str(exc),
+            flush=True,
+        )
+
+    # -----------------------------------------------------
+    # STEP 3 - Retrieve Facebook Pages
+    # -----------------------------------------------------
+
+    url = f"{FACEBOOK_GRAPH_URL}/me/accounts"
+
+    params = {
+        "access_token": user_access_token,
+        "fields": (
+            "id,"
+            "name,"
+            "access_token,"
+            "tasks"
+        ),
+    }
+
+    print(
+        ">>> FACEBOOK PAGES REQUEST URL:",
+        url,
+        flush=True,
+    )
+
+    print(
+        ">>> FACEBOOK PAGES REQUEST FIELDS:",
+        params["fields"],
+        flush=True,
+    )
+
+    async with httpx.AsyncClient(
+        timeout=30.0,
+    ) as client:
+
+        response = await client.get(
+            url,
+            params=params,
+        )
+
+    print(
+        ">>> FACEBOOK PAGES API STATUS:",
+        response.status_code,
+        flush=True,
+    )
+
+    print(
+        ">>> FACEBOOK PAGES API RESPONSE:",
+        response.text,
+        flush=True,
+    )
+
+    if response.status_code != 200:
+
+        raise Exception(
+            "Facebook Pages API Error "
+            f"(HTTP {response.status_code}): "
+            f"{response.text}"
+        )
+
+    data = response.json()
+
+    pages = data.get(
+        "data",
+        [],
+    )
+
+    print(
+        ">>> FACEBOOK PAGES FOUND:",
+        len(pages),
+        flush=True,
+    )
+
+    if pages:
+
+        for page in pages:
+
+            print(
+                ">>> FACEBOOK PAGE:",
+                {
+                    "id": page.get("id"),
+                    "name": page.get("name"),
+                    "tasks": page.get("tasks"),
+                    "has_page_access_token": bool(
+                        page.get("access_token")
+                    ),
+                },
+                flush=True,
             )
 
-        data = response.json()
+    else:
 
-        return data.get("data", [])
+        print(
+            ">>> FACEBOOK PAGES RESULT IS EMPTY.",
+            flush=True,
+        )
+
+        print(
+            ">>> IMPORTANT: OAuth succeeded, but "
+            "Meta did not return any Page for this "
+            "Facebook user/token.",
+            flush=True,
+        )
+
+    return pages
 
 
 # =========================================================
 # MEDIA URL PARSER
 # =========================================================
 
-def _parse_media_urls(media_url) -> list[str]:
+def _parse_media_urls(
+    media_url,
+) -> list[str]:
 
     if media_url is None:
         return []
@@ -201,14 +439,22 @@ def _parse_media_urls(media_url) -> list[str]:
         if media_url.startswith("["):
 
             try:
-                parsed = json.loads(media_url)
+
+                parsed = json.loads(
+                    media_url
+                )
 
             except json.JSONDecodeError as exc:
+
                 raise ValueError(
                     "media_url contains invalid JSON."
                 ) from exc
 
-            if not isinstance(parsed, list):
+            if not isinstance(
+                parsed,
+                list,
+            ):
+
                 raise ValueError(
                     "media_url JSON must contain an array."
                 )
@@ -216,9 +462,11 @@ def _parse_media_urls(media_url) -> list[str]:
             urls = parsed
 
         else:
+
             urls = [media_url]
 
     else:
+
         raise ValueError(
             "Unsupported media_url format."
         )
@@ -227,7 +475,11 @@ def _parse_media_urls(media_url) -> list[str]:
 
     for url in urls:
 
-        if not isinstance(url, str):
+        if not isinstance(
+            url,
+            str,
+        ):
+
             raise ValueError(
                 "Every media URL must be a string."
             )
@@ -253,7 +505,9 @@ def get_local_media_path(
     if not media_url:
         return None
 
-    parsed = urlparse(media_url)
+    parsed = urlparse(
+        media_url
+    )
 
     path = parsed.path
 
@@ -267,7 +521,9 @@ def get_local_media_path(
         1,
     )[1]
 
-    filename = os.path.basename(filename)
+    filename = os.path.basename(
+        filename
+    )
 
     if not filename:
         return None
@@ -286,9 +542,13 @@ def get_local_media_path(
     if not local_path.startswith(
         upload_root + os.sep
     ):
+
         return None
 
-    if not os.path.isfile(local_path):
+    if not os.path.isfile(
+        local_path
+    ):
+
         return None
 
     return local_path
@@ -302,11 +562,15 @@ def _get_remote_media_extension(
     media_url: str,
 ) -> str:
 
-    parsed = urlparse(media_url)
+    parsed = urlparse(
+        media_url
+    )
 
     path = parsed.path
 
-    extension = os.path.splitext(path)[1].lower()
+    extension = os.path.splitext(
+        path
+    )[1].lower()
 
     allowed_extensions = {
         ".jpg",
@@ -331,6 +595,7 @@ async def _download_remote_media(
 ) -> str:
 
     if not media_url:
+
         raise ValueError(
             "Remote media URL is empty."
         )
@@ -345,8 +610,10 @@ async def _download_remote_media(
         flush=True,
     )
 
-    extension = _get_remote_media_extension(
-        media_url
+    extension = (
+        _get_remote_media_extension(
+            media_url
+        )
     )
 
     filename = (
@@ -362,7 +629,8 @@ async def _download_remote_media(
     )
 
     print(
-        f">>> REMOTE MEDIA LOCAL PATH: {local_path}",
+        f">>> REMOTE MEDIA LOCAL PATH: "
+        f"{local_path}",
         flush=True,
     )
 
@@ -392,6 +660,7 @@ async def _download_remote_media(
     )
 
     if response.status_code != 200:
+
         raise Exception(
             "Failed to download remote media. "
             f"HTTP {response.status_code}: "
@@ -401,6 +670,7 @@ async def _download_remote_media(
     content = response.content
 
     if not content:
+
         raise Exception(
             "Remote media download returned "
             f"empty content: {media_url}"
@@ -454,7 +724,8 @@ async def _resolve_media_to_local_path(
         )
 
         print(
-            f">>> LOCAL MEDIA PATH: {local_path}",
+            f">>> LOCAL MEDIA PATH: "
+            f"{local_path}",
             flush=True,
         )
 
@@ -465,8 +736,10 @@ async def _resolve_media_to_local_path(
         flush=True,
     )
 
-    downloaded_path = await _download_remote_media(
-        media_url
+    downloaded_path = (
+        await _download_remote_media(
+            media_url
+        )
     )
 
     return downloaded_path, True
@@ -485,7 +758,9 @@ def _cleanup_temporary_media(
 
     try:
 
-        if os.path.isfile(local_path):
+        if os.path.isfile(
+            local_path
+        ):
 
             os.remove(
                 local_path
@@ -519,12 +794,14 @@ async def _publish_carousel(
 ):
 
     if len(media_urls) < 2:
+
         raise ValueError(
             "Facebook carousel requires at least "
             "2 media URLs."
         )
 
     if len(media_urls) > 10:
+
         raise ValueError(
             "Facebook carousel supports a maximum "
             "of 10 media items in this implementation."
@@ -536,7 +813,8 @@ async def _publish_carousel(
     )
 
     print(
-        f">>> CAROUSEL ITEM COUNT: {len(media_urls)}",
+        f">>> CAROUSEL ITEM COUNT: "
+        f"{len(media_urls)}",
         flush=True,
     )
 
@@ -561,22 +839,18 @@ async def _publish_carousel(
                     flush=True,
                 )
 
-                local_media_path, should_delete = (
-                    await _resolve_media_to_local_path(
-                        media_url
-                    )
+                (
+                    local_media_path,
+                    should_delete,
+                ) = await _resolve_media_to_local_path(
+                    media_url
                 )
 
                 if should_delete:
+
                     temporary_files.append(
                         local_media_path
                     )
-
-                print(
-                    f">>> CAROUSEL LOCAL IMAGE: "
-                    f"{local_media_path}",
-                    flush=True,
-                )
 
                 endpoint = (
                     f"{FACEBOOK_GRAPH_URL}/"
@@ -637,6 +911,7 @@ async def _publish_carousel(
                 )
 
                 if response.status_code != 200:
+
                     _raise_facebook_api_error(
                         response,
                         "carousel image upload",
@@ -650,6 +925,7 @@ async def _publish_carousel(
                 )
 
                 if not photo_id:
+
                     raise Exception(
                         "Facebook did not return a photo ID "
                         "for carousel image upload. "
@@ -700,6 +976,7 @@ async def _publish_carousel(
             )
 
             if response.status_code != 200:
+
                 _raise_facebook_api_error(
                     response,
                     "carousel feed post",
@@ -713,6 +990,7 @@ async def _publish_carousel(
             )
 
             if not platform_post_id:
+
                 raise Exception(
                     "Facebook carousel was accepted "
                     "but no post ID was returned."
@@ -749,12 +1027,14 @@ async def publish_post(
 ):
 
     if not access_token:
+
         raise Exception(
             "Facebook publishing failed: "
             "access_token is empty."
         )
 
     if not page_id:
+
         raise Exception(
             "Facebook publishing failed: "
             "page_id is empty."
@@ -799,15 +1079,18 @@ async def publish_post(
 
     media_type_value = (
         media_type.value
-        if hasattr(media_type, "value")
-        else str(media_type).lower()
+        if hasattr(
+            media_type,
+            "value",
+        )
+        else str(
+            media_type
+        ).lower()
     )
 
-    media_type_value = media_type_value.lower()
-
-    # =====================================================
-    # TEXT POST
-    # =====================================================
+    media_type_value = (
+        media_type_value.lower()
+    )
 
     if not media_url:
 
@@ -832,15 +1115,12 @@ async def publish_post(
             files=None,
         )
 
-    # =====================================================
-    # NORMALIZE MEDIA URLS
-    # =====================================================
-
     media_urls = _parse_media_urls(
         media_url
     )
 
     if not media_urls:
+
         raise ValueError(
             "Facebook publishing requires "
             "at least one media URL."
@@ -851,10 +1131,6 @@ async def publish_post(
         f"{len(media_urls)}",
         flush=True,
     )
-
-    # =====================================================
-    # CAROUSEL
-    # =====================================================
 
     if media_type_value == "carousel":
 
@@ -870,13 +1146,10 @@ async def publish_post(
             media_urls=media_urls,
         )
 
-    # =====================================================
-    # IMAGE POST
-    # =====================================================
-
     if media_type_value == "image":
 
         if len(media_urls) != 1:
+
             raise ValueError(
                 "Facebook image publishing requires "
                 "exactly one media URL."
@@ -887,10 +1160,11 @@ async def publish_post(
             f"{page_id}/photos"
         )
 
-        local_media_path, should_delete = (
-            await _resolve_media_to_local_path(
-                media_urls[0]
-            )
+        (
+            local_media_path,
+            should_delete,
+        ) = await _resolve_media_to_local_path(
+            media_urls[0]
         )
 
         try:
@@ -917,6 +1191,7 @@ async def publish_post(
             )
 
             if image_size <= 0:
+
                 raise Exception(
                     "Facebook image publishing failed: "
                     "image file is empty."
@@ -928,21 +1203,10 @@ async def publish_post(
                 )
             )
 
-            print(
-                f">>> IMAGE CONTENT TYPE: "
-                f"{content_type}",
-                flush=True,
-            )
-
             payload = {
                 "caption": content or "",
                 "access_token": access_token,
             }
-
-            # IMPORTANT:
-            # Send the actual file handle to Facebook.
-            # Do not first load the complete file into
-            # image_bytes.
 
             try:
 
@@ -961,15 +1225,12 @@ async def publish_post(
                         )
                     }
 
-                    print(
-                        ">>> FACEBOOK IMAGE MULTIPART UPLOAD START",
-                        flush=True,
-                    )
-
-                    response = await _send_facebook_request_response(
-                        endpoint=endpoint,
-                        payload=payload,
-                        files=files,
+                    response = (
+                        await _send_facebook_request_response(
+                            endpoint=endpoint,
+                            payload=payload,
+                            files=files,
+                        )
                     )
 
             except OSError as exc:
@@ -987,12 +1248,6 @@ async def publish_post(
                 )
 
             result = response.json()
-
-            print(
-                ">>> FACEBOOK IMAGE SUCCESS RESPONSE:",
-                result,
-                flush=True,
-            )
 
             platform_post_id = (
                 result.get("post_id")
@@ -1022,16 +1277,13 @@ async def publish_post(
                 should_delete,
             )
 
-    # =====================================================
-    # VIDEO / REEL
-    # =====================================================
-
     if media_type_value in (
         "video",
         "reel",
     ):
 
         if len(media_urls) != 1:
+
             raise ValueError(
                 "Facebook video/reel publishing "
                 "requires exactly one media URL."
@@ -1042,22 +1294,17 @@ async def publish_post(
             f"{page_id}/videos"
         )
 
-        local_media_path, should_delete = (
-            await _resolve_media_to_local_path(
-                media_urls[0]
-            )
+        (
+            local_media_path,
+            should_delete,
+        ) = await _resolve_media_to_local_path(
+            media_urls[0]
         )
 
         try:
 
             print(
                 ">>> FACEBOOK POST TYPE: VIDEO",
-                flush=True,
-            )
-
-            print(
-                f">>> LOCAL VIDEO PATH: "
-                f"{local_media_path}",
                 flush=True,
             )
 
@@ -1105,10 +1352,6 @@ async def publish_post(
                 should_delete,
             )
 
-    # =====================================================
-    # FALLBACK
-    # =====================================================
-
     endpoint = (
         f"{FACEBOOK_GRAPH_URL}/"
         f"{page_id}/feed"
@@ -1140,8 +1383,9 @@ def _get_image_content_type(
 ) -> str:
 
     extension = (
-        os.path.splitext(file_path)[1]
-        .lower()
+        os.path.splitext(
+            file_path
+        )[1].lower()
     )
 
     mapping = {
@@ -1163,8 +1407,9 @@ def _get_video_content_type(
 ) -> str:
 
     extension = (
-        os.path.splitext(file_path)[1]
-        .lower()
+        os.path.splitext(
+            file_path
+        )[1].lower()
     )
 
     mapping = {
@@ -1190,9 +1435,11 @@ def _raise_facebook_api_error(
 ):
 
     try:
+
         error_data = response.json()
 
     except Exception:
+
         error_data = {
             "raw_response": response.text
         }
@@ -1220,7 +1467,10 @@ def _raise_facebook_api_error(
     ):
 
         facebook_error = (
-            error_data.get("error", {})
+            error_data.get(
+                "error",
+                {},
+            )
         )
 
         if isinstance(
@@ -1286,8 +1536,10 @@ async def _send_facebook_request_response(
     )
 
     if files:
+
         print(
-            ">>> FACEBOOK REQUEST CONTAINS MULTIPART FILE",
+            ">>> FACEBOOK REQUEST CONTAINS "
+            "MULTIPART FILE",
             flush=True,
         )
 
@@ -1360,10 +1612,12 @@ async def _send_facebook_request(
     files=None,
 ):
 
-    response = await _send_facebook_request_response(
-        endpoint=endpoint,
-        payload=payload,
-        files=files,
+    response = (
+        await _send_facebook_request_response(
+            endpoint=endpoint,
+            payload=payload,
+            files=files,
+        )
     )
 
     if response.status_code != 200:
@@ -1410,4 +1664,3 @@ async def _send_facebook_request(
     )
 
     return platform_post_id
-

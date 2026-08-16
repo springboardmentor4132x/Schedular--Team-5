@@ -131,6 +131,14 @@ class User(Base):
         cascade="all, delete-orphan"
     )
 
+    notification_preferences: Mapped[
+    "NotificationPreference | None"
+] = relationship(
+    back_populates="user",
+    uselist=False,
+    cascade="all, delete-orphan",
+)
+
     assigned_team: Mapped[
         "BusinessAssignment | None"
     ] = relationship(

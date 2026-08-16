@@ -1,4 +1,3 @@
-
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,9 +29,15 @@ def _get_user(current_user: dict):
 
 
 def _get_role(current_user: dict) -> str:
-    role = current_user.get("role", "")
+    role = current_user.get(
+        "role",
+        "",
+    )
 
-    if hasattr(role, "value"):
+    if hasattr(
+        role,
+        "value",
+    ):
         role = role.value
 
     return str(role).lower()
@@ -42,8 +47,13 @@ def _resolve_target_id(
     current_user: dict,
     client_id: Optional[int],
 ) -> int:
-    user = _get_user(current_user)
-    role = _get_role(current_user)
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
 
     if role == Role.MARKETING_TEAM.value:
         if client_id is None:
@@ -70,7 +80,11 @@ def _resolve_target_id(
         )
 
     if role == Role.ADMINISTRATOR.value:
-        return client_id if client_id is not None else user.id
+        return (
+            client_id
+            if client_id is not None
+            else user.id
+        )
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -82,8 +96,13 @@ def _resolve_view_target_id(
     current_user: dict,
     client_id: Optional[int],
 ) -> int:
-    user = _get_user(current_user)
-    role = _get_role(current_user)
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
 
     if role == Role.BUSINESS_USER.value:
         return user.id
@@ -98,10 +117,18 @@ def _resolve_view_target_id(
         return user.id
 
     if role == Role.MARKETING_TEAM.value:
-        return client_id if client_id is not None else user.id
+        return (
+            client_id
+            if client_id is not None
+            else user.id
+        )
 
     if role == Role.ADMINISTRATOR.value:
-        return client_id if client_id is not None else user.id
+        return (
+            client_id
+            if client_id is not None
+            else user.id
+        )
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -115,7 +142,9 @@ def _resolve_view_target_id(
 )
 def create_post(
     post: PostCreate,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     target_id = _resolve_target_id(
         current_user,
@@ -126,7 +155,9 @@ def create_post(
         return service.create_post(
             target_id,
             post,
-            current_user_role=_get_role(current_user),
+            current_user_role=_get_role(
+                current_user
+            ),
         )
 
     except ValueError as exc:
@@ -142,7 +173,9 @@ def create_post(
 )
 def get_calendar(
     client_id: Optional[int] = None,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     target_id = _resolve_view_target_id(
         current_user,
@@ -150,9 +183,16 @@ def get_calendar(
     )
 
     try:
-        return service.get_calendar(target_id, client_id)
-    except TypeError:
-        return service.get_calendar(target_id)
+        return service.get_calendar(
+            target_id,
+            client_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.get(
@@ -161,14 +201,26 @@ def get_calendar(
 )
 def get_queue(
     client_id: Optional[int] = None,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     target_id = _resolve_view_target_id(
         current_user,
         client_id,
     )
 
-    return service.get_queue(target_id)
+    try:
+        return service.get_queue(
+            target_id,
+            client_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.get(
@@ -178,17 +230,26 @@ def get_queue(
 def list_posts(
     client_id: Optional[int] = None,
     status_filter: Optional[str] = None,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     target_id = _resolve_view_target_id(
         current_user,
         client_id,
     )
 
-    return service.list_posts(
-        target_id,
-        status_filter,
-    )
+    try:
+        return service.list_posts(
+            target_id,
+            status_filter,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.get(
@@ -197,10 +258,17 @@ def list_posts(
 )
 def get_post(
     post_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
-    user = _get_user(current_user)
-    role = _get_role(current_user)
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
 
     try:
         if role == Role.MARKETING_TEAM.value:
@@ -236,27 +304,40 @@ def get_post(
 )
 def preview_post(
     post_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
-    post = service.get_post(
-        _get_user(current_user).id,
-        post_id,
-    )
+    try:
+        post = service.get_post(
+            _get_user(
+                current_user
+            ).id,
+            post_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
     if not post:
-        return {"message": "Post not found"}
+        return {
+            "message": "Post not found"
+        }
 
     return {
-        "id": post.id,
-        "content": post.content,
-        "media_url": post.media_url,
-        "media_type": post.media_type,
-        "status": post.status,
-        "scheduled_time": post.scheduled_time,
+        "id": post["id"],
+        "content": post["content"],
+        "media_url": post["media_url"],
+        "media_type": post["media_type"],
+        "status": post["status"],
+        "scheduled_time": post["scheduled_time"],
         "preview": {
-            "caption": post.content,
-            "media": post.media_url,
-            "type": post.media_type,
+            "caption": post["content"],
+            "media": post["media_url"],
+            "type": post["media_type"],
         },
     }
 
@@ -268,10 +349,17 @@ def preview_post(
 def update_post(
     post_id: int,
     post: PostUpdate,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
-    user = _get_user(current_user)
-    role = _get_role(current_user)
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
 
     if role == Role.BUSINESS_USER.value:
         raise HTTPException(
@@ -315,10 +403,17 @@ def update_post(
 )
 def cancel_post(
     post_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
-    user = _get_user(current_user)
-    role = _get_role(current_user)
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
 
     if role == Role.BUSINESS_USER.value:
         raise HTTPException(
@@ -355,14 +450,81 @@ def cancel_post(
 
 
 @router.delete(
+    "/{post_id}/social-accounts/{social_account_id}",
+)
+def delete_post_from_social_account(
+    post_id: int,
+    social_account_id: int,
+    current_user=Depends(
+        get_current_user
+    ),
+):
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
+
+    if role == Role.BUSINESS_USER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Business Users cannot delete posts",
+        )
+
+    try:
+        if role == Role.MARKETING_TEAM.value:
+            return service.delete_post_from_social_account_for_marketing_team(
+                user.id,
+                post_id,
+                social_account_id,
+            )
+
+        if role in (
+            Role.CONTENT_CREATOR.value,
+            Role.ADMINISTRATOR.value,
+        ):
+            return service.delete_post_from_social_account(
+                user.id,
+                post_id,
+                social_account_id,
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete posts",
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+
+
+@router.delete(
     "/{post_id}",
 )
 def delete_post(
     post_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(
+        get_current_user
+    ),
 ):
-    user = _get_user(current_user)
-    role = _get_role(current_user)
+    user = _get_user(
+        current_user
+    )
+
+    role = _get_role(
+        current_user
+    )
 
     if role == Role.BUSINESS_USER.value:
         raise HTTPException(
@@ -397,3 +559,8 @@ def delete_post(
             detail=str(exc),
         )
 
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )

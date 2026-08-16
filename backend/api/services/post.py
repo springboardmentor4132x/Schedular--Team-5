@@ -1,23 +1,27 @@
+import httpx
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
-
 from api.database.session import SessionLocal
 from api.exceptions.post import PostNotFoundException
 from api.models.business_assignment import BusinessAssignment
 from api.models.post import Post
 from api.models.post_social_account import PostSocialAccount
+from api.models.social_account import SocialAccount
 from api.models.user import User
+from api.roles.notification import NotificationType
 from api.roles.post import Status
 from api.roles.post_social_account import PublishStatus
 from api.roles.user import Role
+from api.services.notification import (
+    create_post_activity_notifications,
+)
 
 
 DEFAULT_TIMEZONE = "Asia/Kolkata"
 
+FACEBOOK_GRAPH_URL = "https://graph.facebook.com/v25.0"
+INSTAGRAM_GRAPH_URL = "https://graph.facebook.com/v25.0"
 
-# =========================================================
-# TIMEZONE
-# =========================================================
 
 def _convert_to_utc(
     scheduled_time,
@@ -49,10 +53,6 @@ def _convert_to_utc(
         dt_timezone.utc
     )
 
-
-# =========================================================
-# CLIENT VALIDATION
-# =========================================================
 
 def _validate_client(
     db,
@@ -92,18 +92,12 @@ def _is_client_assigned_to_marketing_team(
     return assignment is not None
 
 
-# =========================================================
-# SOCIAL ACCOUNT VALIDATION
-# =========================================================
-
 def _validate_social_accounts(
     db,
     social_account_ids: list[int],
 ):
     if not social_account_ids:
         return
-
-    from api.models.social_account import SocialAccount
 
     accounts = (
         db.query(SocialAccount)
@@ -131,10 +125,6 @@ def _validate_social_accounts(
             f"Social account(s) not found: {missing_ids}"
         )
 
-
-# =========================================================
-# ATTACH SOCIAL ACCOUNTS TO POST
-# =========================================================
 
 def _attach_platforms(
     db,
@@ -164,22 +154,9 @@ def _attach_platforms(
         )
 
 
-# =========================================================
-# PREPARE SOCIAL ACCOUNT DATA
-# =========================================================
-
 def _load_social_accounts(
     post: Post,
 ):
-    """
-    Convert the PostSocialAccount relationships into
-    plain dictionaries.
-
-    We explicitly access social_account while the DB
-    session is still open so the response does not depend
-    on lazy-loading after the session is closed.
-    """
-
     social_accounts = []
 
     for relation in (
@@ -206,19 +183,16 @@ def _load_social_accounts(
         social_accounts.append(
             {
                 "id": account.id,
-
                 "platform": (
                     str(platform).lower()
                     if platform
                     else "unknown"
                 ),
-
                 "account_name": getattr(
                     account,
                     "account_name",
                     None,
                 ),
-
                 "account_id": (
                     str(account.account_id)
                     if getattr(
@@ -228,11 +202,9 @@ def _load_social_accounts(
                     ) is not None
                     else None
                 ),
-
                 "publish_status": (
                     relation.publish_status
                 ),
-
                 "platform_post_id": (
                     relation.platform_post_id
                 ),
@@ -242,50 +214,27 @@ def _load_social_accounts(
     return social_accounts
 
 
-# =========================================================
-# PREPARE POST RESPONSE
-# =========================================================
-
 def _serialize_post(
     post: Post,
 ):
-    """
-    Return a response dictionary containing the normal
-    post fields PLUS the connected social accounts.
-    """
-
     return {
         "id": post.id,
         "user_id": post.user_id,
         "campaign_id": post.campaign_id,
-
         "content": post.content,
-
         "media_url": post.media_url,
-
         "media_type": post.media_type,
-
         "scheduled_time": post.scheduled_time,
-
         "timezone": post.timezone,
-
         "published_time": post.published_time,
-
         "status": post.status,
-
         "created_at": post.created_at,
-
         "updated_at": post.updated_at,
-
         "social_accounts": _load_social_accounts(
             post
         ),
     }
 
-
-# =========================================================
-# CREATE POST
-# =========================================================
 
 def create_post(
     user_id: int,
@@ -295,12 +244,14 @@ def create_post(
     db = SessionLocal()
 
     try:
+        # =========================================================
+        # RESOLVE POST OWNER
+        # =========================================================
 
         if (
             current_user_role
             == Role.MARKETING_TEAM.value
         ):
-
             if data.client_id is None:
                 raise ValueError(
                     "client_id is required for Marketing Team users"
@@ -326,7 +277,6 @@ def create_post(
             current_user_role
             == Role.CONTENT_CREATOR.value
         ):
-
             if data.client_id is not None:
                 raise ValueError(
                     "Content Creator cannot create posts for another client"
@@ -338,9 +288,7 @@ def create_post(
             current_user_role
             == Role.ADMINISTRATOR.value
         ):
-
             if data.client_id is not None:
-
                 _validate_client(
                     db,
                     data.client_id,
@@ -356,6 +304,10 @@ def create_post(
                 "You are not authorized to create posts"
             )
 
+        # =========================================================
+        # TIMEZONE
+        # =========================================================
+
         timezone_name = (
             data.timezone
             or DEFAULT_TIMEZONE
@@ -365,6 +317,10 @@ def create_post(
             data.scheduled_time,
             timezone_name,
         )
+
+        # =========================================================
+        # POST STATUS
+        # =========================================================
 
         if data.save_as_draft:
 
@@ -391,6 +347,10 @@ def create_post(
 
             post_status = Status.SCHEDULED
 
+        # =========================================================
+        # CREATE POST
+        # =========================================================
+
         new_post = Post(
             user_id=post_owner_id,
             campaign_id=data.campaign_id,
@@ -406,8 +366,11 @@ def create_post(
 
         db.flush()
 
-        if data.social_account_ids:
+        # =========================================================
+        # ATTACH SOCIAL ACCOUNTS
+        # =========================================================
 
+        if data.social_account_ids:
             _attach_platforms(
                 db,
                 new_post,
@@ -420,35 +383,98 @@ def create_post(
             new_post
         )
 
-        # Force relationship loading while session is open.
-        social_accounts = _load_social_accounts(
+        # =========================================================
+        # MODULE 7 - POST SCHEDULED NOTIFICATION
+        # =========================================================
+
+        if post_status == Status.SCHEDULED:
+
+            print(
+                "=================================================",
+                flush=True,
+            )
+
+            print(
+                ">>> CREATING POST SCHEDULED NOTIFICATION",
+                flush=True,
+            )
+
+            print(
+                f">>> POST OWNER ID: {post_owner_id}",
+                flush=True,
+            )
+
+            print(
+                f">>> POST ID: {new_post.id}",
+                flush=True,
+            )
+
+            try:
+                notifications = (
+                    create_post_activity_notifications(
+                        post_owner_id=post_owner_id,
+                        title="Post Scheduled",
+                        description=(
+                            f"Post {new_post.id} "
+                            "has been successfully scheduled."
+                        ),
+                        notification_type=(
+                            NotificationType.SUCCESS
+                        ),
+                        related_post_id=new_post.id,
+                        related_campaign_id=(
+                            new_post.campaign_id
+                        ),
+                    )
+                )
+
+                print(
+                    ">>> POST SCHEDULED NOTIFICATION CREATED",
+                    flush=True,
+                )
+
+                print(
+                    f">>> NOTIFICATION COUNT: "
+                    f"{len(notifications)}",
+                    flush=True,
+                )
+
+            except Exception as notification_error:
+
+                print(
+                    ">>> POST SCHEDULED NOTIFICATION CREATION FAILED",
+                    flush=True,
+                )
+
+                print(
+                    f">>> NOTIFICATION ERROR: "
+                    f"{notification_error}",
+                    flush=True,
+                )
+
+                # Notification failure must not
+                # break successful post creation.
+
+            print(
+                "=================================================",
+                flush=True,
+            )
+
+        # =========================================================
+        # RETURN CREATED POST
+        # =========================================================
+
+        return _serialize_post(
             new_post
         )
-
-        response = _serialize_post(
-            new_post
-        )
-
-        response[
-            "social_accounts"
-        ] = social_accounts
-
-        return response
 
     except Exception:
-
         db.rollback()
-
         raise
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# ALLOWED USER IDS
-# =========================================================
 
 def _get_allowed_user_ids(
     db,
@@ -495,10 +521,6 @@ def _get_allowed_user_ids(
     return [target_id]
 
 
-# =========================================================
-# LIST POSTS
-# =========================================================
-
 def list_posts(
     user_id: int,
     status: str | None = None,
@@ -506,7 +528,6 @@ def list_posts(
     db = SessionLocal()
 
     try:
-
         allowed_ids = _get_allowed_user_ids(
             db,
             user_id,
@@ -522,7 +543,6 @@ def list_posts(
         )
 
         if status:
-
             query = query.filter(
                 Post.status == status
             )
@@ -543,13 +563,8 @@ def list_posts(
         ]
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# GET POST
-# =========================================================
 
 def get_post(
     user_id: int,
@@ -558,7 +573,6 @@ def get_post(
     db = SessionLocal()
 
     try:
-
         post = (
             db.query(Post)
             .filter(
@@ -578,13 +592,8 @@ def get_post(
         )
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# GET POST - MARKETING TEAM
-# =========================================================
 
 def get_post_for_marketing_team(
     marketing_team_id: int,
@@ -593,7 +602,6 @@ def get_post_for_marketing_team(
     db = SessionLocal()
 
     try:
-
         allowed_ids = _get_allowed_user_ids(
             db,
             marketing_team_id,
@@ -620,13 +628,8 @@ def get_post_for_marketing_team(
         )
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# UPDATE POST
-# =========================================================
 
 def update_post(
     user_id: int,
@@ -636,7 +639,6 @@ def update_post(
     db = SessionLocal()
 
     try:
-
         post = (
             db.query(Post)
             .filter(
@@ -658,19 +660,12 @@ def update_post(
         )
 
     except Exception:
-
         db.rollback()
-
         raise
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# UPDATE POST - MARKETING TEAM
-# =========================================================
 
 def update_post_for_marketing_team(
     marketing_team_id: int,
@@ -680,7 +675,6 @@ def update_post_for_marketing_team(
     db = SessionLocal()
 
     try:
-
         allowed_ids = _get_allowed_user_ids(
             db,
             marketing_team_id,
@@ -709,19 +703,12 @@ def update_post_for_marketing_team(
         )
 
     except Exception:
-
         db.rollback()
-
         raise
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# UPDATE POST RECORD
-# =========================================================
 
 def _update_post_record(
     db,
@@ -745,19 +732,15 @@ def _update_post_record(
 
     if "scheduled_time" in update_data:
 
-        scheduled_time = (
-            update_data[
-                "scheduled_time"
-            ]
-        )
+        scheduled_time = update_data[
+            "scheduled_time"
+        ]
 
         if scheduled_time is not None:
 
-            scheduled_time = (
-                _convert_to_utc(
-                    scheduled_time,
-                    timezone_name,
-                )
+            scheduled_time = _convert_to_utc(
+                scheduled_time,
+                timezone_name,
             )
 
             if scheduled_time <= datetime.now(
@@ -771,9 +754,7 @@ def _update_post_record(
                 "scheduled_time"
             ] = scheduled_time
 
-            post.status = (
-                Status.SCHEDULED
-            )
+            post.status = Status.SCHEDULED
 
     if "timezone" in update_data:
 
@@ -789,13 +770,9 @@ def _update_post_record(
             value,
         )
 
-    if (
-        data.social_account_ids
-        is not None
-    ):
+    if data.social_account_ids is not None:
 
         if not data.social_account_ids:
-
             raise ValueError(
                 "At least one social account is required"
             )
@@ -821,10 +798,6 @@ def _update_post_record(
     )
 
 
-# =========================================================
-# CANCEL POST
-# =========================================================
-
 def cancel_post(
     user_id: int,
     post_id: int,
@@ -832,7 +805,6 @@ def cancel_post(
     db = SessionLocal()
 
     try:
-
         post = (
             db.query(Post)
             .filter(
@@ -857,13 +829,8 @@ def cancel_post(
         )
 
     finally:
-
         db.close()
 
-
-# =========================================================
-# CANCEL POST - MARKETING TEAM
-# =========================================================
 
 def cancel_post_for_marketing_team(
     marketing_team_id: int,
@@ -872,7 +839,6 @@ def cancel_post_for_marketing_team(
     db = SessionLocal()
 
     try:
-
         allowed_ids = _get_allowed_user_ids(
             db,
             marketing_team_id,
@@ -904,7 +870,6 @@ def cancel_post_for_marketing_team(
         )
 
     finally:
-
         db.close()
 
 
@@ -928,9 +893,366 @@ def _cancel_post_record(
     )
 
 
-# =========================================================
-# DELETE POST
-# =========================================================
+def _get_platform_value(
+    platform,
+):
+    if hasattr(
+        platform,
+        "value",
+    ):
+        return str(
+            platform.value
+        ).lower()
+
+    return str(
+        platform
+    ).lower()
+
+
+def _delete_facebook_post(
+    access_token: str,
+    platform_post_id: str,
+):
+    if not access_token:
+        raise ValueError(
+            "Facebook access token is missing."
+        )
+
+    if not platform_post_id:
+        raise ValueError(
+            "Facebook platform post ID is missing."
+        )
+
+    endpoint = (
+        f"{FACEBOOK_GRAPH_URL}/"
+        f"{platform_post_id}"
+    )
+
+    print(
+        ">>> FACEBOOK DELETE STARTED",
+        flush=True,
+    )
+
+    print(
+        f">>> FACEBOOK POST ID: {platform_post_id}",
+        flush=True,
+    )
+
+    try:
+        with httpx.Client(
+            timeout=60.0
+        ) as client:
+
+            response = client.delete(
+                endpoint,
+                params={
+                    "access_token": access_token,
+                },
+            )
+
+    except httpx.RequestError as exc:
+
+        raise Exception(
+            "Facebook delete request failed: "
+            f"{exc}"
+        ) from exc
+
+    print(
+        ">>> FACEBOOK DELETE STATUS:",
+        response.status_code,
+        flush=True,
+    )
+
+    print(
+        ">>> FACEBOOK DELETE RESPONSE:",
+        response.text,
+        flush=True,
+    )
+
+    if response.status_code >= 400:
+
+        try:
+            error_data = response.json()
+
+        except Exception:
+            error_data = response.text
+
+        raise Exception(
+            "Facebook post deletion failed. "
+            f"HTTP {response.status_code}. "
+            f"Response: {error_data}"
+        )
+
+    print(
+        ">>> FACEBOOK POST DELETED SUCCESSFULLY",
+        flush=True,
+    )
+
+    return True
+
+
+def _delete_instagram_post(
+    access_token: str,
+    platform_post_id: str,
+):
+    if not access_token:
+        raise ValueError(
+            "Instagram access token is missing."
+        )
+
+    if not platform_post_id:
+        raise ValueError(
+            "Instagram media ID is missing."
+        )
+
+    endpoint = (
+        f"{INSTAGRAM_GRAPH_URL}/"
+        f"{platform_post_id}"
+    )
+
+    print(
+        ">>> INSTAGRAM DELETE STARTED",
+        flush=True,
+    )
+
+    print(
+        f">>> INSTAGRAM MEDIA ID: {platform_post_id}",
+        flush=True,
+    )
+
+    try:
+        with httpx.Client(
+            timeout=60.0
+        ) as client:
+
+            response = client.delete(
+                endpoint,
+                params={
+                    "access_token": access_token,
+                },
+            )
+
+    except httpx.RequestError as exc:
+
+        raise Exception(
+            "Instagram delete request failed: "
+            f"{exc}"
+        ) from exc
+
+    print(
+        ">>> INSTAGRAM DELETE STATUS:",
+        response.status_code,
+        flush=True,
+    )
+
+    print(
+        ">>> INSTAGRAM DELETE RESPONSE:",
+        response.text,
+        flush=True,
+    )
+
+    if response.status_code >= 400:
+
+        try:
+            error_data = response.json()
+
+        except Exception:
+            error_data = {
+                "raw_response": response.text
+            }
+
+        error_object = (
+            error_data.get(
+                "error",
+                {}
+            )
+            if isinstance(
+                error_data,
+                dict
+            )
+            else {}
+        )
+
+        error_code = error_object.get(
+            "code"
+        )
+
+        error_subcode = error_object.get(
+            "error_subcode"
+        )
+
+        error_message = error_object.get(
+            "message",
+            response.text,
+        )
+
+        if (
+            error_code == 10
+            or error_subcode == 33
+        ):
+            raise Exception(
+                "Instagram deletion failed because "
+                "the Instagram access token does not "
+                "have permission to access this media. "
+                f"Media ID: {platform_post_id}. "
+                f"Meta response: {error_message}"
+            )
+
+        raise Exception(
+            "Instagram post deletion failed. "
+            f"HTTP {response.status_code}. "
+            f"Response: {error_data}"
+        )
+
+    print(
+        ">>> INSTAGRAM POST DELETED SUCCESSFULLY",
+        flush=True,
+    )
+
+    return True
+
+
+def _delete_platform_post(
+    account: SocialAccount,
+    platform_post_id: str,
+):
+    platform = _get_platform_value(
+        account.platform
+    )
+
+    access_token = account.access_token
+
+    if platform == "facebook":
+
+        return _delete_facebook_post(
+            access_token=access_token,
+            platform_post_id=platform_post_id,
+        )
+
+    if platform == "instagram":
+
+        return _delete_instagram_post(
+            access_token=access_token,
+            platform_post_id=platform_post_id,
+        )
+
+    raise ValueError(
+        f"Remote deletion is not implemented yet "
+        f"for platform: {platform}"
+    )
+
+
+def _delete_published_platform_posts(
+    db,
+    post: Post,
+):
+    relations = (
+        db.query(PostSocialAccount)
+        .filter(
+            PostSocialAccount.post_id == post.id
+        )
+        .all()
+    )
+
+    if not relations:
+        return
+
+    deletion_errors = []
+
+    for relation in relations:
+
+        platform_post_id = (
+            relation.platform_post_id
+        )
+
+        if not platform_post_id:
+
+            print(
+                ">>> NO PLATFORM POST ID - "
+                "SKIPPING REMOTE DELETE",
+                flush=True,
+            )
+
+            continue
+
+        account = (
+            db.query(SocialAccount)
+            .filter(
+                SocialAccount.id
+                == relation.social_account_id
+            )
+            .first()
+        )
+
+        if not account:
+
+            deletion_errors.append(
+                f"Social account "
+                f"{relation.social_account_id} "
+                f"was not found."
+            )
+
+            continue
+
+        platform = _get_platform_value(
+            account.platform
+        )
+
+        print(
+            ">>> PREPARING REMOTE POST DELETE",
+            flush=True,
+        )
+
+        print(
+            f">>> PLATFORM: {platform}",
+            flush=True,
+        )
+
+        print(
+            f">>> SOCIAL ACCOUNT ID: {account.id}",
+            flush=True,
+        )
+
+        print(
+            f">>> PLATFORM POST ID: {platform_post_id}",
+            flush=True,
+        )
+
+        try:
+
+            _delete_platform_post(
+                account,
+                platform_post_id,
+            )
+
+        except Exception as exc:
+
+            error_message = (
+                f"{platform} deletion failed "
+                f"for platform post "
+                f"{platform_post_id}: "
+                f"{exc}"
+            )
+
+            print(
+                f">>> {error_message}",
+                flush=True,
+            )
+
+            deletion_errors.append(
+                error_message
+            )
+
+    if deletion_errors:
+
+        raise Exception(
+            "One or more social platform "
+            "deletions failed. "
+            + " | ".join(
+                deletion_errors
+            )
+        )
+
 
 def delete_post(
     user_id: int,
@@ -939,7 +1261,6 @@ def delete_post(
     db = SessionLocal()
 
     try:
-
         post = (
             db.query(Post)
             .filter(
@@ -954,24 +1275,54 @@ def delete_post(
                 post_id
             )
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        print(
+            f">>> DELETE POST REQUESTED: {post_id}",
+            flush=True,
+        )
+
+        print(
+            f">>> LOCAL POST STATUS: {post.status}",
+            flush=True,
+        )
+
+        _delete_published_platform_posts(
+            db,
+            post,
+        )
+
         db.delete(
             post
         )
 
         db.commit()
 
+        print(
+            f">>> SOCIALPILOT POST {post_id} "
+            "DELETED SUCCESSFULLY",
+            flush=True,
+        )
+
+        print(
+            "=================================================",
+            flush=True,
+        )
+
         return {
             "message": f"Post {post_id} deleted"
         }
 
-    finally:
+    except Exception:
+        db.rollback()
+        raise
 
+    finally:
         db.close()
 
-
-# =========================================================
-# DELETE POST - MARKETING TEAM
-# =========================================================
 
 def delete_post_for_marketing_team(
     marketing_team_id: int,
@@ -980,7 +1331,6 @@ def delete_post_for_marketing_team(
     db = SessionLocal()
 
     try:
-
         allowed_ids = _get_allowed_user_ids(
             db,
             marketing_team_id,
@@ -1002,36 +1352,283 @@ def delete_post_for_marketing_team(
                 post_id
             )
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        print(
+            f">>> MARKETING TEAM DELETE REQUESTED: {post_id}",
+            flush=True,
+        )
+
+        print(
+            f">>> LOCAL POST STATUS: {post.status}",
+            flush=True,
+        )
+
+        _delete_published_platform_posts(
+            db,
+            post,
+        )
+
         db.delete(
             post
         )
 
         db.commit()
 
+        print(
+            f">>> SOCIALPILOT POST {post_id} "
+            "DELETED SUCCESSFULLY",
+            flush=True,
+        )
+
+        print(
+            "=================================================",
+            flush=True,
+        )
+
         return {
             "message": f"Post {post_id} deleted"
         }
 
-    finally:
+    except Exception:
+        db.rollback()
+        raise
 
+    finally:
         db.close()
 
 
-# =========================================================
-# CALENDAR
-# =========================================================
+def _delete_post_from_specific_social_account(
+    db,
+    post: Post,
+    social_account_id: int,
+):
+    relation = (
+        db.query(PostSocialAccount)
+        .filter(
+            PostSocialAccount.post_id == post.id,
+            PostSocialAccount.social_account_id
+            == social_account_id,
+        )
+        .first()
+    )
+
+    if not relation:
+        raise ValueError(
+            "This social account is not connected to the post"
+        )
+
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.id == social_account_id
+        )
+        .first()
+    )
+
+    if not account:
+        raise ValueError(
+            "Social account not found"
+        )
+
+    platform_post_id = (
+        relation.platform_post_id
+    )
+
+    platform = _get_platform_value(
+        account.platform
+    )
+
+    print(
+        "=================================================",
+        flush=True,
+    )
+
+    print(
+        ">>> SPECIFIC PLATFORM DELETE REQUESTED",
+        flush=True,
+    )
+
+    print(
+        f">>> POST ID: {post.id}",
+        flush=True,
+    )
+
+    print(
+        f">>> SOCIAL ACCOUNT ID: {social_account_id}",
+        flush=True,
+    )
+
+    print(
+        f">>> PLATFORM: {platform}",
+        flush=True,
+    )
+
+    print(
+        f">>> PLATFORM POST ID: {platform_post_id}",
+        flush=True,
+    )
+
+    if not platform_post_id:
+
+        db.delete(
+            relation
+        )
+
+        db.commit()
+
+        print(
+            ">>> NO REMOTE PLATFORM POST EXISTS",
+            flush=True,
+        )
+
+        print(
+            ">>> LOCAL SOCIAL ACCOUNT RELATION REMOVED",
+            flush=True,
+        )
+
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        return {
+            "message": (
+                f"Post {post.id} was not published "
+                f"on {platform}; social account removed "
+                "from this post"
+            )
+        }
+
+    _delete_platform_post(
+        account,
+        platform_post_id,
+    )
+
+    db.delete(
+        relation
+    )
+
+    db.commit()
+
+    print(
+        f">>> POST {post.id} DELETED FROM "
+        f"{platform} ACCOUNT {social_account_id}",
+        flush=True,
+    )
+
+    print(
+        "=================================================",
+        flush=True,
+    )
+
+    return {
+        "message": (
+            f"Post {post.id} deleted from "
+            f"{platform} social account "
+            f"{social_account_id}"
+        )
+    }
+
+
+def delete_post_from_social_account(
+    user_id: int,
+    post_id: int,
+    social_account_id: int,
+):
+    db = SessionLocal()
+
+    try:
+        post = (
+            db.query(Post)
+            .filter(
+                Post.id == post_id,
+                Post.user_id == user_id,
+            )
+            .first()
+        )
+
+        if not post:
+            raise PostNotFoundException(
+                post_id
+            )
+
+        return _delete_post_from_specific_social_account(
+            db,
+            post,
+            social_account_id,
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+    finally:
+        db.close()
+
+
+def delete_post_from_social_account_for_marketing_team(
+    marketing_team_id: int,
+    post_id: int,
+    social_account_id: int,
+):
+    db = SessionLocal()
+
+    try:
+        allowed_ids = _get_allowed_user_ids(
+            db,
+            marketing_team_id,
+        )
+
+        post = (
+            db.query(Post)
+            .filter(
+                Post.id == post_id,
+                Post.user_id.in_(
+                    allowed_ids
+                ),
+            )
+            .first()
+        )
+
+        if not post:
+            raise PostNotFoundException(
+                post_id
+            )
+
+        return _delete_post_from_specific_social_account(
+            db,
+            post,
+            social_account_id,
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+    finally:
+        db.close()
+
 
 def get_calendar(
     user_id: int,
+    client_id: int | None = None,
 ):
     db = SessionLocal()
 
     try:
 
-        allowed_ids = _get_allowed_user_ids(
-            db,
-            user_id,
-        )
+        if client_id is not None:
+            allowed_ids = [client_id]
+
+        else:
+            allowed_ids = _get_allowed_user_ids(
+                db,
+                user_id,
+            )
 
         posts = (
             db.query(Post)
@@ -1062,25 +1659,25 @@ def get_calendar(
         ]
 
     finally:
-
         db.close()
 
 
-# =========================================================
-# QUEUE
-# =========================================================
-
 def get_queue(
     user_id: int,
+    client_id: int | None = None,
 ):
     db = SessionLocal()
 
     try:
 
-        allowed_ids = _get_allowed_user_ids(
-            db,
-            user_id,
-        )
+        if client_id is not None:
+            allowed_ids = [client_id]
+
+        else:
+            allowed_ids = _get_allowed_user_ids(
+                db,
+                user_id,
+            )
 
         posts = (
             db.query(Post)
@@ -1109,5 +1706,4 @@ def get_queue(
         ]
 
     finally:
-
         db.close()

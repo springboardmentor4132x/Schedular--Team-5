@@ -1,4 +1,3 @@
-
 import os
 import uuid
 import asyncio
@@ -73,9 +72,22 @@ if not SUPABASE_SERVICE_ROLE_KEY:
     )
 
 
+SUPABASE_URL = SUPABASE_URL.rstrip("/")
+
+
+# ============================================================
+# CREATE SUPABASE CLIENT
+# ============================================================
+
 supabase: Client = create_client(
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
+)
+
+
+logger.info(
+    "Supabase Storage configured. Bucket=%s",
+    SUPABASE_BUCKET,
 )
 
 
@@ -101,6 +113,8 @@ ALLOWED_VIDEO_TYPES = {
 
 # ============================================================
 # IMAGE SIZE LIMIT
+#
+# Application-level limit.
 # ============================================================
 
 MAX_IMAGE_SIZE_BYTES = (
@@ -110,31 +124,38 @@ MAX_IMAGE_SIZE_BYTES = (
 
 # ============================================================
 # VIDEO SIZE LIMITS BY PLATFORM
+#
+# IMPORTANT:
+#
+# Supabase Free plan currently has a 50 MB global file limit.
+# Therefore, even though social platforms support much larger
+# videos, this backend cannot store a video larger than the
+# Supabase project's storage limit.
+#
+# We therefore keep the application limits at 50 MB so that
+# the user receives a clear error before Supabase rejects it.
 # ============================================================
+
+MAX_SUPABASE_FILE_SIZE_BYTES = (
+    50 * 1024 * 1024
+)
+
 
 VIDEO_LIMITS = {
     Platform.INSTAGRAM: {
-        "max_size_bytes": (
-            1 * 1024 * 1024 * 1024
-        ),
+        "max_size_bytes": MAX_SUPABASE_FILE_SIZE_BYTES,
     },
 
     Platform.FACEBOOK: {
-        "max_size_bytes": (
-            4 * 1024 * 1024 * 1024
-        ),
+        "max_size_bytes": MAX_SUPABASE_FILE_SIZE_BYTES,
     },
 
     Platform.YOUTUBE: {
-        "max_size_bytes": (
-            256 * 1024 * 1024 * 1024
-        ),
+        "max_size_bytes": MAX_SUPABASE_FILE_SIZE_BYTES,
     },
 
     Platform.LINKEDIN: {
-        "max_size_bytes": (
-            5 * 1024 * 1024 * 1024
-        ),
+        "max_size_bytes": MAX_SUPABASE_FILE_SIZE_BYTES,
     },
 }
 
@@ -148,11 +169,15 @@ def get_user_id(current_user):
     Extract authenticated user ID.
 
     get_current_user() may return either:
+
         - a dictionary containing id/user_id
         - an object containing id/user_id
     """
 
-    if isinstance(current_user, dict):
+    if isinstance(
+        current_user,
+        dict,
+    ):
 
         return (
             current_user.get("id")
@@ -183,9 +208,14 @@ def get_user_id(current_user):
 def get_video_max_size(
     platform: Platform,
 ) -> int:
+
     """
     Return maximum allowed video size
     for the selected platform.
+
+    The Supabase project currently has a
+    50 MB storage limit, so this is also
+    the effective maximum.
     """
 
     limits = VIDEO_LIMITS.get(
@@ -202,7 +232,9 @@ def get_video_max_size(
             ),
         )
 
-    return limits["max_size_bytes"]
+    return limits[
+        "max_size_bytes"
+    ]
 
 
 # ============================================================
@@ -250,16 +282,48 @@ def upload_to_supabase(
     content_type: str,
 ):
 
-    return supabase.storage.from_(
+    """
+    Upload using the normal Supabase Storage Python SDK.
+
+    We intentionally do NOT use TUS here.
+
+    The previous TUS implementation was returning:
+
+        HTTP 400:
+        Invalid upload-metadata
+
+    This method uses the officially supported Python
+    Storage upload API.
+    """
+
+    logger.info(
+        "SUPABASE CLIENT UPLOAD START: "
+        "path=%s size=%s content_type=%s",
+        storage_path,
+        format_size(len(contents)),
+        content_type,
+    )
+
+    bucket = supabase.storage.from_(
         SUPABASE_BUCKET
-    ).upload(
+    )
+
+    result = bucket.upload(
         storage_path,
         contents,
-        {
+        file_options={
             "content-type": content_type,
-            "upsert": False,
+            "cache-control": "3600",
+            "upsert": "false",
         },
     )
+
+    logger.info(
+        "SUPABASE CLIENT UPLOAD RESPONSE: %s",
+        result,
+    )
+
+    return result
 
 
 # ============================================================
@@ -271,28 +335,18 @@ async def upload_media(
 
     file: UploadFile = File(...),
 
-    # IMPORTANT:
-    # Platform is now OPTIONAL.
-    #
-    # Images do not need a platform because the same
-    # uploaded image can be used by multiple selected
-    # social accounts such as Facebook + Instagram.
-    #
-    # Videos still require a platform because video
-    # size limits differ between platforms.
     platform: Platform | None = Query(
         None,
         description=(
             "Optional social platform. "
-            "Required for video uploads so the "
-            "platform-specific video size limit can "
-            "be validated."
+            "Required for video uploads."
         ),
     ),
 
     current_user=Depends(
         get_current_user
     ),
+
 ):
 
     # ========================================================
@@ -314,7 +368,8 @@ async def upload_media(
         )
 
     logger.info(
-        "UPLOAD START: user_id=%s platform=%s "
+        "UPLOAD START: "
+        "user_id=%s platform=%s "
         "filename=%s content_type=%s",
         user_id,
         platform.value if platform else None,
@@ -336,9 +391,11 @@ async def upload_media(
         )
 
     if (
-        file.content_type not in ALLOWED_IMAGE_TYPES
+        file.content_type
+        not in ALLOWED_IMAGE_TYPES
         and
-        file.content_type not in ALLOWED_VIDEO_TYPES
+        file.content_type
+        not in ALLOWED_VIDEO_TYPES
     ):
 
         raise HTTPException(
@@ -438,8 +495,9 @@ async def upload_media(
 
     elif file.content_type in ALLOWED_VIDEO_TYPES:
 
-        # Videos need a platform because their allowed
-        # size depends on the selected platform.
+        # ----------------------------------------------------
+        # Platform is mandatory for video.
+        # ----------------------------------------------------
 
         if platform is None:
 
@@ -450,11 +508,20 @@ async def upload_media(
                 ),
             )
 
+        # ----------------------------------------------------
+        # Get effective video limit.
+        # ----------------------------------------------------
+
         max_video_size_bytes = (
             get_video_max_size(
                 platform
             )
         )
+
+        # ----------------------------------------------------
+        # Reject anything larger than Supabase's
+        # current 50 MB project limit.
+        # ----------------------------------------------------
 
         if (
             file_size_bytes
@@ -465,7 +532,7 @@ async def upload_media(
                 status_code=400,
                 detail=(
                     f"Video is too large for "
-                    f"{platform.value}. "
+                    f"the current Supabase Storage limit. "
                     f"Maximum allowed size is "
                     f"{format_size(max_video_size_bytes)}. "
                     f"Uploaded file size is "
@@ -509,6 +576,11 @@ async def upload_media(
             format_size(file_size_bytes),
         )
 
+        # ----------------------------------------------------
+        # Run blocking Supabase SDK call in a worker thread
+        # so FastAPI's event loop is not blocked.
+        # ----------------------------------------------------
+
         await asyncio.to_thread(
             upload_to_supabase,
             storage_path,
@@ -530,12 +602,47 @@ async def upload_media(
             format_size(file_size_bytes),
         )
 
+        error_message = str(exc)
+
+        # ----------------------------------------------------
+        # Provide a clearer message for Supabase's
+        # file-size restriction.
+        # ----------------------------------------------------
+
+        if (
+            "EntityTooLarge"
+            in error_message
+            or
+            "413"
+            in error_message
+            or
+            "maximum file size"
+            in error_message.lower()
+            or
+            "file size"
+            in error_message.lower()
+        ):
+
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    "Supabase Storage rejected the file "
+                    "because it exceeds the project's "
+                    "maximum file size. "
+                    "The current project limit is 50 MB."
+                ),
+            )
+
+        # ----------------------------------------------------
+        # Generic upload failure.
+        # ----------------------------------------------------
+
         raise HTTPException(
             status_code=500,
             detail=(
                 "Failed to upload media to "
                 "Supabase Storage: "
-                f"{str(exc)}"
+                f"{error_message}"
             ),
         )
 
@@ -544,7 +651,7 @@ async def upload_media(
     # ========================================================
 
     media_url = (
-        f"{SUPABASE_URL.rstrip('/')}"
+        f"{SUPABASE_URL}"
         f"/storage/v1/object/public/"
         f"{SUPABASE_BUCKET}/"
         f"{storage_path}"
@@ -570,7 +677,9 @@ async def upload_media(
         "user_id=%s platform=%s "
         "media_type=%s size=%s",
         user_id,
-        platform.value if platform else None,
+        platform.value
+        if platform
+        else None,
         media_type,
         format_size(file_size_bytes),
     )
@@ -586,4 +695,3 @@ async def upload_media(
         ),
         "file_size_bytes": file_size_bytes,
     }
-
