@@ -50,6 +50,12 @@ export function DashboardPage() {
       keywords: "notification notifications bell alerts",
       path: "/app/notifications",
     },
+    {
+      name: "Reports",
+      keywords: "reports reporting report analytics",
+      path: "/app/reports",
+    },
+
   ];
 
   const filteredResults =
@@ -145,6 +151,14 @@ export function DashboardPage() {
             <span>Notifications</span>
           </div>
 
+          <div
+            className="menu-item"
+            onClick={() => goTo("/app/reports")}
+          >
+            <FileText size={21} />
+            <span>Reports</span>
+          </div>
+
         </nav>
 
         <div className="sidebar-bottom">
@@ -235,7 +249,7 @@ export function DashboardPage() {
             <div className="profile">
 
               <div className="profile-avatar">
-                A
+                
               </div>
 
               <div className="profile-info">
@@ -379,7 +393,7 @@ export function DashboardPage() {
 
               </div>
 
-  
+              
 
             </div>
 

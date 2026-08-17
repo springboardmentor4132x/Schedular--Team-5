@@ -7,6 +7,10 @@ export default function LandingPage() {
     window.location.href = "/signin";
   };
 
+  const openDemoDashboard = () => {
+  window.location.href = "/app/dashboard";
+};
+
   const socialApps = [
     { name: "Instagram", icon: "◎", color: "#E1306C" },
     { name: "Facebook", icon: "f", color: "#1877F2" },
@@ -253,7 +257,9 @@ export default function LandingPage() {
 
                 <button
                   type="button"
-                  onClick={openSignIn}
+                  onClick={() => {
+  window.location.href = "/app/dashboard";
+}}
                   style={{
                     border: "none",
                     background: "transparent",

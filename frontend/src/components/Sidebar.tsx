@@ -39,8 +39,6 @@ const navItems = [
     label: 'Create Post',
     icon: FileText,
   },
-
-  // Existing modules — leave them as they are
   {
     to: '/app/calendar',
     label: 'Calendar',
@@ -57,34 +55,18 @@ const navItems = [
     icon: BarChart3,
   },
 
-  // =========================
-  // MODULE 7 — NOTIFICATIONS
-  // =========================
-
+  // Module 7 — Notifications
   {
     to: '/app/notifications',
     label: 'Notifications',
     icon: Bell,
   },
+
+  // Module 8 — Reports
   {
-    to: '/app/notifications/history',
-    label: 'Notification History',
-    icon: Bell,
-  },
-  {
-    to: '/app/notifications/settings',
-    label: 'Notification Settings',
-    icon: SlidersHorizontal,
-  },
-  {
-    to: '/app/notifications/email-preferences',
-    label: 'Email Preferences',
-    icon: Mail,
-  },
-  {
-    to: '/app/notifications/team-activity',
-    label: 'Team Activity',
-    icon: Users,
+    to: '/app/reports',
+    label: 'Reports',
+    icon: FileText,
   },
 
   {
