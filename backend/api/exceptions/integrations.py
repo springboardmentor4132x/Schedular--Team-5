@@ -16,6 +16,21 @@ LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION = HTTPException(
     detail="account not found"
 )
 
+X_ACCOUNT_NOT_FOUND_EXCEPTION = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="account not found"
+)
+
+FACEBOOK_ACCOUNT_NOT_FOUND_EXCEPTION = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="account not found"
+)
+
+PINTEREST_ACCOUNT_NOT_FOUND_EXCEPTION = HTTPException(
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="account not found"
+)
+
 YOUTUBE_CHANNEL_NOT_FOUND_EXCEPTION = HTTPException(
     status_code=status.HTTP_404_NOT_FOUND,
     detail="channel not found"

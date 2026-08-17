@@ -43,4 +43,3 @@ class PublishingLog(Base):
         back_populates="logs"
     )
     
-    # REMOVED the extra 'logs = relationship(...)' line from here!

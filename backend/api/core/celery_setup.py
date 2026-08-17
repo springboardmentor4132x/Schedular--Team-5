@@ -8,7 +8,8 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "api.tasks.linkedin",
-        "api.tasks.youtube"
+        "api.tasks.youtube",
+        "api.tasks.mock"
     ]
 )
 

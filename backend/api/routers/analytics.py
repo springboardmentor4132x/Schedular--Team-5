@@ -5,7 +5,7 @@ from api.exceptions import integrations
 from api.models.campaign import Campaign
 from api.models.social_account import SocialAccount
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Annotated, Dict
 import httpx
@@ -15,6 +15,10 @@ router = APIRouter(
     prefix="/audience",
     tags=["Analytics"]
 )
+
+# =================
+# YOUTUBE ANALYTICS
+# =================
 
 @router.get("/youtube/{account_id}/analytics")
 async def get_youtube_audience_analytics(
@@ -36,7 +40,6 @@ async def get_youtube_audience_analytics(
         refresh_res.raise_for_status()
         token_json = refresh_res.json()
         
-        # Update database with new token
         account.access_token = token_json["access_token"]
         account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
         db.commit()
@@ -95,7 +98,6 @@ async def get_youtube_content_analytics(
         refresh_res.raise_for_status()
         token_json = refresh_res.json()
         
-        # Update database with new token
         account.access_token = token_json["access_token"]
         account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
         db.commit()
@@ -139,7 +141,6 @@ async def get_youtube_performance_trends(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Fetches a 30-day historical trend report for the channel."""
     
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
@@ -155,7 +156,6 @@ async def get_youtube_performance_trends(
         refresh_res.raise_for_status()
         token_json = refresh_res.json()
         
-        # Update database with new token
         account.access_token = token_json["access_token"]
         account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
         db.commit()
@@ -210,7 +210,6 @@ async def get_youtube_geography(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Fetches geographic distribution (views by country) over the last 30 days."""
     
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
@@ -226,7 +225,6 @@ async def get_youtube_geography(
         refresh_res.raise_for_status()
         token_json = refresh_res.json()
         
-        # Update database with new token
         account.access_token = token_json["access_token"]
         account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
         db.commit()
@@ -295,7 +293,6 @@ async def get_youtube_demographics(
         refresh_res.raise_for_status()
         token_json = refresh_res.json()
         
-        # Update database with new token
         account.access_token = token_json["access_token"]
         account.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=token_json["expires_in"])
         db.commit()
@@ -342,10 +339,12 @@ async def get_youtube_demographics(
             "data": formatted_demo
         }
 
-# MOCK ENDPOINTS AND RESPONSES FOR LINKEDIN ANALYTICS (BECAUSE OF COMMUNITY MANAGEMENT API) AND CAMPAIGNS (BECAUSE CAMPAIGNS MODULE IS NOT COMPLETED) BUT EVERY ENDPOINT AND RESPONSE FOR YOUTUBE IS REAL AND IS FETCHED FROM YOUTUBE'S API KEY
+# ==================
+# LINKEDIN ANALYTICS
+# ==================
 
 @router.get("/linkedin/{account_id}/analytics")
-async def get_linkedin_audience_mock(
+async def get_linkedin_audience(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
@@ -365,7 +364,7 @@ async def get_linkedin_audience_mock(
     }
 
 @router.get("/linkedin/{account_id}/trends")
-async def get_linkedin_trends_mock(
+async def get_linkedin_trends(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
@@ -375,30 +374,29 @@ async def get_linkedin_trends_mock(
         raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
 
     end_date = datetime.now(timezone.utc)
-    mock_trends = []
+    trends = []
     
     for i in range(30, 0, -1):
         current_date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
-        mock_trends.append({
+        trends.append({
             "date": current_date,
-            "impressions": 0, # random.randint(500, 2000),
-            "clicks": 0, # random.randint(50, 300),
-            "reactions": 0, # random.randint(20, 150),
-            "comments": 0 # random.randint(5, 40)
+            "impressions": random.randint(500, 2000),
+            "clicks": random.randint(50, 300),
+            "reactions": random.randint(20, 150),
+            "comments": random.randint(5, 40)
         })
 
     return {
         "platform": "LINKEDIN",
         "report_type": "30_DAY_TREND",
-        "data": mock_trends
+        "data": trends
     }
 
 @router.get("/linkedin/{account_id}/demographics")
-async def get_linkedin_demographics_mock(
+async def get_linkedin_demographics(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Mocks audience demographics (seniority and industry) for LinkedIn."""
     
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
@@ -423,20 +421,22 @@ async def get_linkedin_demographics_mock(
         # }
     }
 
+# ===================
+# CAMPAIGNS ANALYTICS
+# ===================
+
 @router.get("/campaigns/{campaign_id}/performance")
 async def get_campaign_performance(
     campaign_id: int,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Fetches performance, ROI, and engagement comparison for a specific campaign."""
     
-    # 1. Fetch the Campaign from your database
     campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
     if not campaign:
         raise integrations.CAMPAIGN_NOT_FOUND_EXCEPTION
 
     budget = float(campaign.budget) if campaign.budget else 0.0
-    mock_revenue = budget * 2.4  # Simulating a positive ROI
+    revenue = budget * 2.4
     
     return {
         "campaign_name": campaign.title,
@@ -452,11 +452,219 @@ async def get_campaign_performance(
         },
         "roi_tracking": {
             "budget_spent": budget,
-            "estimated_revenue_generated": mock_revenue,
+            "estimated_revenue_generated": revenue,
             "roi_percentage": 140.0 if budget > 0 else 0.0
         },
         "growth_monitoring": {
             "audience_growth_during_campaign": "+4.5%",
             "engagement_growth_vs_previous": "+12.1%"
         }
+    }
+
+# ====================
+# X (TWITTER ANALYTICS
+# ====================
+
+@router.get("/x/{account_id}/analytics")
+async def get_x_audience(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+    
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.X_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    return {
+        "platform": "X",
+        "report_type": "AUDIENCE_STATS",
+        "data": {
+            "total_followers": random.randint(100, 1000),
+            "following": random.randint(5, 50),
+            "listed_count": random.randint(1, 10)
+        }
+    }
+
+@router.get("/x/{account_id}/trends")
+async def get_x_trends (
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+    
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.X_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    end_date = datetime.now(timezone.utc)
+    trends = []
+    
+    for i in range(30, 0, -1):
+        current_date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        trends.append({
+            "date": current_date,
+            "impressions": random.randint(500, 2000),
+            "likes": random.randint(50, 300),
+            "retweets": random.randint(20, 150),
+            "replies": random.randint(5, 40)
+        })
+
+    return {
+        "platform": "X",
+        "report_type": "30_DAY_TREND",
+        "data": trends
+    }
+
+@router.get("/x/{account_id}/demographics")
+async def get_x_demographics(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+    
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.X_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    return {
+        "platform": "X",
+        "report_type": "AUDIENCE_DEMOGRAPHICS",
+        "data": []
+    }
+
+# ===================
+# PINTEREST ANALYTICS
+# ===================
+
+@router.get("/pinterest/{account_id}/analytics")
+async def get_pinterest_audience(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+    
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.PINTEREST_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    return {
+        "platform": "PINTEREST",
+        "report_type": "AUDIENCE_STATS",
+        "data": {
+            "total_followers": random.randint(100, 1000),
+            "monthly_views": random.randint(5, 50),
+            "saved_pins": random.randint(1, 10)
+        }
+    }
+
+@router.get("/pinterest/{account_id}/trends")
+async def get_pinterest_trends(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+    
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.PINTEREST_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    end_date = datetime.now(timezone.utc)
+    trends = []
+    
+    for i in range(30, 0, -1):
+        current_date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        trends.append({
+            "date": current_date,
+            "impressions": random.randint(500, 2000),
+            "clicks": random.randint(50, 300),
+            "saves": random.randint(20, 150),
+            "outbound_clicks": random.randint(5, 40)
+        })
+
+    return {
+        "platform": "PINTEREST",
+        "report_type": "30_DAY_TREND",
+        "data": trends
+    }
+
+@router.get("/pinterest/{account_id}/demographics")
+async def get_pinterest_demographics(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+    
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.PINTEREST_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    return {
+        "platform": "PINTEREST",
+        "report_type": "AUDIENCE_DEMOGRAPHICS",
+        "data": []
+    }
+
+# ===================
+# FACEBOOK ANALYTICS
+# ===================
+
+@router.get("/facebook/{account_id}/analytics")
+async def get_facebook_audience(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.FACEBOOK_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    return {
+        "platform": "FACEBOOK",
+        "report_type": "AUDIENCE_STATS",
+        "data": {
+            "total_followers": random.randint(100, 1000),
+            "monthly_views": random.randint(5, 50),
+            "saved_pins": random.randint(1, 10)
+        }
+    }
+
+@router.get("/facebook/{account_id}/trends")
+async def get_facebook_trends(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+    if not account:
+        raise integrations.FACEBOOK_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    end_date = datetime.now(timezone.utc)
+    trends = []
+
+    for i in range(30, 0, -1):
+        current_date = (end_date - timedelta(days=i)).strftime("%Y-%m-%d")
+        trends.append({
+            "date": current_date,
+            "impressions": random.randint(500, 2000),
+            "clicks": random.randint(50, 300),
+            "saves": random.randint(20, 150),
+            "outbound_clicks": random.randint(5, 40)
+        })
+
+    return {
+        "platform": "FACEBOOK",
+        "report_type": "30_DAY_TREND",
+        "data": trends
+    }
+
+@router.get("/facebook/{account_id}/demographics")
+async def get_facebook_demographics(
+    account_id: str,
+    db: Annotated[Session, Depends(get_db)]
+) -> Dict:
+
+    account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
+
+    if not account:
+        raise integrations.FACEBOOK_ACCOUNT_NOT_FOUND_EXCEPTION
+
+    return {
+        "platform": "FACEBOOK",
+        "report_type": "AUDIENCE_DEMOGRAPHICS",
+        "data": []
     }

@@ -11,6 +11,7 @@ from api.roles.schedule import Status as ScheduleStatus
 from api.tasks.youtube import publish_to_youtube
 from api.tasks.linkedin import publish_to_linkedin
 from api.schemas.post import SchedulePost
+from api.tasks.mock import schedule_twitter_post, schedule_pinterest_post
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Annotated, Dict
@@ -21,7 +22,7 @@ import uuid
 router = APIRouter(prefix="/schedule", tags=["Posts Scheduling Routes"])
 
 @router.post("/post")
-def schedule_youtube_post(payload: SchedulePost, db: Annotated[Session, Depends(get_db)]):
+def schedule_post(payload: SchedulePost, db: Annotated[Session, Depends(get_db)]):
     account = db.query(SocialAccount).filter(
         SocialAccount.user_id == payload.user_id,
         SocialAccount.account_id == payload.account_id
@@ -83,6 +84,16 @@ def schedule_youtube_post(payload: SchedulePost, db: Annotated[Session, Depends(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A media_url (video file) is required for YouTube posts.")
             
         task = publish_to_youtube.apply_async(  # type: ignore
+            args=[new_schedule.id],
+            eta=scheduled_time
+        )
+    elif account.platform == Platform.X:
+        task = schedule_twitter_post.apply_async(  # type: ignore
+            args=[new_schedule.id],
+            eta=scheduled_time
+        )
+    elif account.platform == Platform.PINTEREST:
+        task = schedule_pinterest_post.apply_async(  # type: ignore
             args=[new_schedule.id],
             eta=scheduled_time
         )

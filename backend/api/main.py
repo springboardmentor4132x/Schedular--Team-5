@@ -4,6 +4,9 @@ from api.routers.twitter import router as twitter_router
 from api.routers import linkedin
 from api.routers import schedule
 
+from api.routers.x import router as x_router
+from api.routers.pinterest import router as pinterest_router
+
 from api.core import constants
 from api.database.init_db import init_db
 from api.routers import youtube
@@ -53,7 +56,10 @@ def read_root() -> Dict:
 
 @app.get("/health", response_model=None, tags=["Health Check Route"])
 def health_check() -> Dict:
-    return {"status": "healthy", "version": constants.PROJECT_VERSION}
+    return {
+        "status": "healthy",
+        "version": constants.PROJECT_VERSION
+    }
 
 app.include_router(user_router)
 app.include_router(social_account_router)
@@ -64,3 +70,5 @@ app.include_router(schedule.router)
 app.include_router(analytics.router)
 app.include_router(notifications_router)
 app.include_router(reports_router)
+app.include_router(x_router)
+app.include_router(pinterest_router)
