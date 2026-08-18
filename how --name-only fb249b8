@@ -1,0 +1,21 @@
+[33mcommit fb249b8ff8c3a39028efb531914da47bc9bccdde[m[33m ([m[1;31morigin/yashant-final[m[33m)[m
+Author: Yashant Thakur <yashant.thakur2007@gmail.com>
+Date:   Fri Aug 7 11:41:38 2026 +0530
+
+    Completed Module 6: Analytics
+
+ backend/alembic/versions/9039846b9ef6_.py          |  52 [31m--[m
+ .../e44cf1f35dbd_create_publishing_logs_table.py   |  81 [32m+++[m
+ backend/api/exceptions/integrations.py             |  15 [32m+[m
+ backend/api/main.py                                |   2 [32m+[m
+ backend/api/models/publishing_log.py               |  43 [32m++[m
+ backend/api/roles/post.py                          |   1 [31m-[m
+ backend/api/routers/analytics.py                   | 394 [32m+++++++++++++++[m
+ backend/api/routers/schedule.py                    |  29 [32m+[m[31m-[m
+ backend/api/routers/youtube.py                     |   2 [32m+[m[31m-[m
+ backend/api/tasks/linkedin.py                      |   8 [32m+[m[31m-[m
+ backend/api/tasks/youtube.py                       |   8 [32m+[m[31m-[m
+ backend/pyproject.toml                             |   1 [32m+[m
+ backend/uv.lock                                    | 542 [32m+++++++++++[m[31m----------[m
+ frontend/.gitignore                                |   1 [32m+[m
+ 14 files changed, 875 insertions(+), 304 deletions(-)
