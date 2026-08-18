@@ -1,268 +1,1090 @@
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import {
-  Calendar, Megaphone, Users, TrendingUp, ArrowUpRight,
-  FileText, Eye, Heart, MessageCircle, Share2, Plus,
-  CheckCircle2, Clock, AlertCircle, Megaphone as Campaign,
+  Users,
+  FileText,
+  Calendar,
+  BarChart3,
+  Share2,
+  Megaphone,
+  Search,
+  UserCircle,
 } from 'lucide-react';
-import { StatCard, ChartCard } from '../components/ui/StatCard';
-import { GradientAreaChart, DonutChart } from '../components/charts/Charts';
-import { Card, Badge, Button } from '../components/ui';
-import { currentUser, analyticsData, recentActivities, scheduledPosts } from '../data/mockData';
-import { formatNumber, getPlatformConfig, formatTime } from '../utils/helpers';
+import { useNavigate } from 'react-router-dom';
 
-const platformIcons: Record<string, any> = {};
-['facebook', 'instagram', 'twitter', 'linkedin'].forEach((p) => {
-  platformIcons[p] = getPlatformConfig(p);
-});
+import {
+  postService,
+  campaignService,
+  accountService,
+  businessAssignmentService,
+  userService,
+} from '../services/api';
+
+type UserRole =
+  | 'administrator'
+  | 'marketing_team'
+  | 'content_creator'
+  | 'business_user';
+
+type UserData = {
+  username: string;
+  role: UserRole;
+};
+
+type UserRecord = {
+  id: number;
+  username: string;
+  email: string;
+  role: UserRole;
+};
+
+type Client = {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string | null;
+};
+
+
+/* =====================================================
+   MAIN DASHBOARD
+===================================================== */
 
 export function DashboardPage() {
-  const upcomingPosts = scheduledPosts.filter((p) => p.status === 'scheduled').slice(0, 4);
-  const greeting = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    return 'Good evening';
-  })();
+  const [user, setUser] = useState<UserData | null>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadDashboard = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+
+        if (!token) {
+          return;
+        }
+
+        const storedRole = localStorage.getItem('user_role');
+        const storedUsername = localStorage.getItem('username');
+
+        const currentRole =
+          (storedRole as UserRole) || 'business_user';
+
+        if (!mounted) {
+          return;
+        }
+
+        setUser({
+          username: storedUsername || 'User',
+          role: currentRole,
+        });
+
+        const requests: Promise<any>[] = [
+          postService.getAll(),
+          campaignService.getAll(),
+          accountService.getAll(),
+        ];
+
+        if (currentRole === 'administrator') {
+          requests.push(userService.getAll());
+        }
+
+        const results = await Promise.allSettled(requests);
+
+        const [
+          postsResult,
+          campaignsResult,
+          accountsResult,
+          usersResult,
+        ] = results;
+
+        if (
+          mounted &&
+          postsResult.status === 'fulfilled'
+        ) {
+          setPosts(
+            Array.isArray(postsResult.value?.data)
+              ? postsResult.value.data
+              : []
+          );
+        }
+
+        if (
+          mounted &&
+          campaignsResult.status === 'fulfilled'
+        ) {
+          setCampaigns(
+            Array.isArray(campaignsResult.value?.data)
+              ? campaignsResult.value.data
+              : []
+          );
+        }
+
+        if (
+          mounted &&
+          accountsResult.status === 'fulfilled'
+        ) {
+          setAccounts(
+            Array.isArray(accountsResult.value?.data)
+              ? accountsResult.value.data
+              : []
+          );
+        }
+
+        if (
+          mounted &&
+          currentRole === 'administrator' &&
+          usersResult &&
+          usersResult.status === 'fulfilled'
+        ) {
+          setUsers(
+            Array.isArray(usersResult.value?.data)
+              ? usersResult.value.data
+              : []
+          );
+        }
+
+        if (
+          mounted &&
+          currentRole === 'marketing_team'
+        ) {
+          try {
+            const clientsResponse =
+              await businessAssignmentService.getMyClients();
+
+            setClients(
+              Array.isArray(clientsResponse?.data)
+                ? clientsResponse.data
+                : []
+            );
+          } catch (error) {
+            console.error(
+              'Unable to load marketing team clients:',
+              error
+            );
+
+            setClients([]);
+          }
+        }
+      } catch (error) {
+        console.error(
+          'Dashboard loading error:',
+          error
+        );
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadDashboard();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+
+          <p className="mt-4 text-sm text-gray-500">
+            Loading dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const role = user?.role || 'business_user';
+  const username = user?.username || 'User';
+
+  if (role === 'administrator') {
+    return (
+      <AdministratorDashboard
+        username={username}
+        posts={posts}
+        campaigns={campaigns}
+        accounts={accounts}
+        users={users}
+      />
+    );
+  }
+
+  if (role === 'marketing_team') {
+    return (
+      <MarketingTeamDashboard
+        username={username}
+        campaigns={campaigns}
+        posts={posts}
+        clients={clients}
+      />
+    );
+  }
+
+  if (role === 'content_creator') {
+    return (
+      <ContentCreatorDashboard
+        username={username}
+        posts={posts}
+      />
+    );
+  }
+
+  return (
+    <BusinessUserDashboard
+      username={username}
+      posts={posts}
+      campaigns={campaigns}
+      accounts={accounts}
+    />
+  );
+}
+
+
+/* =====================================================
+   ADMINISTRATOR DASHBOARD
+===================================================== */
+
+function AdministratorDashboard({
+  username,
+  posts,
+  campaigns,
+  accounts,
+  users,
+}: {
+  username: string;
+  posts: any[];
+  campaigns: any[];
+  accounts: any[];
+  users: UserRecord[];
+}) {
+  const totalUsers = users.length;
+
+  const marketingTeams = users.filter(
+    (user) => user.role === 'marketing_team'
+  ).length;
+
+  const businessUsers = users.filter(
+    (user) => user.role === 'business_user'
+  ).length;
+
+  const contentCreators = users.filter(
+    (user) => user.role === 'content_creator'
+  ).length;
 
   return (
     <div className="space-y-6">
-      {/* Welcome */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            {greeting}, {currentUser.name.split(' ')[0]}! 👋
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Here's what's happening with your social media today.
-          </p>
-        </div>
-        <Link to="/app/create-post">
-          <Button icon={<Plus className="w-4 h-4" />}>Create Post</Button>
-        </Link>
-      </div>
 
-      {/* Stats */}
+      <DashboardHeader
+        title={`Welcome back, ${username}`}
+        description="Manage your SocialPilot platform and monitor overall activity."
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Scheduled Posts" value={43} change={12} icon={<Calendar className="w-5 h-5" />} color="indigo" index={0} />
-        <StatCard title="Active Campaigns" value={5} change={8} icon={<Megaphone className="w-5 h-5" />} color="violet" index={1} />
-        <StatCard title="Total Followers" value="83.6K" change={15} icon={<Users className="w-5 h-5" />} color="emerald" index={2} />
-        <StatCard title="Engagement Rate" value="9.2%" change={-2} icon={<TrendingUp className="w-5 h-5" />} color="amber" index={3} />
+
+        <StatCard
+          title="Total Users"
+          value={totalUsers}
+          icon={Users}
+        />
+
+        <StatCard
+          title="Total Campaigns"
+          value={campaigns.length}
+          icon={Megaphone}
+        />
+
+        <StatCard
+          title="Total Posts"
+          value={posts.length}
+          icon={FileText}
+        />
+
+        <StatCard
+          title="Connected Accounts"
+          value={accounts.length}
+          icon={Share2}
+        />
+
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard
-          title="Engagement Overview"
-          subtitle="Total engagement across all platforms"
-          className="lg:col-span-2"
-          action={
-            <select className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none">
-              <option>Last 7 months</option>
-              <option>Last 30 days</option>
-              <option>Last 90 days</option>
-            </select>
-          }
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <DashboardCard
+          title="Platform Overview"
+          icon={BarChart3}
         >
-          <GradientAreaChart
-            data={analyticsData.engagementTrend}
-            xKey="date"
-            areas={[
-              { key: 'instagram', name: 'Instagram', color: '#E1306C' },
-              { key: 'facebook', name: 'Facebook', color: '#1877F2' },
-              { key: 'twitter', name: 'Twitter', color: '#1DA1F2' },
-              { key: 'linkedin', name: 'LinkedIn', color: '#0A66C2' },
-            ]}
-            height={300}
-          />
-        </ChartCard>
-
-        <ChartCard title="Post Status" subtitle="Distribution of all posts">
-          <DonutChart data={analyticsData.postsByStatus} height={300} innerRadius={50} />
-        </ChartCard>
-      </div>
-
-      {/* Upcoming posts + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Upcoming Posts */}
-        <Card className="lg:col-span-2 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-base font-semibold text-gray-900">Upcoming Posts</h3>
-              <p className="text-sm text-gray-500">Scheduled content going live soon</p>
-            </div>
-            <Link to="/app/calendar" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
-              View calendar <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {upcomingPosts.map((post, idx) => (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.08 }}
-                whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900 line-clamp-1">{post.content}</p>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-xs text-gray-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {formatTime(post.scheduledAt)}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {post.platforms.map((p) => {
-                        const config = getPlatformConfig(p);
-                        const Icon = config.icon;
-                        return <Icon key={p} className="w-3.5 h-3.5" style={{ color: config.color }} />;
-                      })}
-                    </div>
-                    {post.campaign && <Badge variant="purple" className="!py-0.5">{post.campaign}</Badge>}
-                  </div>
-                </div>
-                <Badge variant={post.status === 'scheduled' ? 'info' : 'default'} dot>
-                  {post.status}
-                </Badge>
-              </motion.div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card className="p-5">
-          <h3 className="text-base font-semibold text-gray-900 mb-1">Recent Activity</h3>
-          <p className="text-sm text-gray-500 mb-4">Latest events across your workspace</p>
           <div className="space-y-4">
-            {recentActivities.slice(0, 6).map((activity, idx) => {
-              const iconMap = {
-                published: { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
-                scheduled: { icon: Clock, color: 'bg-blue-50 text-blue-600' },
-                campaign: { icon: Campaign, color: 'bg-violet-50 text-violet-600' },
-                failed: { icon: AlertCircle, color: 'bg-red-50 text-red-600' },
-              };
-              const config = iconMap[activity.type as keyof typeof iconMap];
-              const Icon = config.icon;
-              return (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.08 }}
-                  className="flex gap-3"
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${config.color}`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.description}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{activity.time}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
+
+            <OverviewRow
+              label="Registered Users"
+              value={totalUsers}
+            />
+
+            <OverviewRow
+              label="Marketing Teams"
+              value={marketingTeams}
+            />
+
+            <OverviewRow
+              label="Business Users"
+              value={businessUsers}
+            />
+
+            <OverviewRow
+              label="Content Creators"
+              value={contentCreators}
+            />
+
           </div>
-        </Card>
+        </DashboardCard>
+
+        <DashboardCard
+          title="Recent Activity"
+          icon={Calendar}
+        >
+          <div className="space-y-3">
+
+            <ActivityRow
+              label="Registered users"
+              value={totalUsers}
+            />
+
+            <ActivityRow
+              label="Campaigns created"
+              value={campaigns.length}
+            />
+
+            <ActivityRow
+              label="Posts created"
+              value={posts.length}
+            />
+
+            <ActivityRow
+              label="Connected social accounts"
+              value={accounts.length}
+            />
+
+          </div>
+        </DashboardCard>
+
       </div>
 
-      {/* Platform performance */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Platform Performance</h3>
-            <p className="text-sm text-gray-500">How your connected accounts are performing</p>
-          </div>
-          <Link to="/app/analytics">
-            <Button variant="ghost" size="sm">View details <ArrowUpRight className="w-4 h-4" /></Button>
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {analyticsData.platformPerformance.map((platform, idx) => {
-            const config = getPlatformConfig(platform.platform.toLowerCase());
-            const Icon = config.icon;
-            return (
-              <motion.div
-                key={platform.platform}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -3 }}
-                className="p-4 rounded-xl border border-gray-100 hover:border-gray-200 transition-all"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${config.color}15` }}>
-                      <Icon className="w-4 h-4" style={{ color: config.color }} />
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">{platform.platform}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Reach</span>
-                    <span className="font-semibold text-gray-900">{formatNumber(platform.reach)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Impressions</span>
-                    <span className="font-semibold text-gray-900">{formatNumber(platform.impressions)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Engagement</span>
-                    <span className="font-semibold text-emerald-600">{platform.engagement}%</span>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </Card>
+    </div>
+  );
+}
 
-      {/* Top Posts */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">Top Performing Posts</h3>
-            <p className="text-sm text-gray-500">Your best content this month</p>
+
+/* =====================================================
+   MARKETING TEAM DASHBOARD
+===================================================== */
+
+function MarketingTeamDashboard({
+  username,
+  campaigns,
+  posts,
+  clients,
+}: {
+  username: string;
+  campaigns: any[];
+  posts: any[];
+  clients: Client[];
+}) {
+  const navigate = useNavigate();
+
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredClients = clients.filter((client) => {
+    const search = searchTerm.toLowerCase();
+
+    return (
+      client.username
+        .toLowerCase()
+        .includes(search) ||
+      client.email
+        .toLowerCase()
+        .includes(search) ||
+      (client.full_name || '')
+        .toLowerCase()
+        .includes(search)
+    );
+  });
+
+  const scheduledPosts = posts.filter(
+    (post) =>
+      normalizeStatus(post.status) === 'scheduled'
+  ).length;
+
+  const publishedPosts = posts.filter(
+    (post) =>
+      normalizeStatus(post.status) === 'published'
+  ).length;
+
+  return (
+    <div className="space-y-6">
+
+      <DashboardHeader
+        title={`Welcome back, ${username}`}
+        description="Manage your assigned clients and their social media campaigns."
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <StatCard
+          title="My Clients"
+          value={clients.length}
+          icon={Users}
+        />
+
+        <StatCard
+          title="Active Campaigns"
+          value={campaigns.length}
+          icon={Megaphone}
+        />
+
+        <StatCard
+          title="Scheduled Posts"
+          value={scheduledPosts}
+          icon={Calendar}
+        />
+
+        <StatCard
+          title="Published Posts"
+          value={publishedPosts}
+          icon={FileText}
+        />
+
+      </div>
+
+      <DashboardCard
+        title="My Clients"
+        icon={Users}
+      >
+
+        <div className="mb-5 relative">
+
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) =>
+              setSearchTerm(event.target.value)
+            }
+            placeholder="Search clients..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-400"
+          />
+
+        </div>
+
+        {clients.length === 0 ? (
+
+          <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
+
+            <Users className="w-8 h-8 mx-auto text-gray-400" />
+
+            <h3 className="mt-3 text-sm font-semibold text-gray-900">
+              No clients assigned yet
+            </h3>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Business Users who select your Marketing Team will appear here.
+            </p>
+
           </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {analyticsData.topPosts.map((post, idx) => {
-            const config = getPlatformConfig(post.platform);
-            const Icon = config.icon;
-            return (
-              <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="p-4 rounded-xl bg-gray-50 border border-gray-100"
+
+        ) : filteredClients.length === 0 ? (
+
+          <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
+
+            <Search className="w-8 h-8 mx-auto text-gray-400" />
+
+            <h3 className="mt-3 text-sm font-semibold text-gray-900">
+              No clients found
+            </h3>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Try searching with a different name or email.
+            </p>
+
+          </div>
+
+        ) : (
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+            {filteredClients.map((client) => (
+
+              <button
+                key={client.id}
+                type="button"
+                onClick={() =>
+                  navigate(`/app/clients/${client.id}`)
+                }
+                className="text-left bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon className="w-4 h-4" style={{ color: config.color }} />
-                  <span className="text-xs font-medium text-gray-500 capitalize">{post.platform}</span>
+
+                <div className="flex items-center gap-3">
+
+                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+
+                    <UserCircle className="w-6 h-6 text-indigo-600" />
+
+                  </div>
+
+                  <div className="min-w-0">
+
+                    <h3 className="font-semibold text-gray-900 truncate">
+                      {client.full_name ||
+                        client.username}
+                    </h3>
+
+                    <p className="text-sm text-gray-500 truncate">
+                      @{client.username}
+                    </p>
+
+                  </div>
+
                 </div>
-                <p className="text-sm text-gray-900 line-clamp-2 mb-3">{post.content}</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { icon: Heart, label: post.likes, color: 'text-rose-500' },
-                    { icon: MessageCircle, label: post.comments, color: 'text-blue-500' },
-                    { icon: Share2, label: post.shares, color: 'text-emerald-500' },
-                    { icon: Eye, label: formatNumber(post.reach), color: 'text-violet-500' },
-                  ].map((stat, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1">
-                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                      <span className="text-xs font-semibold text-gray-900">{stat.label}</span>
-                    </div>
-                  ))}
+
+                <div className="mt-4 pt-3 border-t border-gray-100">
+
+                  <p className="text-sm text-gray-500 truncate">
+                    {client.email}
+                  </p>
+
                 </div>
-              </motion.div>
-            );
-          })}
+
+                <div className="mt-3 text-xs font-medium text-indigo-600">
+                  Open client workspace →
+                </div>
+
+              </button>
+
+            ))}
+
+          </div>
+
+        )}
+
+      </DashboardCard>
+
+    </div>
+  );
+}
+
+
+/* =====================================================
+   CONTENT CREATOR DASHBOARD
+   Simplified: welcome header + quick-glance stats only.
+   The interactive drafts/pending/scheduled/published/
+   failed/cancelled list now lives on MyPostsPage.
+===================================================== */
+
+function ContentCreatorDashboard({
+  username,
+  posts,
+}: {
+  username: string;
+  posts: any[];
+}) {
+  const navigate = useNavigate();
+
+  const drafts = posts.filter(
+    (post) => normalizeStatus(post.status) === 'draft'
+  ).length;
+
+  const scheduled = posts.filter(
+    (post) => normalizeStatus(post.status) === 'scheduled'
+  ).length;
+
+  const published = posts.filter(
+    (post) => normalizeStatus(post.status) === 'published'
+  ).length;
+
+  return (
+    <div className="space-y-6">
+
+      <DashboardHeader
+        title={`Welcome back, ${username}`}
+        description="Here's a quick look at your content activity."
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <StatCard
+          title="Total Posts"
+          value={posts.length}
+          icon={FileText}
+        />
+
+        <StatCard
+          title="Drafts"
+          value={drafts}
+          icon={FileText}
+        />
+
+        <StatCard
+          title="Scheduled"
+          value={scheduled}
+          icon={Calendar}
+        />
+
+        <StatCard
+          title="Published"
+          value={published}
+          icon={BarChart3}
+        />
+
+      </div>
+
+      <DashboardCard
+        title="My Content"
+        icon={FileText}
+      >
+
+        <div className="text-center py-10">
+
+          <FileText className="w-10 h-10 mx-auto text-gray-300" />
+
+          <p className="mt-3 text-sm font-medium text-gray-600">
+            Manage your drafts, scheduled, and published posts
+          </p>
+
+          <p className="mt-1 text-xs text-gray-400">
+            Head over to My Posts to filter and search your content.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate('/app/posts')}
+            className="mt-4 inline-flex items-center px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            Go to My Posts
+          </button>
+
         </div>
-      </Card>
+
+      </DashboardCard>
+
+    </div>
+  );
+}
+
+
+/* =====================================================
+   STATUS HELPERS
+===================================================== */
+
+function normalizeStatus(
+  status: any
+): string {
+  return String(status || '')
+    .toLowerCase()
+    .trim();
+}
+
+
+/* =====================================================
+   BUSINESS USER DASHBOARD
+===================================================== */
+
+function BusinessUserDashboard({
+  username,
+  posts,
+  campaigns,
+  accounts,
+}: {
+  username: string;
+  posts: any[];
+  campaigns: any[];
+  accounts: any[];
+}) {
+
+  const scheduledPosts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) === 'scheduled'
+    ).length;
+
+  const publishedPosts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) === 'published'
+    ).length;
+
+  const failedPosts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) === 'failed'
+    ).length;
+
+  const cancelledPosts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) === 'cancelled'
+    ).length;
+
+  return (
+    <div className="space-y-6">
+
+      <DashboardHeader
+        title={`Welcome back, ${username}`}
+        description="Monitor your business social media performance."
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <StatCard
+          title="Connected Accounts"
+          value={accounts.length}
+          icon={Share2}
+        />
+
+        <StatCard
+          title="Active Campaigns"
+          value={campaigns.length}
+          icon={Megaphone}
+        />
+
+        <StatCard
+          title="Scheduled Posts"
+          value={scheduledPosts}
+          icon={Calendar}
+        />
+
+        <StatCard
+          title="Published Posts"
+          value={publishedPosts}
+          icon={FileText}
+        />
+
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <DashboardCard
+          title="Social Accounts"
+          icon={Share2}
+        >
+
+          {accounts.length === 0 ? (
+
+            <div className="text-center py-8">
+
+              <Share2 className="w-8 h-8 mx-auto text-gray-400" />
+
+              <p className="mt-3 text-sm text-gray-500">
+                No social accounts connected.
+              </p>
+
+            </div>
+
+          ) : (
+
+            <div className="space-y-3">
+
+              {accounts
+                .slice(0, 5)
+                .map((account: any) => (
+
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50"
+                  >
+
+                    <div>
+
+                      <p className="text-sm font-medium text-gray-900">
+                        {account.platform ||
+                          'Social Account'}
+                      </p>
+
+                      <p className="text-xs text-gray-500">
+                        {account.username ||
+                          account.account_name ||
+                          'Connected'}
+                      </p>
+
+                    </div>
+
+                    <span className="text-xs font-medium text-emerald-600">
+                      Connected
+                    </span>
+
+                  </div>
+
+                ))}
+
+            </div>
+
+          )}
+
+        </DashboardCard>
+
+        <DashboardCard
+          title="Recent Campaigns"
+          icon={Megaphone}
+        >
+
+          {campaigns.length === 0 ? (
+
+            <p className="text-sm text-gray-500">
+              No campaigns available.
+            </p>
+
+          ) : (
+
+            <div className="space-y-3">
+
+              {campaigns
+                .slice(0, 5)
+                .map((campaign: any) => (
+
+                  <div
+                    key={campaign.id}
+                    className="p-3 rounded-xl bg-gray-50"
+                  >
+
+                    <p className="text-sm font-medium text-gray-900">
+                      {campaign.title ||
+                        'Campaign'}
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-500">
+                      {campaign.status ||
+                        'Active'}
+                    </p>
+
+                  </div>
+
+                ))}
+
+            </div>
+
+          )}
+
+        </DashboardCard>
+
+      </div>
+
+      {/* Post status summary */}
+
+      <DashboardCard
+        title="Post Status Summary"
+        icon={BarChart3}
+      >
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+          <MiniStatus
+            label="Scheduled"
+            value={scheduledPosts}
+            className="bg-blue-50 text-blue-700"
+          />
+
+          <MiniStatus
+            label="Published"
+            value={publishedPosts}
+            className="bg-emerald-50 text-emerald-700"
+          />
+
+          <MiniStatus
+            label="Failed"
+            value={failedPosts}
+            className="bg-red-50 text-red-700"
+          />
+
+          <MiniStatus
+            label="Cancelled"
+            value={cancelledPosts}
+            className="bg-gray-100 text-gray-700"
+          />
+
+        </div>
+
+      </DashboardCard>
+
+    </div>
+  );
+}
+
+
+/* =====================================================
+   SHARED COMPONENTS
+===================================================== */
+
+function DashboardHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+
+  return (
+    <div>
+
+      <h1 className="text-2xl font-bold text-gray-900">
+        {title}
+      </h1>
+
+      <p className="mt-1 text-sm text-gray-500">
+        {description}
+      </p>
+
+    </div>
+  );
+}
+
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+}: {
+  title: string;
+  value: string | number;
+  icon: any;
+}) {
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+
+      <div className="flex items-center justify-between">
+
+        <div>
+
+          <p className="text-sm font-medium text-gray-500">
+            {title}
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-gray-900">
+            {value}
+          </p>
+
+        </div>
+
+        <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center">
+
+          <Icon className="w-5 h-5 text-indigo-600" />
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function MiniStatus({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number;
+  className: string;
+}) {
+  return (
+    <div className={`rounded-xl p-4 ${className}`}>
+
+      <p className="text-xs font-medium opacity-80">
+        {label}
+      </p>
+
+      <p className="mt-1 text-2xl font-bold">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+
+function DashboardCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: any;
+  children: React.ReactNode;
+}) {
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+
+      <div className="flex items-center gap-2 mb-5">
+
+        <Icon className="w-5 h-5 text-indigo-600" />
+
+        <h2 className="text-lg font-semibold text-gray-900">
+          {title}
+        </h2>
+
+      </div>
+
+      {children}
+
+    </div>
+  );
+}
+
+
+function OverviewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+
+      <span className="text-sm text-gray-600">
+        {label}
+      </span>
+
+      <span className="text-sm font-semibold text-gray-900">
+        {value}
+      </span>
+
+    </div>
+  );
+}
+
+
+function ActivityRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+
+  return (
+    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+
+      <span className="text-sm text-gray-600">
+        {label}
+      </span>
+
+      <span className="text-sm font-semibold text-gray-900">
+        {value}
+      </span>
+
     </div>
   );
 }

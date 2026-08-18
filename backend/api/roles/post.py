@@ -1,8 +1,7 @@
-
 from enum import Enum
 
+
 class Status(str, Enum):
-    
     DRAFT = "draft"
     PENDING_APPROVAL = "pending_approval"
     SCHEDULED = "scheduled"
@@ -11,8 +10,8 @@ class Status(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
 class MediaType(str, Enum):
-    
     TEXT = "text"
     IMAGE = "image"
     VIDEO = "video"

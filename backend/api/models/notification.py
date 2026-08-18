@@ -60,7 +60,7 @@ class Notification(Base):
         server_default=func.now()
     )
 
-    user: Mapped["User"] = relationship(back_populates="notifications")
+    user: Mapped["User"] = relationship(back_populates="notifications")     # type: ignore
 
     def __repr__(self) -> str:
         return f"<Notification id={self.id} type={self.type} user_id={self.user_id}>"

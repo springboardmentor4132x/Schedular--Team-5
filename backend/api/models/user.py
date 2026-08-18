@@ -1,13 +1,27 @@
-
 from api.database.base import Base
 from api.roles.user import Role
+
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, func, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List
 
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum as SAEnum,
+    func,
+    Integer,
+    String,
+)
+
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
+
+
 class User(Base):
-    
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(
@@ -38,9 +52,31 @@ class User(Base):
         nullable=False
     )
 
+    phone: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True
+    )
+
+    website: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
+    bio: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True
+    )
+
     role: Mapped[Role] = mapped_column(
-        SAEnum(Role, name="user_role", native_enum=False, length=20,
-               values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        SAEnum(
+            Role,
+            name="user_role",
+            native_enum=False,
+            length=20,
+            values_callable=lambda enum_cls: [
+                e.value for e in enum_cls
+            ]
+        ),
         nullable=False,
         default=Role.CONTENT_CREATOR
     )
@@ -71,25 +107,58 @@ class User(Base):
     )
 
     social_accounts: Mapped[List["SocialAccount"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-    
+
     campaigns: Mapped[List["Campaign"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-    
+
     posts: Mapped[List["Post"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-    
+
     schedules: Mapped[List["Schedule"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
-    
+
     notifications: Mapped[List["Notification"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    notification_preferences: Mapped[
+    "NotificationPreference | None"
+] = relationship(
+    back_populates="user",
+    uselist=False,
+    cascade="all, delete-orphan",
+)
+
+    assigned_team: Mapped[
+        "BusinessAssignment | None"
+    ] = relationship(
+        foreign_keys="BusinessAssignment.business_user_id",
+        back_populates="business_user",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    assigned_clients: Mapped[
+        List["BusinessAssignment"]
+    ] = relationship(
+        foreign_keys="BusinessAssignment.marketing_team_id",
+        back_populates="marketing_team",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
-        return f"<User id={self.id} username={self.username!r} role={self.role}>"
-    
+        return (
+            f"<User id={self.id} "
+            f"username={self.username!r} "
+            f"role={self.role}>"
+        )
