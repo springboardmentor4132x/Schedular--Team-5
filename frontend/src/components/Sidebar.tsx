@@ -1,23 +1,24 @@
 import { NavLink } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
-  Calendar,
-  FileText,
   BarChart3,
   Megaphone,
   Share2,
   Bell,
   Settings,
-  Sparkles,
   X,
-  Zap,
   Users,
   UserCheck,
   ClipboardList,
-  Send,
   User,
-  LogOut,
+  History,
+  Activity,
+  UserCog,
+  Building2,
+  UsersRound,
+  FileBarChart,
+  PlusCircle,
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 
@@ -33,6 +34,10 @@ type UserRole =
   | 'business_user';
 
 const navItems = [
+  /* =====================================================
+     DASHBOARD
+  ===================================================== */
+
   {
     to: '/app/dashboard',
     label: 'Dashboard',
@@ -44,45 +49,104 @@ const navItems = [
       'business_user',
     ],
   },
+
+  /* =====================================================
+     ADMINISTRATION
+  ===================================================== */
+
+  {
+    to: '/app/users',
+    label: 'Users',
+    icon: UserCog,
+    roles: [
+      'administrator',
+    ],
+  },
+
+  {
+    to: '/app/business-accounts',
+    label: 'Business Accounts',
+    icon: Building2,
+    roles: [
+      'administrator',
+    ],
+  },
+
+  {
+    to: '/app/marketing-teams',
+    label: 'Marketing Teams',
+    icon: UsersRound,
+    roles: [
+      'administrator',
+    ],
+  },
+
+  {
+    to: '/app/content-creators',
+    label: 'Content Creators',
+    icon: UserCheck,
+    roles: [
+      'administrator',
+    ],
+  },
+
+  /* =====================================================
+     MY POSTS
+
+     Administrator does NOT have My Posts.
+  ===================================================== */
+
   {
     to: '/app/posts',
     label: 'My Posts',
     icon: ClipboardList,
     roles: [
-      'administrator',
       'marketing_team',
       'content_creator',
       'business_user',
     ],
   },
+
+  /* =====================================================
+     CREATE POST
+
+     Administrator does NOT create posts.
+     Marketing Team, Content Creator and Business User
+     can create and schedule posts.
+  ===================================================== */
+
   {
-    to: '/app/clients',
-    label: 'My Clients',
-    icon: Users,
-    roles: [
-      'marketing_team',
-    ],
-  },
-  {
-    to: '/app/calendar',
-    label: 'Calendar',
-    icon: Calendar,
+    to: '/app/create-post',
+    label: 'Create Post',
+    icon: PlusCircle,
     roles: [
       'marketing_team',
       'content_creator',
       'business_user',
     ],
   },
+
+  /* =====================================================
+     CAMPAIGNS
+
+     Administrator does NOT have Campaigns.
+  ===================================================== */
+
   {
     to: '/app/campaigns',
     label: 'Campaigns',
     icon: Megaphone,
     roles: [
-      'administrator',
       'marketing_team',
+      'content_creator',
       'business_user',
     ],
   },
+
+  /* =====================================================
+     SOCIAL ACCOUNTS
+  ===================================================== */
+
   {
     to: '/app/accounts',
     label: 'Social Accounts',
@@ -94,33 +158,44 @@ const navItems = [
       'content_creator',
     ],
   },
-  {
-    to: '/app/create-post',
-    label: 'Create Post',
-    icon: FileText,
-    roles: [
-      'content_creator',
-    ],
-  },
-  {
-    to: '/app/publishing',
-    label: 'Publishing Hub',
-    icon: Send,
-    roles: [
-      'marketing_team',
-      'content_creator',
-      'business_user',
-    ],
-  },
+
+  /* =====================================================
+     ANALYTICS
+
+     Administrator now has Analytics access.
+  ===================================================== */
+
   {
     to: '/app/analytics',
     label: 'Analytics',
     icon: BarChart3,
     roles: [
+      'administrator',
+      'marketing_team',
+      'business_user',
+      'content_creator',
+    ],
+  },
+
+  /* =====================================================
+     REPORTS
+  ===================================================== */
+
+  {
+    to: '/app/reports',
+    label: 'Reports',
+    icon: FileBarChart,
+    roles: [
+      'administrator',
       'marketing_team',
       'business_user',
     ],
   },
+
+  /* =====================================================
+     NOTIFICATIONS
+  ===================================================== */
+
   {
     to: '/app/notifications',
     label: 'Notifications',
@@ -132,14 +207,43 @@ const navItems = [
       'business_user',
     ],
   },
+
+  /* =====================================================
+     NOTIFICATION HISTORY
+  ===================================================== */
+
   {
-    to: '/app/my-marketing-team',
-    label: 'My Marketing Team',
-    icon: UserCheck,
+    to: '/app/notification-history',
+    label: 'Notification History',
+    icon: History,
     roles: [
+      'administrator',
+      'marketing_team',
+      'content_creator',
       'business_user',
     ],
   },
+
+  /* =====================================================
+     TEAM ACTIVITY
+  ===================================================== */
+
+  {
+    to: '/app/team-activity',
+    label: 'Team Activity',
+    icon: Activity,
+    roles: [
+      'administrator',
+      'marketing_team',
+      'content_creator',
+      'business_user',
+    ],
+  },
+
+  /* =====================================================
+     PROFILE
+  ===================================================== */
+
   {
     to: '/app/profile',
     label: 'Profile',
@@ -151,6 +255,11 @@ const navItems = [
       'business_user',
     ],
   },
+
+  /* =====================================================
+     SETTINGS
+  ===================================================== */
+
   {
     to: '/app/settings',
     label: 'Settings',
@@ -174,22 +283,18 @@ export function Sidebar({
   const filteredNavItems =
     navItems.filter((item) => {
       if (!role) {
-        return item.roles.includes(
-          'content_creator'
-        );
+        return false;
       }
 
       return item.roles.includes(role);
     });
 
-  const handleSignOut = () => {
-    localStorage.removeItem('user_role');
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-  };
-
   return (
     <>
+      {/* =================================================
+          MOBILE BACKDROP
+      ================================================= */}
+
       {open && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -199,6 +304,10 @@ export function Sidebar({
           className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
+
+      {/* =================================================
+          SIDEBAR
+      ================================================= */}
 
       <motion.aside
         initial={false}
@@ -215,16 +324,29 @@ export function Sidebar({
           'lg:translate-x-0 lg:!transform-none'
         )}
       >
+
+        {/* =================================================
+            LOGO
+        ================================================= */}
+
         <div className="flex items-center justify-between px-5 h-16 border-b border-gray-200">
+
           <div className="flex items-center gap-2">
+
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-              <Zap
-                className="w-5 h-5 text-white"
-                fill="white"
-              />
+
+              <div className="w-5 h-5 rounded-md bg-white/90 flex items-center justify-center">
+
+                <span className="text-indigo-600 text-xs font-bold">
+                  S
+                </span>
+
+              </div>
+
             </div>
 
             <div>
+
               <p className="text-sm font-bold text-gray-900 leading-none">
                 SocialPilot
               </p>
@@ -232,26 +354,37 @@ export function Sidebar({
               <p className="text-[10px] text-gray-500 mt-0.5">
                 Campaign Manager
               </p>
+
             </div>
+
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
+
         </div>
 
+        {/* =================================================
+            NAVIGATION
+        ================================================= */}
+
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
+
           <p className="px-3 mb-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Menu
           </p>
 
           <ul className="space-y-1">
+
             {filteredNavItems.map(
               (item) => (
                 <li key={item.to}>
+
                   <NavLink
                     to={item.to}
                     onClick={onClose}
@@ -263,8 +396,10 @@ export function Sidebar({
                       )
                     }
                   >
+
                     {({ isActive }) => (
                       <>
+
                         <item.icon
                           className={cn(
                             'w-5 h-5 transition-colors',
@@ -284,49 +419,20 @@ export function Sidebar({
                             className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-600"
                           />
                         )}
+
                       </>
                     )}
+
                   </NavLink>
+
                 </li>
               )
             )}
+
           </ul>
+
         </nav>
 
-        <div className="p-3 border-t border-gray-200">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 p-4 text-white">
-            <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10" />
-
-            <div className="absolute -right-8 -bottom-8 w-20 h-20 rounded-full bg-white/10" />
-
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="w-4 h-4" />
-
-                <p className="text-sm font-semibold">
-                  Upgrade to Pro
-                </p>
-              </div>
-
-              <p className="text-xs text-white/80 mb-3">
-                Unlock advanced analytics &
-                unlimited scheduling
-              </p>
-
-              <button className="w-full bg-white text-indigo-600 text-xs font-semibold py-2 rounded-lg hover:bg-white/90 transition-colors">
-                Upgrade Now
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 mt-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-red-600 transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            Sign Out
-          </button>
-        </div>
       </motion.aside>
     </>
   );

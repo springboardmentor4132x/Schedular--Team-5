@@ -14,6 +14,7 @@ from api.dependencies.database import get_db
 from api.exceptions import integrations
 from api.models.social_account import SocialAccount
 from api.roles.social_account import Platform
+from api.services.notification import create_notification
 
 
 router = APIRouter(
@@ -142,6 +143,9 @@ async def youtube_callback(
     The authorization code is exchanged for Google tokens,
     the YouTube channel is retrieved, and the account is
     stored in SocialAccount.
+
+    A notification is created after successful connection
+    or reconnection.
     """
 
     # --------------------------------------------------------
@@ -156,7 +160,6 @@ async def youtube_callback(
         ValueError,
     ):
         raise integrations.INVALID_OAUTH_STATE_EXCEPTION
-
 
     # --------------------------------------------------------
     # EXCHANGE AUTHORIZATION CODE FOR ACCESS TOKEN
@@ -179,14 +182,12 @@ async def youtube_callback(
             settings.YOUTUBE_REDIRECT_URI,
     }
 
-
     async with httpx.AsyncClient() as client:
 
         token_res = await client.post(
             GOOGLE_TOKEN_URL,
             data=token_data,
         )
-
 
         if token_res.status_code != 200:
 
@@ -198,11 +199,9 @@ async def youtube_callback(
 
             raise integrations.RETRIEVING_API_TOKEN_FAILED_EXCEPTION
 
-
         token_json = (
             token_res.json()
         )
-
 
         access_token = (
             token_json.get(
@@ -222,11 +221,9 @@ async def youtube_callback(
             )
         )
 
-
         if not access_token:
 
             raise integrations.RETRIEVING_API_TOKEN_FAILED_EXCEPTION
-
 
         # ----------------------------------------------------
         # GET YOUTUBE CHANNEL INFORMATION
@@ -237,19 +234,16 @@ async def youtube_callback(
             "mine": "true",
         }
 
-
         headers: Dict[str, str] = {
             "Authorization":
                 f"Bearer {access_token}"
         }
-
 
         profile_res = await client.get(
             YOUTUBE_CHANNEL_URL,
             params=params,
             headers=headers,
         )
-
 
         if profile_res.status_code != 200:
 
@@ -261,21 +255,17 @@ async def youtube_callback(
 
             raise integrations.RETRIEVE_CHANNEL_INFO_FAILED_EXCEPTION
 
-
         profile_data = (
             profile_res.json()
         )
-
 
         if not profile_data.get("items"):
 
             raise integrations.YOUTUBE_CHANNEL_NOT_FOUND_EXCEPTION
 
-
         channel = (
             profile_data["items"][0]
         )
-
 
         # ----------------------------------------------------
         # CHANNEL INFORMATION
@@ -289,14 +279,12 @@ async def youtube_callback(
             channel["snippet"]["title"]
         )
 
-
         profile_picture = (
             channel["snippet"]
             .get("thumbnails", {})
             .get("default", {})
             .get("url")
         )
-
 
     # --------------------------------------------------------
     # TOKEN EXPIRY
@@ -313,7 +301,6 @@ async def youtube_callback(
     ):
         expires_seconds = 0
 
-
     expiry_date = (
         datetime.now(
             timezone.utc
@@ -322,7 +309,6 @@ async def youtube_callback(
             seconds=expires_seconds
         )
     )
-
 
     # --------------------------------------------------------
     # CHECK IF YOUTUBE ACCOUNT ALREADY EXISTS
@@ -340,15 +326,13 @@ async def youtube_callback(
         account_id,
     )
 
-
     existing_account = (
         db.execute(stmt)
         .scalar_one_or_none()
     )
 
-
     # --------------------------------------------------------
-    # UPDATE EXISTING ACCOUNT
+    # UPDATE EXISTING ACCOUNT / RECONNECT
     # --------------------------------------------------------
 
     if existing_account:
@@ -356,7 +340,6 @@ async def youtube_callback(
         existing_account.access_token = (
             access_token
         )
-
 
         # Google may not return a refresh token
         # when the account is being reconnected.
@@ -370,24 +353,19 @@ async def youtube_callback(
                 refresh_token
             )
 
-
         existing_account.token_expiry = (
             expiry_date
         )
-
 
         existing_account.account_name = (
             account_name
         )
 
-
         existing_account.profile_picture = (
             profile_picture
         )
 
-
         existing_account.is_connected = True
-
 
         existing_account.permissions = [
             "youtube.readonly",
@@ -395,6 +373,15 @@ async def youtube_callback(
             "yt-analytics.readonly",
         ]
 
+        print(
+            ">>> YOUTUBE ACCOUNT RECONNECTED:",
+            account_name,
+            "| CHANNEL ID:",
+            account_id,
+            "| USER ID:",
+            user_id,
+            flush=True,
+        )
 
     # --------------------------------------------------------
     # CREATE NEW ACCOUNT
@@ -428,11 +415,19 @@ async def youtube_callback(
             ],
         )
 
-
         db.add(
             new_account
         )
 
+        print(
+            ">>> YOUTUBE ACCOUNT CONNECTED:",
+            account_name,
+            "| CHANNEL ID:",
+            account_id,
+            "| USER ID:",
+            user_id,
+            flush=True,
+        )
 
     # --------------------------------------------------------
     # SAVE TO DATABASE
@@ -440,17 +435,41 @@ async def youtube_callback(
 
     db.commit()
 
+    # --------------------------------------------------------
+    # MODULE 7 - YOUTUBE ACCOUNT CONNECTED NOTIFICATION
+    # --------------------------------------------------------
 
-    print(
-        ">>> YOUTUBE ACCOUNT CONNECTED:",
-        account_name,
-        "| CHANNEL ID:",
-        account_id,
-        "| USER ID:",
-        user_id,
-        flush=True,
-    )
+    try:
 
+        create_notification(
+            user_id=user_id,
+
+            title="Social Account Connected",
+
+            description=(
+                f'Your Youtube account '
+                f'"{account_name}" was connected successfully.'
+            ),
+
+            notification_type="success",
+
+            category="account_activity",
+
+            delivery_channel="in_app",
+        )
+
+        print(
+            ">>> YOUTUBE ACCOUNT CONNECTION NOTIFICATION CREATED",
+            flush=True,
+        )
+
+    except Exception as notification_error:
+
+        print(
+            ">>> YOUTUBE ACCOUNT CONNECTION NOTIFICATION FAILED:",
+            notification_error,
+            flush=True,
+        )
 
     # --------------------------------------------------------
     # RETURN TO SOCIAL ACCOUNTS PAGE
@@ -484,7 +503,6 @@ def disconnect_youtube(
 
     user_id = current_user["id"]
 
-
     stmt = select(
         SocialAccount
     ).where(
@@ -497,17 +515,24 @@ def disconnect_youtube(
         Platform.YOUTUBE,
     )
 
-
     account = (
         db.execute(stmt)
         .scalar_one_or_none()
     )
 
-
     if not account:
 
         raise integrations.YOUTUBE_CHANNEL_NOT_FOUND_EXCEPTION
 
+    # --------------------------------------------------------
+    # SAVE ACCOUNT INFORMATION BEFORE DELETE
+    # --------------------------------------------------------
+
+    account_name = account.account_name
+
+    # --------------------------------------------------------
+    # DELETE ACCOUNT
+    # --------------------------------------------------------
 
     db.delete(
         account
@@ -515,6 +540,41 @@ def disconnect_youtube(
 
     db.commit()
 
+    # --------------------------------------------------------
+    # MODULE 7 - YOUTUBE ACCOUNT DISCONNECTED NOTIFICATION
+    # --------------------------------------------------------
+
+    try:
+
+        create_notification(
+            user_id=user_id,
+
+            title="Social Account Disconnected",
+
+            description=(
+                f'Your Youtube account '
+                f'"{account_name}" was disconnected.'
+            ),
+
+            notification_type="info",
+
+            category="account_activity",
+
+            delivery_channel="in_app",
+        )
+
+        print(
+            ">>> YOUTUBE ACCOUNT DISCONNECTION NOTIFICATION CREATED",
+            flush=True,
+        )
+
+    except Exception as notification_error:
+
+        print(
+            ">>> YOUTUBE ACCOUNT DISCONNECTION NOTIFICATION FAILED:",
+            notification_error,
+            flush=True,
+        )
 
     return {
         "message":

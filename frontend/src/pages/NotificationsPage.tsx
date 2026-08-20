@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  motion,
+  AnimatePresence,
+} from 'framer-motion';
+
 import {
   Bell,
   Check,
@@ -20,8 +29,17 @@ import {
   EmptyState,
 } from '../components/ui';
 
-import { notificationService } from '../services/api';
+import {
+  notificationService,
+  type NotificationResponse,
+} from '../services/api';
+
 import { cn } from '../utils/helpers';
+
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type NotificationType =
   | 'schedule'
@@ -30,35 +48,8 @@ type NotificationType =
   | 'campaign'
   | 'info';
 
-type BackendNotificationType =
-  | 'info'
-  | 'success'
-  | 'warning'
-  | 'error';
-
-type BackendNotification = {
-  id: number;
-  user_id: number;
-  title: string;
-  description: string;
-  type: BackendNotificationType | string;
-  is_read: boolean;
-  related_post_id: number | null;
-  related_campaign_id: number | null;
-  created_at: string;
-};
-
-type Notification = {
-  id: number;
-  user_id: number;
-  title: string;
-  description: string;
-  type: BackendNotificationType | string;
-  is_read: boolean;
-  related_post_id: number | null;
-  related_campaign_id: number | null;
-  created_at: string;
-};
+type Notification =
+  NotificationResponse;
 
 type FilterType =
   | 'all'
@@ -68,6 +59,11 @@ type FilterType =
   | 'alert'
   | 'campaign'
   | 'info';
+
+
+/* =========================================================
+   NOTIFICATION CONFIG
+========================================================= */
 
 const notificationConfig: Record<
   NotificationType,
@@ -79,38 +75,49 @@ const notificationConfig: Record<
 > = {
   schedule: {
     icon: Calendar,
-    color: 'bg-blue-50 text-blue-600',
+    color:
+      'bg-blue-50 text-blue-600',
     label: 'Schedule',
   },
 
   published: {
     icon: CheckCircle2,
-    color: 'bg-green-50 text-green-600',
+    color:
+      'bg-green-50 text-green-600',
     label: 'Published',
   },
 
   alert: {
     icon: AlertCircle,
-    color: 'bg-red-50 text-red-600',
+    color:
+      'bg-red-50 text-red-600',
     label: 'Alert',
   },
 
   campaign: {
     icon: Megaphone,
-    color: 'bg-violet-50 text-violet-600',
+    color:
+      'bg-violet-50 text-violet-600',
     label: 'Campaign',
   },
 
   info: {
     icon: Info,
-    color: 'bg-gray-100 text-gray-600',
+    color:
+      'bg-gray-100 text-gray-600',
     label: 'Info',
   },
 };
 
+
+/* =========================================================
+   DETERMINE FRONTEND NOTIFICATION TYPE
+========================================================= */
+
 const getNotificationType = (
   notification: Notification
 ): NotificationType => {
+
   const title = String(
     notification.title || ''
   )
@@ -129,44 +136,53 @@ const getNotificationType = (
     .toLowerCase()
     .trim();
 
-  /*
-   * ---------------------------------------------------------
-   * 1. PUBLISHED
-   * ---------------------------------------------------------
-   */
+
+  /* -------------------------------------------------------
+     PUBLISHED
+  ------------------------------------------------------- */
 
   if (
     title.includes('published') ||
     title.includes('publish successful') ||
-    description.includes('published successfully') ||
-    description.includes('was published') ||
-    description.includes('has been published') ||
-    description.includes('post published')
+    description.includes(
+      'published successfully'
+    ) ||
+    description.includes(
+      'was published'
+    ) ||
+    description.includes(
+      'has been published'
+    ) ||
+    description.includes(
+      'post published'
+    )
   ) {
     return 'published';
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 2. SCHEDULED
-   * ---------------------------------------------------------
-   */
+
+  /* -------------------------------------------------------
+     SCHEDULE
+  ------------------------------------------------------- */
 
   if (
     title.includes('scheduled') ||
     title.includes('schedule') ||
     description.includes('scheduled') ||
-    description.includes('has been scheduled') ||
-    description.includes('successfully scheduled')
+    description.includes(
+      'has been scheduled'
+    ) ||
+    description.includes(
+      'successfully scheduled'
+    )
   ) {
     return 'schedule';
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 3. CAMPAIGN
-   * ---------------------------------------------------------
-   */
+
+  /* -------------------------------------------------------
+     CAMPAIGN
+  ------------------------------------------------------- */
 
   if (
     title.includes('campaign') ||
@@ -175,11 +191,10 @@ const getNotificationType = (
     return 'campaign';
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 4. ALERT
-   * ---------------------------------------------------------
-   */
+
+  /* -------------------------------------------------------
+     ALERT
+  ------------------------------------------------------- */
 
   if (
     backendType === 'warning' ||
@@ -202,597 +217,534 @@ const getNotificationType = (
     return 'alert';
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 5. DEFAULT
-   * ---------------------------------------------------------
-   */
+
+  /* -------------------------------------------------------
+     DEFAULT
+  ------------------------------------------------------- */
 
   return 'info';
 };
 
+
+/* =========================================================
+   DISPLAY TIME
+   BACKEND UTC → FRONTEND IST
+========================================================= */
+
 const formatNotificationTime = (
   createdAt: string
 ) => {
-  const date = new Date(createdAt);
 
-  if (Number.isNaN(date.getTime())) {
+  const date = new Date(
+    createdAt
+  );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return createdAt;
   }
 
-  return date.toLocaleString('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return date.toLocaleString(
+    'en-IN',
+    {
+      timeZone:
+        'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }
+  );
 };
 
-const normalizeNotification = (
-  notification: BackendNotification
-): Notification => {
-  return {
-    id: Number(notification.id),
-    user_id: Number(notification.user_id),
-    title: notification.title || 'Notification',
-    description:
-      notification.description || '',
-    type: notification.type || 'info',
-    is_read: Boolean(
-      notification.is_read
-    ),
-    related_post_id:
-      notification.related_post_id ?? null,
-    related_campaign_id:
-      notification.related_campaign_id ?? null,
-    created_at:
-      notification.created_at ||
-      new Date().toISOString(),
-  };
-};
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
 
 export function NotificationsPage() {
-  const [notifications, setNotifications] =
-    useState<Notification[]>([]);
 
-  const [filter, setFilter] =
-    useState<FilterType>('all');
+  const [
+    notifications,
+    setNotifications,
+  ] = useState<Notification[]>(
+    []
+  );
 
-  const [loading, setLoading] =
-    useState(true);
 
-  const [markingAllRead, setMarkingAllRead] =
-    useState(false);
+  const [
+    filter,
+    setFilter,
+  ] = useState<FilterType>(
+    'all'
+  );
 
-  const [clearingAll, setClearingAll] =
-    useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [actionError, setActionError] =
-    useState<string | null>(null);
 
-  /*
-   * =========================================================
-   * LOAD NOTIFICATIONS
-   * =========================================================
-   */
+  const [
+    markingAllRead,
+    setMarkingAllRead,
+  ] = useState(false);
 
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      setError(null);
 
-      console.log(
-        '================================================='
-      );
+  const [
+    clearingAll,
+    setClearingAll,
+  ] = useState(false);
 
-      console.log(
-        '>>> LOADING NOTIFICATIONS'
-      );
 
-      const response =
-        await notificationService.getAll();
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+    null
+  );
 
-      console.log(
-        '>>> NOTIFICATIONS API RESPONSE:',
-        response.data
-      );
 
-      const rawData = Array.isArray(
-        response.data
-      )
-        ? response.data
-        : [];
+  const [
+    actionError,
+    setActionError,
+  ] = useState<string | null>(
+    null
+  );
 
-      const normalizedData =
-        rawData.map(
-          (notification) =>
-            normalizeNotification(
+
+  /* =======================================================
+     LOAD NOTIFICATIONS
+  ======================================================= */
+
+  const loadNotifications =
+    async () => {
+
+      try {
+
+        setLoading(true);
+        setError(null);
+
+        const response =
+          await notificationService.getAll();
+
+        const data =
+          Array.isArray(
+            response.data
+          )
+            ? response.data
+            : [];
+
+        setNotifications(
+          data
+        );
+
+      } catch (err) {
+
+        console.error(
+          '>>> FAILED TO LOAD NOTIFICATIONS:',
+          err
+        );
+
+        setError(
+          'Unable to load notifications.'
+        );
+
+      } finally {
+
+        setLoading(false);
+
+      }
+    };
+
+
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
+
+  useEffect(() => {
+
+    loadNotifications();
+
+  }, []);
+
+
+  /* =======================================================
+     UNREAD COUNT
+  ======================================================= */
+
+  const unreadCount =
+    useMemo(
+      () =>
+        notifications.filter(
+          notification =>
+            !notification.is_read
+        ).length,
+      [notifications]
+    );
+
+
+  /* =======================================================
+     TYPE COUNT
+  ======================================================= */
+
+  const getCountByType =
+    (
+      type: NotificationType
+    ) => {
+
+      return notifications.filter(
+        notification =>
+          getNotificationType(
+            notification
+          ) === type
+      ).length;
+    };
+
+
+  /* =======================================================
+     LOCAL DISPLAY FILTER
+  ======================================================= */
+
+  const filtered =
+    useMemo(() => {
+
+      return notifications.filter(
+        notification => {
+
+          if (
+            filter === 'all'
+          ) {
+            return true;
+          }
+
+
+          if (
+            filter === 'unread'
+          ) {
+            return !notification.is_read;
+          }
+
+
+          return (
+            getNotificationType(
               notification
+            ) === filter
+          );
+
+        }
+      );
+
+    }, [
+      notifications,
+      filter,
+    ]);
+
+
+  /* =======================================================
+     MARK ONE AS READ
+  ======================================================= */
+
+  const markAsRead =
+    async (
+      id: number
+    ) => {
+
+      try {
+
+        setActionError(null);
+
+        await notificationService.markAsRead(
+          id
+        );
+
+        setNotifications(
+          previous =>
+            previous.map(
+              notification =>
+                notification.id === id
+                  ? {
+                      ...notification,
+                      is_read: true,
+                    }
+                  : notification
             )
         );
 
-      console.log(
-        '>>> NORMALIZED NOTIFICATIONS:',
-        normalizedData
-      );
+      } catch (err) {
 
-      console.log(
-        '>>> NORMALIZED NOTIFICATIONS LENGTH:',
-        normalizedData.length
-      );
-
-      setNotifications(
-        normalizedData
-      );
-
-      console.log(
-        '================================================='
-      );
-    } catch (err) {
-      console.error(
-        '>>> FAILED TO LOAD NOTIFICATIONS:',
-        err
-      );
-
-      setError(
-        'Unable to load notifications.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  /*
-   * =========================================================
-   * UNREAD COUNT
-   * =========================================================
-   */
-
-  const unreadCount = useMemo(
-    () =>
-      notifications.filter(
-        (notification) =>
-          !notification.is_read
-      ).length,
-    [notifications]
-  );
-
-  /*
-   * =========================================================
-   * TYPE COUNTS
-   * =========================================================
-   */
-
-  const getCountByType = (
-    type: NotificationType
-  ) => {
-    return notifications.filter(
-      (notification) =>
-        getNotificationType(
-          notification
-        ) === type
-    ).length;
-  };
-
-  /*
-   * =========================================================
-   * FILTERED NOTIFICATIONS
-   * =========================================================
-   */
-
-  const filtered = useMemo(() => {
-    return notifications.filter(
-      (notification) => {
-        const notificationType =
-          getNotificationType(
-            notification
-          );
-
-        if (filter === 'all') {
-          return true;
-        }
-
-        if (filter === 'unread') {
-          return !notification.is_read;
-        }
-
-        return (
-          notificationType === filter
+        console.error(
+          '>>> MARK READ FAILED:',
+          err
         );
-      }
-    );
-  }, [notifications, filter]);
 
-  /*
-   * =========================================================
-   * DEBUG INFORMATION
-   * =========================================================
-   */
-
-  useEffect(() => {
-    console.log(
-      '>>> NOTIFICATIONS STATE:',
-      notifications
-    );
-
-    console.log(
-      '>>> NOTIFICATIONS STATE LENGTH:',
-      notifications.length
-    );
-
-    console.log(
-      '>>> CURRENT FILTER:',
-      filter
-    );
-
-    console.log(
-      '>>> FILTERED NOTIFICATIONS:',
-      filtered
-    );
-
-    console.log(
-      '>>> FILTERED LENGTH:',
-      filtered.length
-    );
-
-    console.log(
-      '>>> UNREAD COUNT:',
-      unreadCount
-    );
-
-    console.log(
-      '>>> NOTIFICATION TYPE COUNTS:',
-      {
-        all: notifications.length,
-        unread: unreadCount,
-        schedule:
-          getCountByType('schedule'),
-        published:
-          getCountByType('published'),
-        alert:
-          getCountByType('alert'),
-        campaign:
-          getCountByType('campaign'),
-        info:
-          getCountByType('info'),
-      }
-    );
-
-    filtered.forEach(
-      (notification) => {
-        console.log(
-          '>>> NOTIFICATION DEBUG:',
-          {
-            id: notification.id,
-            title: notification.title,
-            description:
-              notification.description,
-            backendType:
-              notification.type,
-            frontendType:
-              getNotificationType(
-                notification
-              ),
-            isRead:
-              notification.is_read,
-            relatedPostId:
-              notification.related_post_id,
-            relatedCampaignId:
-              notification.related_campaign_id,
-          }
+        setActionError(
+          'Unable to mark notification as read.'
         );
+
       }
-    );
-  }, [
-    notifications,
-    filtered,
-    filter,
-    unreadCount,
-  ]);
+    };
 
-  /*
-   * =========================================================
-   * MARK ONE AS READ
-   * =========================================================
-   */
 
-  const markAsRead = async (
-    id: number
-  ) => {
-    try {
-      setActionError(null);
+  /* =======================================================
+     MARK ALL AS READ
+  ======================================================= */
 
-      console.log(
-        `>>> MARKING NOTIFICATION ${id} AS READ`
-      );
+  const markAllRead =
+    async () => {
 
-      await notificationService.markAsRead(
-        id
-      );
+      if (
+        markingAllRead ||
+        unreadCount === 0
+      ) {
+        return;
+      }
 
-      setNotifications(
-        (previous) =>
-          previous.map(
-            (notification) =>
-              notification.id === id
-                ? {
-                    ...notification,
-                    is_read: true,
-                  }
-                : notification
-          )
-      );
 
-      console.log(
-        `>>> NOTIFICATION ${id} MARKED AS READ`
-      );
-    } catch (err) {
-      console.error(
-        '>>> FAILED TO MARK NOTIFICATION AS READ:',
-        err
-      );
+      try {
 
-      setActionError(
-        'Unable to mark notification as read.'
-      );
-    }
-  };
+        setMarkingAllRead(
+          true
+        );
 
-  /*
-   * =========================================================
-   * MARK ALL AS READ
-   * =========================================================
-   */
+        setActionError(null);
 
-  const markAllRead = async () => {
-    if (
-      markingAllRead ||
-      unreadCount === 0
-    ) {
-      return;
-    }
-
-    try {
-      setMarkingAllRead(true);
-      setActionError(null);
-
-      console.log(
-        '================================================='
-      );
-
-      console.log(
-        '>>> MARK ALL NOTIFICATIONS AS READ'
-      );
-
-      console.log(
-        '>>> UNREAD COUNT:',
-        unreadCount
-      );
-
-      console.log(
-        '>>> CALLING PATCH /notifications/read-all'
-      );
-
-      const response =
         await notificationService.markAllAsRead();
 
-      console.log(
-        '>>> MARK ALL READ RESPONSE:',
-        response?.data
-      );
+        setNotifications(
+          previous =>
+            previous.map(
+              notification => ({
+                ...notification,
+                is_read: true,
+              })
+            )
+        );
 
-      setNotifications(
-        (previous) =>
-          previous.map(
-            (notification) => ({
-              ...notification,
-              is_read: true,
-            })
-          )
-      );
+      } catch (err) {
 
-      console.log(
-        '>>> ALL NOTIFICATIONS MARKED AS READ'
-      );
+        console.error(
+          '>>> MARK ALL READ FAILED:',
+          err
+        );
 
-      console.log(
-        '================================================='
-      );
-    } catch (err) {
-      console.error(
-        '>>> MARK ALL READ FAILED:',
-        err
-      );
+        setActionError(
+          'Unable to mark all notifications as read.'
+        );
 
-      setActionError(
-        'Unable to mark all notifications as read.'
-      );
-    } finally {
-      setMarkingAllRead(false);
-    }
-  };
+      } finally {
 
-  /*
-   * =========================================================
-   * DELETE ONE NOTIFICATION
-   * =========================================================
-   */
+        setMarkingAllRead(
+          false
+        );
 
-  const deleteNotification = async (
-    id: number
-  ) => {
-    try {
-      setActionError(null);
+      }
+    };
 
-      console.log(
-        `>>> DELETING NOTIFICATION ${id}`
-      );
 
-      await notificationService.delete(
-        id
-      );
+  /* =======================================================
+     DELETE ONE NOTIFICATION
+  ======================================================= */
 
-      setNotifications(
-        (previous) =>
-          previous.filter(
-            (notification) =>
-              notification.id !== id
-          )
-      );
+  const deleteNotification =
+    async (
+      id: number
+    ) => {
 
-      console.log(
-        `>>> NOTIFICATION ${id} DELETED`
-      );
-    } catch (err) {
-      console.error(
-        '>>> FAILED TO DELETE NOTIFICATION:',
-        err
-      );
+      try {
 
-      setActionError(
-        'Unable to delete notification.'
-      );
-    }
-  };
+        setActionError(null);
 
-  /*
-   * =========================================================
-   * CLEAR ALL
-   * =========================================================
-   */
+        await notificationService.delete(
+          id
+        );
 
-  const clearAll = async () => {
-    if (
-      clearingAll ||
-      notifications.length === 0
-    ) {
-      return;
-    }
+        setNotifications(
+          previous =>
+            previous.filter(
+              notification =>
+                notification.id !== id
+            )
+        );
 
-    try {
-      setClearingAll(true);
-      setActionError(null);
+      } catch (err) {
 
-      console.log(
-        '>>> CLEARING ALL NOTIFICATIONS'
-      );
+        console.error(
+          '>>> DELETE FAILED:',
+          err
+        );
 
-      await notificationService.clearAll();
+        setActionError(
+          'Unable to delete notification.'
+        );
 
-      setNotifications([]);
+      }
+    };
 
-      console.log(
-        '>>> ALL NOTIFICATIONS CLEARED'
-      );
-    } catch (err) {
-      console.error(
-        '>>> FAILED TO CLEAR NOTIFICATIONS:',
-        err
-      );
 
-      setActionError(
-        'Unable to clear notifications.'
-      );
-    } finally {
-      setClearingAll(false);
-    }
-  };
+  /* =======================================================
+     CLEAR ALL NOTIFICATIONS
+  ======================================================= */
 
-  /*
-   * =========================================================
-   * FILTERS
-   * =========================================================
-   */
+  const clearAll =
+    async () => {
+
+      if (
+        clearingAll ||
+        notifications.length === 0
+      ) {
+        return;
+      }
+
+
+      try {
+
+        setClearingAll(
+          true
+        );
+
+        setActionError(null);
+
+        await notificationService.clearAll();
+
+        setNotifications([]);
+
+      } catch (err) {
+
+        console.error(
+          '>>> CLEAR ALL FAILED:',
+          err
+        );
+
+        setActionError(
+          'Unable to clear notifications.'
+        );
+
+      } finally {
+
+        setClearingAll(
+          false
+        );
+
+      }
+    };
+
+
+  /* =======================================================
+     FILTER TABS
+  ======================================================= */
 
   const filters: {
     key: FilterType;
     label: string;
     count?: number;
   }[] = [
+
     {
       key: 'all',
       label: 'All',
-      count: notifications.length,
+      count:
+        notifications.length,
     },
 
     {
       key: 'unread',
       label: 'Unread',
-      count: unreadCount,
+      count:
+        unreadCount,
     },
 
     {
       key: 'schedule',
       label: 'Schedule',
-      count: getCountByType(
-        'schedule'
-      ),
+      count:
+        getCountByType(
+          'schedule'
+        ),
     },
 
     {
       key: 'published',
       label: 'Published',
-      count: getCountByType(
-        'published'
-      ),
+      count:
+        getCountByType(
+          'published'
+        ),
     },
 
     {
       key: 'alert',
       label: 'Alerts',
-      count: getCountByType(
-        'alert'
-      ),
+      count:
+        getCountByType(
+          'alert'
+        ),
     },
 
     {
       key: 'campaign',
       label: 'Campaigns',
-      count: getCountByType(
-        'campaign'
-      ),
+      count:
+        getCountByType(
+          'campaign'
+        ),
     },
 
     {
       key: 'info',
       label: 'Info',
-      count: getCountByType(
-        'info'
-      ),
+      count:
+        getCountByType(
+          'info'
+        ),
     },
+
   ];
 
-  /*
-   * =========================================================
-   * RENDER
-   * =========================================================
-   */
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
 
-      {/* =====================================================
+    <div className="space-y-6 max-w-5xl mx-auto">
+
+
+      {/* =================================================
           HEADER
-      ===================================================== */}
+      ================================================= */}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Notifications
-          </h1>
+
+          <div className="flex items-center gap-2">
+
+            <Bell className="w-6 h-6 text-indigo-600" />
+
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Notifications
+            </h1>
+
+          </div>
 
           <p className="text-sm text-gray-500 mt-1">
+
             {unreadCount > 0
               ? `You have ${unreadCount} unread notifications`
               : "You're all caught up!"}
+
           </p>
+
         </div>
+
+
+        {/* =================================================
+            GLOBAL ACTIONS
+        ================================================= */}
 
         <div className="flex gap-2">
 
@@ -802,17 +754,22 @@ export function NotificationsPage() {
             icon={
               <CheckCheck className="w-4 h-4" />
             }
-            onClick={markAllRead}
+            onClick={
+              markAllRead
+            }
             disabled={
               loading ||
               markingAllRead ||
               unreadCount === 0
             }
           >
+
             {markingAllRead
               ? 'Marking...'
               : 'Mark all read'}
+
           </Button>
+
 
           <Button
             variant="danger"
@@ -820,27 +777,35 @@ export function NotificationsPage() {
             icon={
               <Trash2 className="w-4 h-4" />
             }
-            onClick={clearAll}
+            onClick={
+              clearAll
+            }
             disabled={
               loading ||
               clearingAll ||
               notifications.length === 0
             }
           >
+
             {clearingAll
               ? 'Clearing...'
               : 'Clear all'}
+
           </Button>
 
         </div>
+
       </div>
 
-      {/* =====================================================
+
+      {/* =================================================
           ACTION ERROR
-      ===================================================== */}
+      ================================================= */}
 
       {actionError && (
+
         <Card className="p-4 border-red-200 bg-red-50">
+
           <div className="flex items-center justify-between gap-3">
 
             <p className="text-sm text-red-600">
@@ -852,24 +817,31 @@ export function NotificationsPage() {
                 setActionError(null)
               }
               className="text-red-400 hover:text-red-600"
+              title="Close"
             >
               <X className="w-4 h-4" />
             </button>
 
           </div>
+
         </Card>
+
       )}
 
-      {/* =====================================================
-          FILTERS
-      ===================================================== */}
+
+      {/* =================================================
+          CATEGORY FILTERS
+      ================================================= */}
 
       <div className="flex flex-wrap gap-2">
 
         {filters.map(
-          (filterItem) => (
+          filterItem => (
+
             <button
-              key={filterItem.key}
+              key={
+                filterItem.key
+              }
               onClick={() =>
                 setFilter(
                   filterItem.key
@@ -884,10 +856,17 @@ export function NotificationsPage() {
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               )}
             >
-              {filterItem.label}
+
+              <span>
+                {
+                  filterItem.label
+                }
+              </span>
+
 
               {filterItem.count !==
                 undefined && (
+
                 <span
                   className={cn(
                     'px-1.5 py-0.5 text-[10px] rounded-md',
@@ -898,18 +877,24 @@ export function NotificationsPage() {
                       : 'bg-gray-100'
                   )}
                 >
-                  {filterItem.count}
+                  {
+                    filterItem.count
+                  }
                 </span>
+
               )}
+
             </button>
+
           )
         )}
 
       </div>
 
-      {/* =====================================================
-          LOADING
-      ===================================================== */}
+
+      {/* =================================================
+          CONTENT
+      ================================================= */}
 
       {loading ? (
 
@@ -926,10 +911,6 @@ export function NotificationsPage() {
         </Card>
 
       ) : error ? (
-
-        /* =====================================================
-           ERROR
-        ===================================================== */
 
         <Card className="p-8">
 
@@ -956,51 +937,27 @@ export function NotificationsPage() {
 
       ) : filtered.length === 0 ? (
 
-        /* =====================================================
-           EMPTY
-        ===================================================== */
-
         <Card className="p-0">
 
           <EmptyState
             icon={
-              filter === 'published' ? (
-                <CheckCircle2 className="w-8 h-8" />
-              ) : filter === 'schedule' ? (
-                <Calendar className="w-8 h-8" />
-              ) : filter === 'alert' ? (
-                <AlertCircle className="w-8 h-8" />
-              ) : filter === 'campaign' ? (
-                <Megaphone className="w-8 h-8" />
-              ) : (
-                <Bell className="w-8 h-8" />
-              )
+              <Bell className="w-8 h-8" />
             }
-
-            title="No notifications"
-
+            title={
+              filter === 'unread'
+                ? 'No unread notifications'
+                : 'No notifications'
+            }
             description={
-              filter === 'published'
-                ? 'No published post notifications yet.'
-                : filter === 'schedule'
-                ? 'No scheduled post notifications yet.'
-                : filter === 'alert'
-                ? 'No alerts or errors.'
-                : filter === 'campaign'
-                ? 'No campaign notifications yet.'
-                : filter === 'unread'
+              filter === 'unread'
                 ? 'You have no unread notifications.'
-                : "You'll see updates here when there's new activity."
+                : 'You have no notifications in this category.'
             }
           />
 
         </Card>
 
       ) : (
-
-        /* =====================================================
-           NOTIFICATION LIST
-        ===================================================== */
 
         <div className="space-y-2">
 
@@ -1012,47 +969,43 @@ export function NotificationsPage() {
                 index
               ) => {
 
-                const notificationType =
+                const type =
                   getNotificationType(
                     notification
                   );
 
                 const config =
                   notificationConfig[
-                    notificationType
+                    type
                   ];
 
                 const Icon =
                   config.icon;
 
+
                 return (
+
                   <motion.div
                     key={
                       notification.id
                     }
-
                     layout
-
                     initial={{
                       opacity: 0,
                       y: 10,
                     }}
-
                     animate={{
                       opacity: 1,
                       y: 0,
                     }}
-
                     exit={{
                       opacity: 0,
                       x: -100,
                     }}
-
                     transition={{
                       delay:
-                        index * 0.05,
+                        index * 0.03,
                     }}
-
                     className={cn(
                       'bg-white rounded-2xl border p-4 flex items-start gap-4 transition-all',
 
@@ -1062,9 +1015,10 @@ export function NotificationsPage() {
                     )}
                   >
 
-                    {/* =================================================
+
+                    {/* =====================================
                         ICON
-                    ================================================= */}
+                    ===================================== */}
 
                     <div
                       className={cn(
@@ -1072,12 +1026,15 @@ export function NotificationsPage() {
                         config.color
                       )}
                     >
+
                       <Icon className="w-5 h-5" />
+
                     </div>
 
-                    {/* =================================================
+
+                    {/* =====================================
                         CONTENT
-                    ================================================= */}
+                    ===================================== */}
 
                     <div className="flex-1 min-w-0">
 
@@ -1085,33 +1042,55 @@ export function NotificationsPage() {
 
                         <div className="flex-1 min-w-0">
 
+
+                          {/* TITLE */}
+
                           <div className="flex items-center gap-2">
 
                             <p className="text-sm font-semibold text-gray-900">
+
                               {
                                 notification.title
                               }
+
                             </p>
 
+
                             {!notification.is_read && (
-                              <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" />
+
+                              <span
+                                className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0"
+                                title="Unread"
+                              />
+
                             )}
 
                           </div>
 
+
+                          {/* DESCRIPTION */}
+
                           <p className="text-sm text-gray-600 mt-1">
+
                             {
                               notification.description
                             }
+
                           </p>
 
-                          <div className="flex items-center gap-2 mt-2">
+
+                          {/* META */}
+
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
 
                             <span className="text-xs text-gray-400">
+
                               {formatNotificationTime(
                                 notification.created_at
                               )}
+
                             </span>
+
 
                             <Badge
                               variant="default"
@@ -1122,31 +1101,51 @@ export function NotificationsPage() {
                               }
                             </Badge>
 
+
+                            {notification.related_post_id !==
+                              null && (
+
+                              <Badge
+                                variant="default"
+                                className="!py-0.5"
+                              >
+                                Post #
+                                {
+                                  notification.related_post_id
+                                }
+                              </Badge>
+
+                            )}
+
                           </div>
 
                         </div>
 
-                        {/* =================================================
+
+                        {/* =================================
                             ACTIONS
-                        ================================================= */}
+                        ================================= */}
 
                         <div className="flex items-center gap-1 flex-shrink-0">
 
                           {!notification.is_read && (
+
                             <button
                               onClick={() =>
                                 markAsRead(
                                   notification.id
                                 )
                               }
-
                               className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-
                               title="Mark as read"
                             >
+
                               <Check className="w-4 h-4" />
+
                             </button>
+
                           )}
+
 
                           <button
                             onClick={() =>
@@ -1154,12 +1153,12 @@ export function NotificationsPage() {
                                 notification.id
                               )
                             }
-
                             className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-gray-400 hover:text-red-500"
-
-                            title="Delete"
+                            title="Delete notification"
                           >
+
                             <X className="w-4 h-4" />
+
                           </button>
 
                         </div>
@@ -1169,13 +1168,16 @@ export function NotificationsPage() {
                     </div>
 
                   </motion.div>
+
                 );
+
               }
             )}
 
           </AnimatePresence>
 
         </div>
+
       )}
 
     </div>

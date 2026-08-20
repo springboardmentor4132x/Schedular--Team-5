@@ -1,6 +1,8 @@
+
 import httpx
 from datetime import datetime, timezone as dt_timezone
 from zoneinfo import ZoneInfo
+
 from api.database.session import SessionLocal
 from api.exceptions.post import PostNotFoundException
 from api.models.business_assignment import BusinessAssignment
@@ -90,6 +92,229 @@ def _is_client_assigned_to_marketing_team(
     )
 
     return assignment is not None
+
+
+def _get_marketing_team_ids_for_business_user(
+    db,
+    business_user_id: int,
+):
+    """
+    Return all Marketing Team user IDs assigned
+    to the specified Business User.
+
+    Example:
+
+        Business User
+             ↓
+        BusinessAssignment
+             ↓
+        Marketing Team user(s)
+    """
+
+    assignments = (
+        db.query(BusinessAssignment)
+        .filter(
+            BusinessAssignment.business_user_id
+            == business_user_id
+        )
+        .all()
+    )
+
+    return [
+        assignment.marketing_team_id
+        for assignment in assignments
+        if assignment.marketing_team_id is not None
+    ]
+
+
+def _get_post_notification_recipient_ids(
+    db,
+    post_owner_id: int,
+):
+    """
+    Return all users who should receive notifications
+    for activity on a post.
+
+    Recipients:
+
+    1. Business User who owns the post.
+    2. All Marketing Team users assigned to that
+       Business User.
+    """
+
+    marketing_team_ids = (
+        _get_marketing_team_ids_for_business_user(
+            db,
+            post_owner_id,
+        )
+    )
+
+    notification_recipient_ids = [
+        post_owner_id
+    ]
+
+    for marketing_team_id in marketing_team_ids:
+
+        if (
+            marketing_team_id
+            not in notification_recipient_ids
+        ):
+            notification_recipient_ids.append(
+                marketing_team_id
+            )
+
+    return notification_recipient_ids
+
+
+def _create_post_activity_notifications_for_recipients(
+    db,
+    post: Post,
+    title: str,
+    description: str,
+):
+    """
+    Create the same post activity notification for:
+
+    - Business User who owns the post
+    - Assigned Marketing Team users
+
+    Notification errors are intentionally isolated so that
+    notification problems never break the actual post
+    operation.
+    """
+
+    recipient_ids = (
+        _get_post_notification_recipient_ids(
+            db,
+            post.user_id,
+        )
+    )
+
+    print(
+        "=================================================",
+        flush=True,
+    )
+
+    print(
+        ">>> CREATING POST ACTIVITY NOTIFICATIONS",
+        flush=True,
+    )
+
+    print(
+        f">>> POST ID: {post.id}",
+        flush=True,
+    )
+
+    print(
+        f">>> POST OWNER ID: {post.user_id}",
+        flush=True,
+    )
+
+    print(
+        f">>> NOTIFICATION TITLE: {title}",
+        flush=True,
+    )
+
+    print(
+        f">>> NOTIFICATION RECIPIENT IDS: {recipient_ids}",
+        flush=True,
+    )
+
+    for recipient_id in recipient_ids:
+
+        print(
+            "-------------------------------------------------",
+            flush=True,
+        )
+
+        print(
+            ">>> CREATING POST ACTIVITY NOTIFICATION",
+            flush=True,
+        )
+
+        print(
+            f">>> RECIPIENT USER ID: {recipient_id}",
+            flush=True,
+        )
+
+        try:
+
+            notification = (
+                create_post_activity_notifications(
+                    post_owner_id=recipient_id,
+                    title=title,
+                    description=description,
+                    notification_type=(
+                        NotificationType.SUCCESS.value
+                        if hasattr(
+                            NotificationType.SUCCESS,
+                            "value",
+                        )
+                        else NotificationType.SUCCESS
+                    ),
+                    related_post_id=post.id,
+                )
+            )
+
+            if notification is not None:
+
+                print(
+                    ">>> POST ACTIVITY "
+                    "NOTIFICATION CREATED",
+                    flush=True,
+                )
+
+                print(
+                    f">>> NOTIFICATION ID: "
+                    f"{notification.id}",
+                    flush=True,
+                )
+
+            else:
+
+                print(
+                    ">>> NOTIFICATION WAS BLOCKED "
+                    "BY USER PREFERENCE",
+                    flush=True,
+                )
+
+        except Exception as notification_error:
+
+            print(
+                ">>> POST ACTIVITY "
+                "NOTIFICATION CREATION FAILED",
+                flush=True,
+            )
+
+            print(
+                f">>> RECIPIENT ID: "
+                f"{recipient_id}",
+                flush=True,
+            )
+
+            print(
+                f">>> NOTIFICATION ERROR: "
+                f"{notification_error}",
+                flush=True,
+            )
+
+            # Notification failure must never break
+            # the actual post operation.
+
+    print(
+        "-------------------------------------------------",
+        flush=True,
+    )
+
+    print(
+        ">>> POST ACTIVITY NOTIFICATION PROCESS COMPLETED",
+        flush=True,
+    )
+
+    print(
+        "=================================================",
+        flush=True,
+    )
 
 
 def _validate_social_accounts(
@@ -384,80 +609,19 @@ def create_post(
         )
 
         # =========================================================
-        # MODULE 7 - POST SCHEDULED NOTIFICATION
+        # MODULE 7 - POST SCHEDULED NOTIFICATIONS
         # =========================================================
 
         if post_status == Status.SCHEDULED:
 
-            print(
-                "=================================================",
-                flush=True,
-            )
-
-            print(
-                ">>> CREATING POST SCHEDULED NOTIFICATION",
-                flush=True,
-            )
-
-            print(
-                f">>> POST OWNER ID: {post_owner_id}",
-                flush=True,
-            )
-
-            print(
-                f">>> POST ID: {new_post.id}",
-                flush=True,
-            )
-
-            try:
-                notifications = (
-                    create_post_activity_notifications(
-                        post_owner_id=post_owner_id,
-                        title="Post Scheduled",
-                        description=(
-                            f"Post {new_post.id} "
-                            "has been successfully scheduled."
-                        ),
-                        notification_type=(
-                            NotificationType.SUCCESS
-                        ),
-                        related_post_id=new_post.id,
-                        related_campaign_id=(
-                            new_post.campaign_id
-                        ),
-                    )
-                )
-
-                print(
-                    ">>> POST SCHEDULED NOTIFICATION CREATED",
-                    flush=True,
-                )
-
-                print(
-                    f">>> NOTIFICATION COUNT: "
-                    f"{len(notifications)}",
-                    flush=True,
-                )
-
-            except Exception as notification_error:
-
-                print(
-                    ">>> POST SCHEDULED NOTIFICATION CREATION FAILED",
-                    flush=True,
-                )
-
-                print(
-                    f">>> NOTIFICATION ERROR: "
-                    f"{notification_error}",
-                    flush=True,
-                )
-
-                # Notification failure must not
-                # break successful post creation.
-
-            print(
-                "=================================================",
-                flush=True,
+            _create_post_activity_notifications_for_recipients(
+                db=db,
+                post=new_post,
+                title="Post Scheduled",
+                description=(
+                    f"Post {new_post.id} "
+                    "has been successfully scheduled."
+                ),
             )
 
         # =========================================================
@@ -715,6 +879,16 @@ def _update_post_record(
     post: Post,
     data,
 ):
+    # =========================================================
+    # DETERMINE WHETHER THIS IS A RESCHEDULE
+    # =========================================================
+
+    was_scheduled = (
+        post.status == Status.SCHEDULED
+    )
+
+    scheduled_time_was_updated = False
+
     update_data = data.model_dump(
         exclude_unset=True,
         exclude={
@@ -756,6 +930,8 @@ def _update_post_record(
 
             post.status = Status.SCHEDULED
 
+            scheduled_time_was_updated = True
+
     if "timezone" in update_data:
 
         update_data[
@@ -792,6 +968,29 @@ def _update_post_record(
     db.refresh(
         post
     )
+
+    # =========================================================
+    # MODULE 7 - POST RESCHEDULED NOTIFICATION
+    #
+    # Only create this notification when an already scheduled
+    # post has its scheduled_time changed.
+    # =========================================================
+
+    if (
+        was_scheduled
+        and scheduled_time_was_updated
+        and post.status == Status.SCHEDULED
+    ):
+
+        _create_post_activity_notifications_for_recipients(
+            db=db,
+            post=post,
+            title="Post Rescheduled",
+            description=(
+                f"Post {post.id} "
+                "has been successfully rescheduled."
+            ),
+        )
 
     return _serialize_post(
         post
@@ -877,6 +1076,10 @@ def _cancel_post_record(
     db,
     post: Post,
 ):
+    # =========================================================
+    # VALIDATE CURRENT STATUS
+    # =========================================================
+
     if post.status != Status.SCHEDULED:
 
         raise ValueError(
@@ -884,12 +1087,37 @@ def _cancel_post_record(
             f"Current status: {post.status.value}"
         )
 
+    # =========================================================
+    # CHANGE POST STATUS
+    # =========================================================
+
     post.status = Status.CANCELLED
 
     db.commit()
 
     db.refresh(
         post
+    )
+
+    # =========================================================
+    # MODULE 7 - POST CANCELLED NOTIFICATION
+    #
+    # Recipients:
+    #
+    # 1. Business User who owns the post
+    # 2. Assigned Marketing Team user(s)
+    #
+    # Notification failure must NOT undo cancellation.
+    # =========================================================
+
+    _create_post_activity_notifications_for_recipients(
+        db=db,
+        post=post,
+        title="Post Cancelled",
+        description=(
+            f"Post {post.id} "
+            "has been successfully cancelled."
+        ),
     )
 
 
@@ -920,7 +1148,7 @@ def _delete_facebook_post(
 
     if not platform_post_id:
         raise ValueError(
-            "Facebook platform post ID is missing."
+            "Facebook post ID is missing."
         )
 
     endpoint = (

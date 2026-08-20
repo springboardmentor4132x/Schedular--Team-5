@@ -1,9 +1,13 @@
-
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
 from api.roles.notification import NotificationType
+
+
+# =========================================================
+# NOTIFICATION
+# =========================================================
 
 
 class NotificationResponse(BaseModel):
@@ -26,6 +30,42 @@ class NotificationResponse(BaseModel):
 class NotificationUnreadCountResponse(BaseModel):
 
     unread_count: int
+
+
+# =========================================================
+# NOTIFICATION HISTORY
+# =========================================================
+
+
+class NotificationHistoryResponse(BaseModel):
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    user_id: int
+    title: str
+    description: str
+    type: NotificationType
+    category: str
+    delivery_channel: str
+    is_read: bool
+    related_post_id: int | None
+    related_campaign_id: int | None
+    created_at: datetime
+
+
+class NotificationHistoryDetailResponse(
+    NotificationHistoryResponse
+):
+    pass
+
+
+class NotificationHistoryDeleteResponse(BaseModel):
+
+    message: str
+    notification_id: int
 
 
 # =========================================================
@@ -96,5 +136,3 @@ class EmailPreferencesUpdate(BaseModel):
     email_notifications_enabled: bool | None = None
     email_frequency: str | None = None
     promotional_emails_enabled: bool | None = None
-
-    

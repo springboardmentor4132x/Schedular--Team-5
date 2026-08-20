@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends
 
 from api.auth.auth import get_current_user
+from api.database.session import SessionLocal
+from api.models.business_assignment import BusinessAssignment
+from api.models.campaign import Campaign
+from api.models.user import User
+from api.roles.user import Role
 from api.schemas.campaign import (
     CampaignCreate,
     CampaignUpdate,
@@ -17,6 +22,10 @@ router = APIRouter(
 )
 
 
+# =========================================================
+# GET LOGGED-IN USER ID
+# =========================================================
+
 def _get_user_id(current_user: dict) -> int:
     users = get_users()
 
@@ -27,6 +36,23 @@ def _get_user_id(current_user: dict) -> int:
     raise Exception("User not found")
 
 
+# =========================================================
+# LIST CAMPAIGNS
+# =========================================================
+#
+# Marketing Team:
+#   - Own campaigns
+#   - Campaigns belonging to assigned Business Users
+#
+# Business User:
+#   - Own campaigns
+#   - Campaigns belonging to assigned Marketing Team
+#
+# Other roles:
+#   - Own campaigns only
+#
+# =========================================================
+
 @router.get(
     "/",
     response_model=list[CampaignResponse],
@@ -36,10 +62,117 @@ def list_campaigns(
 ):
     user_id = _get_user_id(current_user)
 
-    return service.list_campaigns(
-        user_id
-    )
+    db = SessionLocal()
 
+    try:
+        user = (
+            db.query(User)
+            .filter(
+                User.id == user_id
+            )
+            .first()
+        )
+
+        if not user:
+            raise ValueError("User not found")
+
+        # -------------------------------------------------
+        # MARKETING TEAM
+        # -------------------------------------------------
+        # Marketing Team sees:
+        # 1. Its own campaigns
+        # 2. Campaigns belonging to its assigned Business Users
+        # -------------------------------------------------
+
+        if user.role == Role.MARKETING_TEAM:
+
+            assigned_client_ids = [
+                assignment.business_user_id
+                for assignment in (
+                    db.query(BusinessAssignment)
+                    .filter(
+                        BusinessAssignment.marketing_team_id
+                        == user_id
+                    )
+                    .all()
+                )
+            ]
+
+            user_ids = [
+                user_id,
+                *assigned_client_ids,
+            ]
+
+            return (
+                db.query(Campaign)
+                .filter(
+                    Campaign.user_id.in_(user_ids)
+                )
+                .order_by(
+                    Campaign.created_at.desc()
+                )
+                .all()
+            )
+
+        # -------------------------------------------------
+        # BUSINESS USER
+        # -------------------------------------------------
+        # Business User sees:
+        # 1. Its own campaigns
+        # 2. Campaigns created by its assigned Marketing Team
+        # -------------------------------------------------
+
+        if user.role == Role.BUSINESS_USER:
+
+            assignment = (
+                db.query(BusinessAssignment)
+                .filter(
+                    BusinessAssignment.business_user_id
+                    == user_id
+                )
+                .first()
+            )
+
+            user_ids = [user_id]
+
+            if assignment:
+                user_ids.append(
+                    assignment.marketing_team_id
+                )
+
+            return (
+                db.query(Campaign)
+                .filter(
+                    Campaign.user_id.in_(user_ids)
+                )
+                .order_by(
+                    Campaign.created_at.desc()
+                )
+                .all()
+            )
+
+        # -------------------------------------------------
+        # OTHER ROLES
+        # -------------------------------------------------
+
+        return (
+            db.query(Campaign)
+            .filter(
+                Campaign.user_id == user_id
+            )
+            .order_by(
+                Campaign.created_at.desc()
+            )
+            .all()
+        )
+
+    finally:
+        db.close()
+
+
+# =========================================================
+# LIST CLIENT CAMPAIGNS
+# =========================================================
 
 @router.get(
     "/client/{client_id}",
@@ -56,6 +189,10 @@ def list_client_campaigns(
         client_id,
     )
 
+
+# =========================================================
+# CREATE CLIENT CAMPAIGN
+# =========================================================
 
 @router.post(
     "/client/{client_id}",
@@ -75,6 +212,10 @@ def create_client_campaign(
     )
 
 
+# =========================================================
+# CREATE CAMPAIGN
+# =========================================================
+
 @router.post(
     "/",
     response_model=CampaignResponse,
@@ -91,6 +232,10 @@ def create_campaign(
     )
 
 
+# =========================================================
+# GET CAMPAIGN
+# =========================================================
+
 @router.get(
     "/{campaign_id}",
     response_model=CampaignResponse,
@@ -106,6 +251,10 @@ def get_campaign(
         campaign_id,
     )
 
+
+# =========================================================
+# UPDATE CAMPAIGN
+# =========================================================
 
 @router.put(
     "/{campaign_id}",
@@ -125,6 +274,10 @@ def update_campaign(
     )
 
 
+# =========================================================
+# DELETE CAMPAIGN
+# =========================================================
+
 @router.delete(
     "/{campaign_id}",
 )
@@ -139,6 +292,10 @@ def delete_campaign(
         campaign_id,
     )
 
+
+# =========================================================
+# ASSIGN POST TO CAMPAIGN
+# =========================================================
 
 @router.post(
     "/{campaign_id}/posts/{post_id}",
@@ -158,6 +315,10 @@ def assign_post_to_campaign(
     )
 
 
+# =========================================================
+# REMOVE POST FROM CAMPAIGN
+# =========================================================
+
 @router.delete(
     "/{campaign_id}/posts/{post_id}",
     response_model=PostResponse,
@@ -175,6 +336,10 @@ def remove_post_from_campaign(
         post_id,
     )
 
+
+# =========================================================
+# GET CAMPAIGN POSTS
+# =========================================================
 
 @router.get(
     "/{campaign_id}/posts",

@@ -1,3 +1,4 @@
+
 from api.core.logger import get_logger
 from api.database.session import engine
 from api.database.base import Base
@@ -9,13 +10,18 @@ from api.models.post import Post
 from api.models.post_social_account import PostSocialAccount
 from api.models.campaign import Campaign
 from api.models.notification import Notification
+from api.models.notification_preference import NotificationPreference
+from api.models.team_activity import TeamActivity
+
 
 logger = get_logger(__name__)
 
 
 def init_db() -> None:
     try:
-        Base.metadata.create_all(bind=engine)
+        Base.metadata.create_all(
+            bind=engine
+        )
 
         logger.info(
             "Database tables created successfully."

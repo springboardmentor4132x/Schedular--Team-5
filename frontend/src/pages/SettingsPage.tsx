@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -21,6 +20,12 @@ import {
   Key,
   Eye,
   EyeOff,
+  Megaphone,
+  UserRound,
+  UserRoundCheck,
+  Settings as SettingsIcon,
+  Smartphone as SmartphoneIcon,
+  ChevronDown,
 } from 'lucide-react';
 
 import {
@@ -31,7 +36,11 @@ import {
   Input,
 } from '../components/ui';
 
-import { authService, uploadService } from '../services/api';
+import {
+  authService,
+  uploadService,
+} from '../services/api';
+
 import { cn } from '../utils/helpers';
 
 type Tab =
@@ -53,16 +62,53 @@ type UserData = {
   bio?: string | null;
 };
 
+type NotificationPreferences = {
+  publishing_notifications_enabled: boolean;
+  campaign_notifications_enabled: boolean;
+  account_activity_notifications_enabled: boolean;
+  team_collaboration_notifications_enabled: boolean;
+  system_notifications_enabled: boolean;
+  in_app_notifications_enabled: boolean;
+  email_notifications_enabled: boolean;
+  push_notifications_enabled: boolean;
+};
+
+type EmailPreferences = {
+  email_notifications_enabled: boolean;
+  email_frequency: string;
+  promotional_emails_enabled: boolean;
+};
+
 const tabs: {
   key: Tab;
   label: string;
   icon: any;
 }[] = [
-  { key: 'profile', label: 'Profile', icon: User },
-  { key: 'notifications', label: 'Notifications', icon: Bell },
-  { key: 'security', label: 'Security', icon: Shield },
-  { key: 'appearance', label: 'Appearance', icon: Palette },
-  { key: 'team', label: 'Team', icon: Users },
+  {
+    key: 'profile',
+    label: 'Profile',
+    icon: User,
+  },
+  {
+    key: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+  },
+  {
+    key: 'security',
+    label: 'Security',
+    icon: Shield,
+  },
+  {
+    key: 'appearance',
+    label: 'Appearance',
+    icon: Palette,
+  },
+  {
+    key: 'team',
+    label: 'Team',
+    icon: Users,
+  },
 ];
 
 export function SettingsPage() {
@@ -90,14 +136,45 @@ export function SettingsPage() {
   const [theme, setTheme] =
     useState<'light' | 'dark' | 'system'>('light');
 
-  const [notifPrefs, setNotifPrefs] =
-    useState({
-      scheduledPosts: true,
-      campaignAlerts: true,
-      weeklyReport: true,
-      productUpdates: false,
-      teamActivity: true,
+  /*
+   * =========================================================
+   * NOTIFICATION PREFERENCES
+   * =========================================================
+   */
+
+  const [notificationPrefs, setNotificationPrefs] =
+    useState<NotificationPreferences>({
+      publishing_notifications_enabled: true,
+      campaign_notifications_enabled: true,
+      account_activity_notifications_enabled: true,
+      team_collaboration_notifications_enabled: true,
+      system_notifications_enabled: true,
+      in_app_notifications_enabled: true,
+      email_notifications_enabled: true,
+      push_notifications_enabled: true,
     });
+
+  const [emailPrefs, setEmailPrefs] =
+    useState<EmailPreferences>({
+      email_notifications_enabled: true,
+      email_frequency: 'weekly',
+      promotional_emails_enabled: true,
+    });
+
+  const [loadingNotifications, setLoadingNotifications] =
+    useState(false);
+
+  const [savingNotifications, setSavingNotifications] =
+    useState(false);
+
+  const [savingEmailPreferences, setSavingEmailPreferences] =
+    useState(false);
+
+  /*
+   * =========================================================
+   * SECURITY
+   * =========================================================
+   */
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -114,6 +191,12 @@ export function SettingsPage() {
   const [changingPassword, setChangingPassword] =
     useState(false);
 
+  /*
+   * =========================================================
+   * PROFILE PHOTO
+   * =========================================================
+   */
+
   const [selectedPhoto, setSelectedPhoto] =
     useState<string | null>(null);
 
@@ -121,9 +204,9 @@ export function SettingsPage() {
     useRef<HTMLInputElement | null>(null);
 
   /*
-   * ---------------------------------------------------------
-   * LOAD REAL USER PROFILE
-   * ---------------------------------------------------------
+   * =========================================================
+   * LOAD USER PROFILE
+   * =========================================================
    */
 
   useEffect(() => {
@@ -136,14 +219,18 @@ export function SettingsPage() {
           await authService.getMe();
 
         setUser(response.data);
-      } catch (err) {
+      } catch (err: any) {
         console.error(
           'Unable to load settings profile:',
           err
         );
 
+        const backendMessage =
+          err?.response?.data?.detail;
+
         setError(
-          'Unable to load your profile information.'
+          backendMessage ||
+            'Unable to load your profile information.'
         );
       } finally {
         setLoading(false);
@@ -154,9 +241,128 @@ export function SettingsPage() {
   }, []);
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
+   * LOAD NOTIFICATION PREFERENCES
+   * =========================================================
+   */
+
+  const loadNotificationPreferences =
+    async () => {
+      try {
+        setLoadingNotifications(true);
+        setError('');
+
+        /*
+         * Main notification preferences
+         */
+        const response =
+          await authService.getNotificationPreferences();
+
+        const data =
+          response.data || {};
+
+        setNotificationPrefs({
+          publishing_notifications_enabled:
+            Boolean(
+              data.publishing_notifications_enabled
+            ),
+
+          campaign_notifications_enabled:
+            Boolean(
+              data.campaign_notifications_enabled
+            ),
+
+          account_activity_notifications_enabled:
+            Boolean(
+              data.account_activity_notifications_enabled
+            ),
+
+          team_collaboration_notifications_enabled:
+            Boolean(
+              data.team_collaboration_notifications_enabled
+            ),
+
+          system_notifications_enabled:
+            Boolean(
+              data.system_notifications_enabled
+            ),
+
+          in_app_notifications_enabled:
+            Boolean(
+              data.in_app_notifications_enabled
+            ),
+
+          email_notifications_enabled:
+            Boolean(
+              data.email_notifications_enabled
+            ),
+
+          push_notifications_enabled:
+            Boolean(
+              data.push_notifications_enabled
+            ),
+        });
+
+        /*
+         * Separate email preferences endpoint
+         */
+        const emailResponse =
+          await authService.getEmailPreferences();
+
+        const emailData =
+          emailResponse.data || {};
+
+        setEmailPrefs({
+          email_notifications_enabled:
+            Boolean(
+              emailData.email_notifications_enabled
+            ),
+
+          email_frequency:
+            emailData.email_frequency ||
+            'weekly',
+
+          promotional_emails_enabled:
+            Boolean(
+              emailData.promotional_emails_enabled
+            ),
+        });
+
+      } catch (err: any) {
+        console.error(
+          'Unable to load notification preferences:',
+          err
+        );
+
+        const backendMessage =
+          err?.response?.data?.detail;
+
+        setError(
+          backendMessage ||
+            'Unable to load notification preferences.'
+        );
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+
+  /*
+   * Load preferences only when
+   * Notifications tab is opened.
+   */
+
+  useEffect(() => {
+    if (activeTab !== 'notifications') {
+      return;
+    }
+
+    loadNotificationPreferences();
+  }, [activeTab]);
+
+  /*
+   * =========================================================
    * HELPERS
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const formatRole = (role: string) => {
@@ -173,9 +379,9 @@ export function SettingsPage() {
     'User';
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * PROFILE SAVE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const handleSaveProfile = async () => {
@@ -193,30 +399,32 @@ export function SettingsPage() {
         await authService.updateMe({
           full_name:
             user.full_name || '',
+
           email:
             user.email,
+
           phone:
             user.phone || '',
+
           company:
             user.company || '',
+
           website:
             user.website || '',
+
           bio:
             user.bio || '',
         });
 
-      /*
-       * If backend returns the updated user,
-       * use it. Otherwise keep our current state.
-       */
       if (response.data) {
         setUser((previous) => ({
-          ...previous,
-          ...(response.data || {}),
+          ...previous!,
+          ...response.data,
         }));
       }
 
       setSaved(true);
+
       setSuccessMessage(
         'Profile changes saved successfully.'
       );
@@ -245,14 +453,9 @@ export function SettingsPage() {
   };
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * PHOTO SELECTION
-   * ---------------------------------------------------------
-   *
-   * This selects a local image and displays it immediately.
-   *
-   * The actual permanent avatar storage requires an avatar
-   * field/endpoint in the backend. We do NOT invent one here.
+   * =========================================================
    */
 
   const handlePhotoClick = () => {
@@ -282,14 +485,16 @@ export function SettingsPage() {
     setSelectedPhoto(previewUrl);
 
     /*
-     * Upload the image through the existing upload service.
-     *
-     * We don't assign the returned URL to the user profile
-     * because the current User API does not expose an avatar
-     * field in the code provided earlier.
+     * The upload service expects a platform value.
+     * "profile" is used here because this upload
+     * belongs to the profile photo.
      */
+
     uploadService
-      .uploadMedia(file)
+      .uploadMedia(
+        file,
+        'profile'
+      )
       .then((response) => {
         console.log(
           'Profile image uploaded:',
@@ -317,9 +522,9 @@ export function SettingsPage() {
   };
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * PASSWORD CHANGE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   const handleChangePassword =
@@ -356,6 +561,7 @@ export function SettingsPage() {
         await authService.updatePassword({
           current_password:
             currentPassword,
+
           new_password:
             newPassword,
         });
@@ -391,29 +597,161 @@ export function SettingsPage() {
     };
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
+   * SAVE MAIN NOTIFICATION PREFERENCES
+   * =========================================================
+   */
+
+  const handleSaveNotificationPreferences =
+    async () => {
+      try {
+        setSavingNotifications(true);
+        setError('');
+        setSuccessMessage('');
+        setSaved(false);
+
+        await authService.updateNotificationPreferences(
+          notificationPrefs
+        );
+
+        setSaved(true);
+
+        setSuccessMessage(
+          'Notification preferences saved successfully.'
+        );
+
+        setTimeout(() => {
+          setSaved(false);
+          setSuccessMessage('');
+        }, 2500);
+
+      } catch (err: any) {
+        console.error(
+          'Unable to save notification preferences:',
+          err
+        );
+
+        const backendMessage =
+          err?.response?.data?.detail;
+
+        setError(
+          backendMessage ||
+            'Unable to save notification preferences.'
+        );
+      } finally {
+        setSavingNotifications(false);
+      }
+    };
+
+  /*
+   * =========================================================
+   * SAVE EMAIL PREFERENCES
+   * =========================================================
+   */
+
+  const handleSaveEmailPreferences =
+    async () => {
+      try {
+        setSavingEmailPreferences(true);
+        setError('');
+        setSuccessMessage('');
+        setSaved(false);
+
+        await authService.updateEmailPreferences(
+          emailPrefs
+        );
+
+        setSaved(true);
+
+        setSuccessMessage(
+          'Email preferences saved successfully.'
+        );
+
+        setTimeout(() => {
+          setSaved(false);
+          setSuccessMessage('');
+        }, 2500);
+
+      } catch (err: any) {
+        console.error(
+          'Unable to save email preferences:',
+          err
+        );
+
+        const backendMessage =
+          err?.response?.data?.detail;
+
+        setError(
+          backendMessage ||
+            'Unable to save email preferences.'
+        );
+      } finally {
+        setSavingEmailPreferences(false);
+      }
+    };
+
+  /*
+   * =========================================================
+   * NOTIFICATION TOGGLE
+   * =========================================================
+   */
+
+  const toggleNotificationPreference =
+    (
+      key: keyof NotificationPreferences
+    ) => {
+      setNotificationPrefs((previous) => ({
+        ...previous,
+        [key]:
+          !previous[key],
+      }));
+    };
+
+  /*
+   * =========================================================
+   * EMAIL TOGGLE
+   * =========================================================
+   */
+
+  const toggleEmailPreference =
+    (
+      key:
+        | 'email_notifications_enabled'
+        | 'promotional_emails_enabled'
+    ) => {
+      setEmailPrefs((previous) => ({
+        ...previous,
+        [key]:
+          !previous[key],
+      }));
+    };
+
+  /*
+   * =========================================================
    * LOADING
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
+
           <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
 
           <p className="mt-4 text-sm text-gray-500">
             Loading settings...
           </p>
+
         </div>
       </div>
     );
   }
 
   /*
-   * ---------------------------------------------------------
+   * =========================================================
    * MAIN SETTINGS PAGE
-   * ---------------------------------------------------------
+   * =========================================================
    */
 
   return (
@@ -431,11 +769,11 @@ export function SettingsPage() {
         </p>
       </div>
 
-
       {/* GLOBAL ERROR */}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
           {error}
 
           <button
@@ -445,9 +783,9 @@ export function SettingsPage() {
           >
             Dismiss
           </button>
+
         </div>
       )}
-
 
       {/* GLOBAL SUCCESS */}
 
@@ -457,12 +795,9 @@ export function SettingsPage() {
         </div>
       )}
 
-
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
 
-        {/* ===================================================
-            SETTINGS SIDEBAR
-        =================================================== */}
+        {/* SETTINGS SIDEBAR */}
 
         <Card className="p-3 h-fit lg:sticky lg:top-20">
 
@@ -482,8 +817,11 @@ export function SettingsPage() {
                     : 'text-gray-600 hover:bg-gray-50'
                 )}
               >
+
                 <tab.icon className="w-4 h-4" />
+
                 {tab.label}
+
               </button>
             ))}
 
@@ -491,10 +829,7 @@ export function SettingsPage() {
 
         </Card>
 
-
-        {/* ===================================================
-            CONTENT
-        =================================================== */}
+        {/* CONTENT */}
 
         <motion.div
           key={activeTab}
@@ -526,7 +861,6 @@ export function SettingsPage() {
                 Update your personal details and photo
               </p>
 
-
               {/* AVATAR */}
 
               <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
@@ -550,11 +884,12 @@ export function SettingsPage() {
                     className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-colors"
                     title="Change profile photo"
                   >
+
                     <Camera className="w-3.5 h-3.5" />
+
                   </button>
 
                 </div>
-
 
                 <div>
 
@@ -593,7 +928,6 @@ export function SettingsPage() {
                 </div>
 
               </div>
-
 
               {/* PROFILE FIELDS */}
 
@@ -707,7 +1041,6 @@ export function SettingsPage() {
 
               </div>
 
-
               {/* BIO */}
 
               <div className="mt-4">
@@ -733,7 +1066,6 @@ export function SettingsPage() {
                 />
 
               </div>
-
 
               {/* SAVE */}
 
@@ -783,87 +1115,437 @@ export function SettingsPage() {
             </Card>
           )}
 
-
           {/* =================================================
               NOTIFICATIONS
           ================================================= */}
 
           {activeTab === 'notifications' && (
-            <Card className="p-6">
+            <div className="space-y-6">
 
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                Notification Preferences
-              </h2>
+              {loadingNotifications ? (
+                <Card className="p-8">
 
-              <p className="text-sm text-gray-500 mb-6">
-                Choose what notifications you want to receive
-              </p>
+                  <div className="flex flex-col items-center justify-center">
 
-              <div className="space-y-4">
+                    <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
 
-                {[
-                  {
-                    key: 'scheduledPosts',
-                    title: 'Scheduled Post Reminders',
-                    desc: 'Get notified before your posts go live',
-                  },
-                  {
-                    key: 'campaignAlerts',
-                    title: 'Campaign Alerts',
-                    desc: 'Important updates about your active campaigns',
-                  },
-                  {
-                    key: 'weeklyReport',
-                    title: 'Weekly Performance Report',
-                    desc: 'Summary of your social media performance',
-                  },
-                  {
-                    key: 'productUpdates',
-                    title: 'Product Updates',
-                    desc: 'News about new features and improvements',
-                  },
-                  {
-                    key: 'teamActivity',
-                    title: 'Team Activity',
-                    desc: 'When team members join or make changes',
-                  },
-                ].map((item) => {
+                    <p className="mt-4 text-sm text-gray-500">
+                      Loading notification preferences...
+                    </p>
 
-                  const enabled =
-                    notifPrefs[
-                      item.key as keyof typeof notifPrefs
-                    ];
+                  </div>
 
-                  return (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:bg-gray-50/50 transition-colors"
-                    >
+                </Card>
+              ) : (
+                <>
+
+                  {/* =================================================
+                      NOTIFICATION TYPES
+                  ================================================= */}
+
+                  <Card className="p-6">
+
+                    <div className="flex items-start gap-3 mb-6">
+
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+
+                        <Bell className="w-5 h-5 text-indigo-600" />
+
+                      </div>
+
+                      <div>
+
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          Notification Preferences
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mt-1">
+                          Choose which types of notifications you want to receive.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="space-y-3">
+
+                      {[
+                        {
+                          key:
+                            'publishing_notifications_enabled' as const,
+                          title:
+                            'Publishing Notifications',
+                          desc:
+                            'Receive notifications about scheduled posts and publishing activity.',
+                          icon:
+                            Megaphone,
+                        },
+
+                        {
+                          key:
+                            'campaign_notifications_enabled' as const,
+                          title:
+                            'Campaign Notifications',
+                          desc:
+                            'Receive important updates about your campaigns.',
+                          icon:
+                            Megaphone,
+                        },
+
+                        {
+                          key:
+                            'account_activity_notifications_enabled' as const,
+                          title:
+                            'Account Activity Notifications',
+                          desc:
+                            'Receive notifications about important activity on your account.',
+                          icon:
+                            UserRound,
+                        },
+
+                        {
+                          key:
+                            'team_collaboration_notifications_enabled' as const,
+                          title:
+                            'Team Collaboration Notifications',
+                          desc:
+                            'Receive notifications when team members collaborate or make changes.',
+                          icon:
+                            UserRoundCheck,
+                        },
+
+                        {
+                          key:
+                            'system_notifications_enabled' as const,
+                          title:
+                            'System Notifications',
+                          desc:
+                            'Receive important system and service notifications.',
+                          icon:
+                            SettingsIcon,
+                        },
+                      ].map((item) => {
+
+                        const enabled =
+                          notificationPrefs[
+                            item.key
+                          ];
+
+                        const Icon =
+                          item.icon;
+
+                        return (
+                          <div
+                            key={item.key}
+                            className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-200 hover:bg-gray-50/50 transition-colors"
+                          >
+
+                            <div className="flex items-center gap-3">
+
+                              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+
+                                <Icon className="w-4 h-4 text-gray-600" />
+
+                              </div>
+
+                              <div>
+
+                                <p className="text-sm font-medium text-gray-900">
+                                  {item.title}
+                                </p>
+
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {item.desc}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                            <button
+                              type="button"
+                              aria-label={`Toggle ${item.title}`}
+                              onClick={() =>
+                                toggleNotificationPreference(
+                                  item.key
+                                )
+                              }
+                              className={cn(
+                                'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
+                                enabled
+                                  ? 'bg-indigo-600'
+                                  : 'bg-gray-300'
+                              )}
+                            >
+
+                              <motion.div
+                                animate={{
+                                  x: enabled
+                                    ? 22
+                                    : 2,
+                                }}
+                                transition={{
+                                  type: 'spring',
+                                  stiffness: 500,
+                                  damping: 30,
+                                }}
+                                className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-md"
+                              />
+
+                            </button>
+
+                          </div>
+                        );
+                      })}
+
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+
+                      <Button
+                        icon={
+                          saved ? (
+                            <Check className="w-4 h-4" />
+                          ) : undefined
+                        }
+                        onClick={
+                          handleSaveNotificationPreferences
+                        }
+                        disabled={
+                          savingNotifications
+                        }
+                      >
+                        {savingNotifications
+                          ? 'Saving...'
+                          : saved
+                          ? 'Saved!'
+                          : 'Save Notification Preferences'}
+                      </Button>
+
+                    </div>
+
+                  </Card>
+
+                  {/* =================================================
+                      NOTIFICATION CHANNELS
+                  ================================================= */}
+
+                  <Card className="p-6">
+
+                    <div className="flex items-start gap-3 mb-6">
+
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+
+                        <SmartphoneIcon className="w-5 h-5 text-blue-600" />
+
+                      </div>
+
+                      <div>
+
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          Notification Channels
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mt-1">
+                          Choose where you want to receive notifications.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="space-y-3">
+
+                      {[
+                        {
+                          key:
+                            'in_app_notifications_enabled' as const,
+                          title:
+                            'In-App Notifications',
+                          desc:
+                            'Show notifications inside SocialPilot.',
+                          icon:
+                            Bell,
+                        },
+
+                        {
+                          key:
+                            'email_notifications_enabled' as const,
+                          title:
+                            'Email Notifications',
+                          desc:
+                            'Receive notifications through email.',
+                          icon:
+                            Mail,
+                        },
+
+                        {
+                          key:
+                            'push_notifications_enabled' as const,
+                          title:
+                            'Push Notifications',
+                          desc:
+                            'Receive notifications through push messages.',
+                          icon:
+                            Smartphone,
+                        },
+                      ].map((item) => {
+
+                        const enabled =
+                          notificationPrefs[
+                            item.key
+                          ];
+
+                        const Icon =
+                          item.icon;
+
+                        return (
+                          <div
+                            key={item.key}
+                            className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-200 hover:bg-gray-50/50 transition-colors"
+                          >
+
+                            <div className="flex items-center gap-3">
+
+                              <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+
+                                <Icon className="w-4 h-4 text-gray-600" />
+
+                              </div>
+
+                              <div>
+
+                                <p className="text-sm font-medium text-gray-900">
+                                  {item.title}
+                                </p>
+
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {item.desc}
+                                </p>
+
+                              </div>
+
+                            </div>
+
+                            <button
+                              type="button"
+                              aria-label={`Toggle ${item.title}`}
+                              onClick={() =>
+                                toggleNotificationPreference(
+                                  item.key
+                                )
+                              }
+                              className={cn(
+                                'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
+                                enabled
+                                  ? 'bg-indigo-600'
+                                  : 'bg-gray-300'
+                              )}
+                            >
+
+                              <motion.div
+                                animate={{
+                                  x: enabled
+                                    ? 22
+                                    : 2,
+                                }}
+                                transition={{
+                                  type: 'spring',
+                                  stiffness: 500,
+                                  damping: 30,
+                                }}
+                                className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-md"
+                              />
+
+                            </button>
+
+                          </div>
+                        );
+                      })}
+
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+
+                      <Button
+                        icon={
+                          saved ? (
+                            <Check className="w-4 h-4" />
+                          ) : undefined
+                        }
+                        onClick={
+                          handleSaveNotificationPreferences
+                        }
+                        disabled={
+                          savingNotifications
+                        }
+                      >
+                        {savingNotifications
+                          ? 'Saving...'
+                          : saved
+                          ? 'Saved!'
+                          : 'Save Channel Preferences'}
+                      </Button>
+
+                    </div>
+
+                  </Card>
+
+                  {/* =================================================
+                      EMAIL PREFERENCES
+                  ================================================= */}
+
+                  <Card className="p-6">
+
+                    <div className="flex items-start gap-3 mb-6">
+
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+
+                        <Mail className="w-5 h-5 text-emerald-600" />
+
+                      </div>
+
+                      <div>
+
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          Email Preferences
+                        </h2>
+
+                        <p className="text-sm text-gray-500 mt-1">
+                          Control how email notifications and promotional messages are delivered.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    {/* EMAIL NOTIFICATIONS */}
+
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-200">
 
                       <div>
 
                         <p className="text-sm font-medium text-gray-900">
-                          {item.title}
+                          Email Notifications
                         </p>
 
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {item.desc}
+                          Receive notifications by email.
                         </p>
 
                       </div>
 
                       <button
                         type="button"
+                        aria-label="Toggle email notifications"
                         onClick={() =>
-                          setNotifPrefs({
-                            ...notifPrefs,
-                            [item.key]:
-                              !enabled,
-                          })
+                          toggleEmailPreference(
+                            'email_notifications_enabled'
+                          )
                         }
                         className={cn(
                           'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
-                          enabled
+                          emailPrefs.email_notifications_enabled
                             ? 'bg-indigo-600'
                             : 'bg-gray-300'
                         )}
@@ -871,9 +1553,10 @@ export function SettingsPage() {
 
                         <motion.div
                           animate={{
-                            x: enabled
-                              ? 22
-                              : 2,
+                            x:
+                              emailPrefs.email_notifications_enabled
+                                ? 22
+                                : 2,
                           }}
                           transition={{
                             type: 'spring',
@@ -886,31 +1569,143 @@ export function SettingsPage() {
                       </button>
 
                     </div>
-                  );
-                })}
 
-              </div>
+                    {/* EMAIL FREQUENCY */}
 
-              <div className="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+                    <div className="mt-4">
 
-                <Button
-                  icon={
-                    saved ? (
-                      <Check className="w-4 h-4" />
-                    ) : undefined
-                  }
-                  onClick={handleSaveProfile}
-                >
-                  {saved
-                    ? 'Saved!'
-                    : 'Save Preferences'}
-                </Button>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Frequency
+                      </label>
 
-              </div>
+                      <div className="relative">
 
-            </Card>
+                        <select
+                          value={
+                            emailPrefs.email_frequency
+                          }
+                          onChange={(event) =>
+                            setEmailPrefs(
+                              (previous) => ({
+                                ...previous,
+                                email_frequency:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                          className="w-full appearance-none px-4 py-2.5 pr-10 bg-white border border-gray-300 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        >
+
+                          <option value="immediate">
+                            Immediate
+                          </option>
+
+                          <option value="daily">
+                            Daily
+                          </option>
+
+                          <option value="weekly">
+                            Weekly
+                          </option>
+
+                          <option value="monthly">
+                            Monthly
+                          </option>
+
+                        </select>
+
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+
+                      </div>
+
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        Choose how frequently email notifications should be sent.
+                      </p>
+
+                    </div>
+
+                    {/* PROMOTIONAL EMAILS */}
+
+                    <div className="mt-4 flex items-center justify-between gap-4 p-4 rounded-xl border border-gray-200">
+
+                      <div>
+
+                        <p className="text-sm font-medium text-gray-900">
+                          Promotional Emails
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Receive product news, offers, and promotional messages.
+                        </p>
+
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="Toggle promotional emails"
+                        onClick={() =>
+                          toggleEmailPreference(
+                            'promotional_emails_enabled'
+                          )
+                        }
+                        className={cn(
+                          'relative w-11 h-6 rounded-full transition-all flex-shrink-0',
+                          emailPrefs.promotional_emails_enabled
+                            ? 'bg-indigo-600'
+                            : 'bg-gray-300'
+                        )}
+                      >
+
+                        <motion.div
+                          animate={{
+                            x:
+                              emailPrefs.promotional_emails_enabled
+                                ? 22
+                                : 2,
+                          }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 500,
+                            damping: 30,
+                          }}
+                          className="absolute top-1 w-4 h-4 rounded-full bg-white shadow-md"
+                        />
+
+                      </button>
+
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-100 flex justify-end">
+
+                      <Button
+                        icon={
+                          saved ? (
+                            <Check className="w-4 h-4" />
+                          ) : undefined
+                        }
+                        onClick={
+                          handleSaveEmailPreferences
+                        }
+                        disabled={
+                          savingEmailPreferences
+                        }
+                      >
+                        {savingEmailPreferences
+                          ? 'Saving...'
+                          : saved
+                          ? 'Saved!'
+                          : 'Save Email Preferences'}
+                      </Button>
+
+                    </div>
+
+                  </Card>
+
+                </>
+              )}
+
+            </div>
           )}
-
 
           {/* =================================================
               SECURITY
@@ -1005,6 +1800,7 @@ export function SettingsPage() {
                   }
                   className="mt-3 flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
                 >
+
                   {showPassword ? (
                     <EyeOff className="w-3.5 h-3.5" />
                   ) : (
@@ -1014,6 +1810,7 @@ export function SettingsPage() {
                   {showPassword
                     ? 'Hide passwords'
                     : 'Show passwords'}
+
                 </button>
 
                 <div className="mt-6 flex justify-end">
@@ -1035,7 +1832,6 @@ export function SettingsPage() {
 
               </Card>
 
-
               <Card className="p-6">
 
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
@@ -1051,7 +1847,9 @@ export function SettingsPage() {
                   <div className="flex items-center gap-3">
 
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+
                       <Shield className="w-5 h-5 text-emerald-600" />
+
                     </div>
 
                     <div>
@@ -1075,7 +1873,6 @@ export function SettingsPage() {
                 </div>
 
               </Card>
-
 
               <Card className="p-6 border-red-200">
 
@@ -1114,7 +1911,6 @@ export function SettingsPage() {
                     </Button>
 
                   </div>
-
 
                   <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200">
 
@@ -1160,7 +1956,6 @@ export function SettingsPage() {
 
             </div>
           )}
-
 
           {/* =================================================
               APPEARANCE
@@ -1250,7 +2045,6 @@ export function SettingsPage() {
 
               </div>
 
-
               <div className="mt-6 pt-6 border-t border-gray-100">
 
                 <p className="text-sm font-medium text-gray-700 mb-3">
@@ -1274,9 +2068,11 @@ export function SettingsPage() {
                           : 'border-gray-200 text-gray-700 hover:border-gray-300'
                       )}
                     >
+
                       <span className="text-sm font-medium">
                         {density}
                       </span>
+
                     </button>
 
                   ))}
@@ -1284,7 +2080,6 @@ export function SettingsPage() {
                 </div>
 
               </div>
-
 
               <div className="mt-6 flex justify-end">
 
@@ -1311,7 +2106,6 @@ export function SettingsPage() {
 
             </Card>
           )}
-
 
           {/* =================================================
               TEAM
@@ -1364,4 +2158,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

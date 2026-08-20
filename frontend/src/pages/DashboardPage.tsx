@@ -19,6 +19,11 @@ import {
   userService,
 } from '../services/api';
 
+
+/* =====================================================
+   TYPES
+===================================================== */
+
 type UserRole =
   | 'administrator'
   | 'marketing_team'
@@ -35,6 +40,7 @@ type UserRecord = {
   username: string;
   email: string;
   role: UserRole;
+  full_name?: string | null;
 };
 
 type Client = {
@@ -51,11 +57,13 @@ type Client = {
 
 export function DashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
+
   const [posts, setPosts] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -84,12 +92,22 @@ export function DashboardPage() {
           role: currentRole,
         });
 
+        /*
+         * Common dashboard data.
+         *
+         * Every role can use posts/campaigns/accounts
+         * according to its existing dashboard behavior.
+         */
         const requests: Promise<any>[] = [
           postService.getAll(),
           campaignService.getAll(),
           accountService.getAll(),
         ];
 
+        /*
+         * Administrator additionally loads users
+         * for administrator statistics.
+         */
         if (currentRole === 'administrator') {
           requests.push(userService.getAll());
         }
@@ -103,6 +121,10 @@ export function DashboardPage() {
           usersResult,
         ] = results;
 
+        /* =================================================
+           POSTS
+        ================================================= */
+
         if (
           mounted &&
           postsResult.status === 'fulfilled'
@@ -113,6 +135,10 @@ export function DashboardPage() {
               : []
           );
         }
+
+        /* =================================================
+           CAMPAIGNS
+        ================================================= */
 
         if (
           mounted &&
@@ -125,6 +151,10 @@ export function DashboardPage() {
           );
         }
 
+        /* =================================================
+           SOCIAL ACCOUNTS
+        ================================================= */
+
         if (
           mounted &&
           accountsResult.status === 'fulfilled'
@@ -135,6 +165,10 @@ export function DashboardPage() {
               : []
           );
         }
+
+        /* =================================================
+           ADMINISTRATOR USERS
+        ================================================= */
 
         if (
           mounted &&
@@ -149,6 +183,10 @@ export function DashboardPage() {
           );
         }
 
+        /* =================================================
+           MARKETING TEAM CLIENTS
+        ================================================= */
+
         if (
           mounted &&
           currentRole === 'marketing_team'
@@ -156,6 +194,10 @@ export function DashboardPage() {
           try {
             const clientsResponse =
               await businessAssignmentService.getMyClients();
+
+            if (!mounted) {
+              return;
+            }
 
             setClients(
               Array.isArray(clientsResponse?.data)
@@ -168,7 +210,9 @@ export function DashboardPage() {
               error
             );
 
-            setClients([]);
+            if (mounted) {
+              setClients([]);
+            }
           }
         }
       } catch (error) {
@@ -190,22 +234,44 @@ export function DashboardPage() {
     };
   }, []);
 
+  /* =====================================================
+     LOADING
+  ===================================================== */
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
+
           <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
 
           <p className="mt-4 text-sm text-gray-500">
             Loading dashboard...
           </p>
+
         </div>
       </div>
     );
   }
 
-  const role = user?.role || 'business_user';
-  const username = user?.username || 'User';
+  const role =
+    user?.role || 'business_user';
+
+  const username =
+    user?.username || 'User';
+
+
+  /* =====================================================
+     IMPORTANT
+
+     ONLY ONE dashboard is returned based on the
+     currently logged-in user's role.
+
+     Administrator -> AdministratorDashboard ONLY
+     Marketing Team -> MarketingTeamDashboard ONLY
+     Content Creator -> ContentCreatorDashboard ONLY
+     Business User -> BusinessUserDashboard ONLY
+  ===================================================== */
 
   if (role === 'administrator') {
     return (
@@ -270,15 +336,18 @@ function AdministratorDashboard({
   const totalUsers = users.length;
 
   const marketingTeams = users.filter(
-    (user) => user.role === 'marketing_team'
+    (user) =>
+      user.role === 'marketing_team'
   ).length;
 
   const businessUsers = users.filter(
-    (user) => user.role === 'business_user'
+    (user) =>
+      user.role === 'business_user'
   ).length;
 
   const contentCreators = users.filter(
-    (user) => user.role === 'content_creator'
+    (user) =>
+      user.role === 'content_creator'
   ).length;
 
   return (
@@ -288,6 +357,10 @@ function AdministratorDashboard({
         title={`Welcome back, ${username}`}
         description="Manage your SocialPilot platform and monitor overall activity."
       />
+
+      {/* =================================================
+          ADMIN STATISTICS
+      ================================================= */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
@@ -317,12 +390,18 @@ function AdministratorDashboard({
 
       </div>
 
+
+      {/* =================================================
+          ADMIN OVERVIEW
+      ================================================= */}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <DashboardCard
           title="Platform Overview"
           icon={BarChart3}
         >
+
           <div className="space-y-4">
 
             <OverviewRow
@@ -346,12 +425,15 @@ function AdministratorDashboard({
             />
 
           </div>
+
         </DashboardCard>
+
 
         <DashboardCard
           title="Recent Activity"
           icon={Calendar}
         >
+
           <div className="space-y-3">
 
             <ActivityRow
@@ -375,6 +457,7 @@ function AdministratorDashboard({
             />
 
           </div>
+
         </DashboardCard>
 
       </div>
@@ -401,33 +484,40 @@ function MarketingTeamDashboard({
 }) {
   const navigate = useNavigate();
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] =
+    useState('');
 
-  const filteredClients = clients.filter((client) => {
-    const search = searchTerm.toLowerCase();
+  const filteredClients =
+    clients.filter((client) => {
+      const search =
+        searchTerm.toLowerCase();
 
-    return (
-      client.username
-        .toLowerCase()
-        .includes(search) ||
-      client.email
-        .toLowerCase()
-        .includes(search) ||
-      (client.full_name || '')
-        .toLowerCase()
-        .includes(search)
-    );
-  });
+      return (
+        client.username
+          .toLowerCase()
+          .includes(search) ||
+        client.email
+          .toLowerCase()
+          .includes(search) ||
+        (client.full_name || '')
+          .toLowerCase()
+          .includes(search)
+      );
+    });
 
-  const scheduledPosts = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'scheduled'
-  ).length;
+  const scheduledPosts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) ===
+        'scheduled'
+    ).length;
 
-  const publishedPosts = posts.filter(
-    (post) =>
-      normalizeStatus(post.status) === 'published'
-  ).length;
+  const publishedPosts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) ===
+        'published'
+    ).length;
 
   return (
     <div className="space-y-6">
@@ -436,6 +526,11 @@ function MarketingTeamDashboard({
         title={`Welcome back, ${username}`}
         description="Manage your assigned clients and their social media campaigns."
       />
+
+
+      {/* =================================================
+          MARKETING TEAM STATISTICS
+      ================================================= */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
@@ -465,6 +560,11 @@ function MarketingTeamDashboard({
 
       </div>
 
+
+      {/* =================================================
+          CLIENTS
+      ================================================= */}
+
       <DashboardCard
         title="My Clients"
         icon={Users}
@@ -472,19 +572,24 @@ function MarketingTeamDashboard({
 
         <div className="mb-5 relative">
 
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+          />
 
           <input
             type="text"
             value={searchTerm}
             onChange={(event) =>
-              setSearchTerm(event.target.value)
+              setSearchTerm(
+                event.target.value
+              )
             }
             placeholder="Search clients..."
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-400"
           />
 
         </div>
+
 
         {clients.length === 0 ? (
 
@@ -522,55 +627,61 @@ function MarketingTeamDashboard({
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
-            {filteredClients.map((client) => (
+            {filteredClients.map(
+              (client) => (
 
-              <button
-                key={client.id}
-                type="button"
-                onClick={() =>
-                  navigate(`/app/clients/${client.id}`)
-                }
-                className="text-left bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
-              >
+                <button
+                  key={client.id}
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/app/clients/${client.id}`
+                    )
+                  }
+                  className="text-left bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
+                >
 
-                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
 
-                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
 
-                    <UserCircle className="w-6 h-6 text-indigo-600" />
+                      <UserCircle className="w-6 h-6 text-indigo-600" />
+
+                    </div>
+
+                    <div className="min-w-0">
+
+                      <h3 className="font-semibold text-gray-900 truncate">
+                        {client.full_name ||
+                          client.username}
+                      </h3>
+
+                      <p className="text-sm text-gray-500 truncate">
+                        @{client.username}
+                      </p>
+
+                    </div>
 
                   </div>
 
-                  <div className="min-w-0">
 
-                    <h3 className="font-semibold text-gray-900 truncate">
-                      {client.full_name ||
-                        client.username}
-                    </h3>
+                  <div className="mt-4 pt-3 border-t border-gray-100">
 
                     <p className="text-sm text-gray-500 truncate">
-                      @{client.username}
+                      {client.email}
                     </p>
 
                   </div>
 
-                </div>
 
-                <div className="mt-4 pt-3 border-t border-gray-100">
+                  <div className="mt-3 text-xs font-medium text-indigo-600">
+                    Open client workspace →
+                  </div>
 
-                  <p className="text-sm text-gray-500 truncate">
-                    {client.email}
-                  </p>
+                </button>
 
-                </div>
-
-                <div className="mt-3 text-xs font-medium text-indigo-600">
-                  Open client workspace →
-                </div>
-
-              </button>
-
-            ))}
+              )
+            )}
 
           </div>
 
@@ -585,9 +696,6 @@ function MarketingTeamDashboard({
 
 /* =====================================================
    CONTENT CREATOR DASHBOARD
-   Simplified: welcome header + quick-glance stats only.
-   The interactive drafts/pending/scheduled/published/
-   failed/cancelled list now lives on MyPostsPage.
 ===================================================== */
 
 function ContentCreatorDashboard({
@@ -599,17 +707,26 @@ function ContentCreatorDashboard({
 }) {
   const navigate = useNavigate();
 
-  const drafts = posts.filter(
-    (post) => normalizeStatus(post.status) === 'draft'
-  ).length;
+  const drafts =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) ===
+        'draft'
+    ).length;
 
-  const scheduled = posts.filter(
-    (post) => normalizeStatus(post.status) === 'scheduled'
-  ).length;
+  const scheduled =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) ===
+        'scheduled'
+    ).length;
 
-  const published = posts.filter(
-    (post) => normalizeStatus(post.status) === 'published'
-  ).length;
+  const published =
+    posts.filter(
+      (post) =>
+        normalizeStatus(post.status) ===
+        'published'
+    ).length;
 
   return (
     <div className="space-y-6">
@@ -618,6 +735,11 @@ function ContentCreatorDashboard({
         title={`Welcome back, ${username}`}
         description="Here's a quick look at your content activity."
       />
+
+
+      {/* =================================================
+          CONTENT CREATOR STATISTICS
+      ================================================= */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
@@ -647,6 +769,11 @@ function ContentCreatorDashboard({
 
       </div>
 
+
+      {/* =================================================
+          MY CONTENT
+      ================================================= */}
+
       <DashboardCard
         title="My Content"
         icon={FileText}
@@ -666,7 +793,9 @@ function ContentCreatorDashboard({
 
           <button
             type="button"
-            onClick={() => navigate('/app/posts')}
+            onClick={() =>
+              navigate('/app/posts')
+            }
             className="mt-4 inline-flex items-center px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
           >
             Go to My Posts
@@ -678,19 +807,6 @@ function ContentCreatorDashboard({
 
     </div>
   );
-}
-
-
-/* =====================================================
-   STATUS HELPERS
-===================================================== */
-
-function normalizeStatus(
-  status: any
-): string {
-  return String(status || '')
-    .toLowerCase()
-    .trim();
 }
 
 
@@ -709,29 +825,32 @@ function BusinessUserDashboard({
   campaigns: any[];
   accounts: any[];
 }) {
-
   const scheduledPosts =
     posts.filter(
       (post) =>
-        normalizeStatus(post.status) === 'scheduled'
+        normalizeStatus(post.status) ===
+        'scheduled'
     ).length;
 
   const publishedPosts =
     posts.filter(
       (post) =>
-        normalizeStatus(post.status) === 'published'
+        normalizeStatus(post.status) ===
+        'published'
     ).length;
 
   const failedPosts =
     posts.filter(
       (post) =>
-        normalizeStatus(post.status) === 'failed'
+        normalizeStatus(post.status) ===
+        'failed'
     ).length;
 
   const cancelledPosts =
     posts.filter(
       (post) =>
-        normalizeStatus(post.status) === 'cancelled'
+        normalizeStatus(post.status) ===
+        'cancelled'
     ).length;
 
   return (
@@ -741,6 +860,11 @@ function BusinessUserDashboard({
         title={`Welcome back, ${username}`}
         description="Monitor your business social media performance."
       />
+
+
+      {/* =================================================
+          BUSINESS USER STATISTICS
+      ================================================= */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
@@ -770,6 +894,11 @@ function BusinessUserDashboard({
 
       </div>
 
+
+      {/* =================================================
+          SOCIAL ACCOUNTS + CAMPAIGNS
+      ================================================= */}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <DashboardCard
@@ -795,41 +924,44 @@ function BusinessUserDashboard({
 
               {accounts
                 .slice(0, 5)
-                .map((account: any) => (
+                .map(
+                  (account: any) => (
 
-                  <div
-                    key={account.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50"
-                  >
+                    <div
+                      key={account.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-gray-50"
+                    >
 
-                    <div>
+                      <div>
 
-                      <p className="text-sm font-medium text-gray-900">
-                        {account.platform ||
-                          'Social Account'}
-                      </p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {account.platform ||
+                            'Social Account'}
+                        </p>
 
-                      <p className="text-xs text-gray-500">
-                        {account.username ||
-                          account.account_name ||
-                          'Connected'}
-                      </p>
+                        <p className="text-xs text-gray-500">
+                          {account.username ||
+                            account.account_name ||
+                            'Connected'}
+                        </p>
+
+                      </div>
+
+                      <span className="text-xs font-medium text-emerald-600">
+                        Connected
+                      </span>
 
                     </div>
 
-                    <span className="text-xs font-medium text-emerald-600">
-                      Connected
-                    </span>
-
-                  </div>
-
-                ))}
+                  )
+                )}
 
             </div>
 
           )}
 
         </DashboardCard>
+
 
         <DashboardCard
           title="Recent Campaigns"
@@ -848,26 +980,28 @@ function BusinessUserDashboard({
 
               {campaigns
                 .slice(0, 5)
-                .map((campaign: any) => (
+                .map(
+                  (campaign: any) => (
 
-                  <div
-                    key={campaign.id}
-                    className="p-3 rounded-xl bg-gray-50"
-                  >
+                    <div
+                      key={campaign.id}
+                      className="p-3 rounded-xl bg-gray-50"
+                    >
 
-                    <p className="text-sm font-medium text-gray-900">
-                      {campaign.title ||
-                        'Campaign'}
-                    </p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {campaign.title ||
+                          'Campaign'}
+                      </p>
 
-                    <p className="mt-1 text-xs text-gray-500">
-                      {campaign.status ||
-                        'Active'}
-                    </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {campaign.status ||
+                          'Active'}
+                      </p>
 
-                  </div>
+                    </div>
 
-                ))}
+                  )
+                )}
 
             </div>
 
@@ -877,7 +1011,10 @@ function BusinessUserDashboard({
 
       </div>
 
-      {/* Post status summary */}
+
+      {/* =================================================
+          POST STATUS SUMMARY
+      ================================================= */}
 
       <DashboardCard
         title="Post Status Summary"
@@ -920,7 +1057,20 @@ function BusinessUserDashboard({
 
 
 /* =====================================================
-   SHARED COMPONENTS
+   STATUS HELPER
+===================================================== */
+
+function normalizeStatus(
+  status: any
+): string {
+  return String(status || '')
+    .toLowerCase()
+    .trim();
+}
+
+
+/* =====================================================
+   SHARED DASHBOARD HEADER
 ===================================================== */
 
 function DashboardHeader({
@@ -930,7 +1080,6 @@ function DashboardHeader({
   title: string;
   description: string;
 }) {
-
   return (
     <div>
 
@@ -947,6 +1096,10 @@ function DashboardHeader({
 }
 
 
+/* =====================================================
+   STAT CARD
+===================================================== */
+
 function StatCard({
   title,
   value,
@@ -956,7 +1109,6 @@ function StatCard({
   value: string | number;
   icon: any;
 }) {
-
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
 
@@ -987,6 +1139,10 @@ function StatCard({
 }
 
 
+/* =====================================================
+   MINI STATUS
+===================================================== */
+
 function MiniStatus({
   label,
   value,
@@ -997,7 +1153,9 @@ function MiniStatus({
   className: string;
 }) {
   return (
-    <div className={`rounded-xl p-4 ${className}`}>
+    <div
+      className={`rounded-xl p-4 ${className}`}
+    >
 
       <p className="text-xs font-medium opacity-80">
         {label}
@@ -1012,6 +1170,10 @@ function MiniStatus({
 }
 
 
+/* =====================================================
+   DASHBOARD CARD
+===================================================== */
+
 function DashboardCard({
   title,
   icon: Icon,
@@ -1021,7 +1183,6 @@ function DashboardCard({
   icon: any;
   children: React.ReactNode;
 }) {
-
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
 
@@ -1042,6 +1203,10 @@ function DashboardCard({
 }
 
 
+/* =====================================================
+   OVERVIEW ROW
+===================================================== */
+
 function OverviewRow({
   label,
   value,
@@ -1049,7 +1214,6 @@ function OverviewRow({
   label: string;
   value: string | number;
 }) {
-
   return (
     <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
 
@@ -1066,6 +1230,10 @@ function OverviewRow({
 }
 
 
+/* =====================================================
+   ACTIVITY ROW
+===================================================== */
+
 function ActivityRow({
   label,
   value,
@@ -1073,7 +1241,6 @@ function ActivityRow({
   label: string;
   value: string | number;
 }) {
-
   return (
     <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
 

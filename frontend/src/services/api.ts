@@ -1,11 +1,19 @@
 import axios from 'axios';
 
-const api = axios.create({
+/* =========================================================
+   API CLIENT
+========================================================= */
+
+export const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
     'http://127.0.0.1:8000',
   timeout: 120000,
 });
+
+/* =========================================================
+   REQUEST INTERCEPTOR
+========================================================= */
 
 api.interceptors.request.use(
   (config) => {
@@ -48,6 +56,10 @@ api.interceptors.request.use(
   (error) =>
     Promise.reject(error)
 );
+
+/* =========================================================
+   RESPONSE INTERCEPTOR
+========================================================= */
 
 api.interceptors.response.use(
   (response) => response,
@@ -153,15 +165,138 @@ export const authService = {
       '/users/me',
       data
     ),
+
+  /* =======================================================
+     NOTIFICATION PREFERENCES
+  ======================================================= */
+
+  getNotificationPreferences: () =>
+    api.get(
+      '/notification-preferences'
+    ),
+
+  updateNotificationPreferences: (
+    data: {
+      publishing_notifications_enabled: boolean;
+      campaign_notifications_enabled: boolean;
+      account_activity_notifications_enabled: boolean;
+      team_collaboration_notifications_enabled: boolean;
+      system_notifications_enabled: boolean;
+      in_app_notifications_enabled: boolean;
+      email_notifications_enabled: boolean;
+      push_notifications_enabled: boolean;
+    }
+  ) =>
+    api.patch(
+      '/notification-preferences',
+      data
+    ),
+
+  getEmailPreferences: () =>
+    api.get(
+      '/notification-preferences/email'
+    ),
+
+  updateEmailPreferences: (
+    data: {
+      email_notifications_enabled: boolean;
+      email_frequency: string;
+      promotional_emails_enabled: boolean;
+    }
+  ) =>
+    api.patch(
+      '/notification-preferences/email',
+      data
+    ),
 };
 
 /* =========================================================
    USERS
 ========================================================= */
 
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  role: string;
+
+  phone?: string | null;
+  company?: string | null;
+  website?: string | null;
+  bio?: string | null;
+
+  [key: string]: any;
+};
+
 export const userService = {
+  /* -------------------------------------------------------
+     Get all users
+     Backend:
+     GET /users/all
+  ------------------------------------------------------- */
+
   getAll: () =>
-    api.get('/users/all'),
+    api.get<User[]>(
+      '/users/all'
+    ),
+
+  /* -------------------------------------------------------
+     Get current logged-in user
+     Backend:
+     GET /users/me
+  ------------------------------------------------------- */
+
+  getCurrentUser: () =>
+    api.get(
+      '/users/me'
+    ),
+
+  /* -------------------------------------------------------
+     Delete a user
+     Backend:
+     DELETE /users/{user_id}
+  ------------------------------------------------------- */
+
+  deleteUser: (
+    id: string | number
+  ) =>
+    api.delete(
+      `/users/${id}`
+    ),
+
+  /* -------------------------------------------------------
+     Get all content creators
+     Backend:
+     GET /users/creator
+  ------------------------------------------------------- */
+
+  getContentCreators: () =>
+    api.get<User[]>(
+      '/users/creator'
+    ),
+
+  /* -------------------------------------------------------
+     Get all business users
+     Backend:
+     GET /users/business-users
+  ------------------------------------------------------- */
+
+  getBusinessUsers: () =>
+    api.get<User[]>(
+      '/users/business-users'
+    ),
+
+  /* -------------------------------------------------------
+     Get all marketing team users
+     Backend:
+     GET /users/marketing-users
+  ------------------------------------------------------- */
+
+  getMarketingUsers: () =>
+    api.get<User[]>(
+      '/users/marketing-users'
+    ),
 };
 
 /* =========================================================
@@ -171,7 +306,7 @@ export const userService = {
 export const uploadService = {
   uploadMedia: (
     file: File,
-    platform: string
+    platform: string = 'general'
   ) => {
     const formData =
       new FormData();
@@ -346,6 +481,39 @@ export const postService = {
       }
     );
   },
+};
+
+/* =========================================================
+   CONTENT WORKFLOW
+========================================================= */
+
+export const contentWorkflowService = {
+  submitForReview: (
+    postId: string | number
+  ) =>
+    api.post(
+      `/content-workflow/${postId}/submit-review`
+    ),
+
+  approve: (
+    postId: string | number
+  ) =>
+    api.post(
+      `/content-workflow/${postId}/approve`
+    ),
+
+  reject: (
+    postId: string | number,
+    reason?: string
+  ) =>
+    api.post(
+      `/content-workflow/${postId}/reject`,
+      reason
+        ? {
+            reason,
+          }
+        : undefined
+    ),
 };
 
 /* =========================================================
@@ -894,7 +1062,66 @@ export const businessAssignmentService = {
 };
 
 /* =========================================================
-   NOTIFICATIONS
+   NOTIFICATION PREFERENCES
+========================================================= */
+
+export type NotificationPreferences = {
+  id?: number;
+  user_id?: number;
+
+  publishing_notifications_enabled: boolean;
+  campaign_notifications_enabled: boolean;
+  account_activity_notifications_enabled: boolean;
+  team_collaboration_notifications_enabled: boolean;
+  system_notifications_enabled: boolean;
+
+  in_app_notifications_enabled: boolean;
+  email_notifications_enabled: boolean;
+  push_notifications_enabled: boolean;
+
+  email_frequency: string;
+  promotional_emails_enabled: boolean;
+
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type EmailNotificationPreferences = {
+  email_notifications_enabled: boolean;
+  email_frequency: string;
+  promotional_emails_enabled: boolean;
+};
+
+export const notificationPreferencesService = {
+  get: () =>
+    api.get<NotificationPreferences>(
+      '/notification-preferences'
+    ),
+
+  update: (
+    data: Partial<NotificationPreferences>
+  ) =>
+    api.patch<NotificationPreferences>(
+      '/notification-preferences',
+      data
+    ),
+
+  getEmail: () =>
+    api.get<EmailNotificationPreferences>(
+      '/notification-preferences/email'
+    ),
+
+  updateEmail: (
+    data: Partial<EmailNotificationPreferences>
+  ) =>
+    api.patch<EmailNotificationPreferences>(
+      '/notification-preferences/email',
+      data
+    ),
+};
+
+/* =========================================================
+   NOTIFICATION HISTORY
 ========================================================= */
 
 export type NotificationResponse = {
@@ -902,26 +1129,115 @@ export type NotificationResponse = {
   user_id: number;
   title: string;
   description: string;
+
   type:
     | 'info'
     | 'success'
     | 'warning'
     | 'error'
     | string;
+
+  category?: string;
+  delivery_channel?: string;
+
   is_read: boolean;
+
   related_post_id:
     | number
     | null;
+
   related_campaign_id:
     | number
     | null;
+
   created_at: string;
 };
 
+export type NotificationFilters = {
+  search?: string;
+
+  category?: string;
+
+  notification_type?:
+    | 'info'
+    | 'success'
+    | 'warning'
+    | 'error';
+
+  is_read?: boolean;
+
+  date_from?: string;
+
+  date_to?: string;
+};
+
 export const notificationService = {
-  getAll: () =>
-    api.get<NotificationResponse[]>(
-      '/notifications'
+  getAll: (
+    filters?: NotificationFilters
+  ) => {
+    const params: Record<
+      string,
+      string | boolean
+    > = {};
+
+    if (
+      filters?.search &&
+      filters.search.trim()
+    ) {
+      params.search =
+        filters.search.trim();
+    }
+
+    if (
+      filters?.category
+    ) {
+      params.category =
+        filters.category;
+    }
+
+    if (
+      filters?.notification_type
+    ) {
+      params.notification_type =
+        filters.notification_type;
+    }
+
+    if (
+      filters?.is_read !== undefined
+    ) {
+      params.is_read =
+        filters.is_read;
+    }
+
+    if (
+      filters?.date_from
+    ) {
+      params.date_from =
+        filters.date_from;
+    }
+
+    if (
+      filters?.date_to
+    ) {
+      params.date_to =
+        filters.date_to;
+    }
+
+    return api.get<
+      NotificationResponse[]
+    >(
+      '/notification-history',
+      {
+        params,
+      }
+    );
+  },
+
+  getById: (
+    id: string | number
+  ) =>
+    api.get<NotificationResponse>(
+      `/notification-history/${id}`
     ),
 
   markAsRead: (
@@ -950,7 +1266,40 @@ export const notificationService = {
 };
 
 /* =========================================================
-   DEFAULT API
+   TEAM ACTIVITY
+========================================================= */
+
+export type TeamActivity = {
+  id: number;
+  user_id: number;
+  activity_type: string;
+  description: string;
+  created_at: string;
+
+  user_name?: string;
+  username?: string;
+  campaign_id?: number | null;
+  post_id?: number | null;
+};
+
+export const teamActivityService = {
+  getAll: (
+    limit: number = 50,
+    offset: number = 0
+  ) =>
+    api.get<TeamActivity[]>(
+      '/team-activities',
+      {
+        params: {
+          limit,
+          offset,
+        },
+      }
+    ),
+};
+
+/* =========================================================
+   DEFAULT EXPORT
 ========================================================= */
 
 export default api;

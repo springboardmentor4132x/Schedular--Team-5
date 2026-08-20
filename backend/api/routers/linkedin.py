@@ -13,6 +13,9 @@ from api.dependencies.database import get_db
 from api.exceptions import integrations
 from api.models.social_account import SocialAccount
 from api.roles.social_account import Platform
+from api.services.notification import (
+    create_account_connected_notification,
+)
 
 
 router = APIRouter(
@@ -54,8 +57,7 @@ def get_linkedin_accounts(
         SocialAccount
     ).where(
         SocialAccount.user_id == user_id,
-        SocialAccount.platform ==
-        Platform.LINKEDIN,
+        SocialAccount.platform == Platform.LINKEDIN,
         SocialAccount.is_connected.is_(True),
     )
 
@@ -153,20 +155,15 @@ async def linkedin_callback(
     # --------------------------------------------------------
 
     token_data: Dict[str, str] = {
-        "grant_type":
-            "authorization_code",
+        "grant_type": "authorization_code",
 
-        "code":
-            code,
+        "code": code,
 
-        "redirect_uri":
-            settings.LINKEDIN_REDIRECT_URI,
+        "redirect_uri": settings.LINKEDIN_REDIRECT_URI,
 
-        "client_id":
-            settings.LINKEDIN_CLIENT_ID,
+        "client_id": settings.LINKEDIN_CLIENT_ID,
 
-        "client_secret":
-            settings.LINKEDIN_CLIENT_SECRET,
+        "client_secret": settings.LINKEDIN_CLIENT_SECRET,
     }
 
 
@@ -179,34 +176,31 @@ async def linkedin_callback(
 
 
         if token_res.status_code != 200:
+
             print(
                 "LinkedIn token error:",
                 token_res.text,
+                flush=True,
             )
 
             raise integrations.RETRIEVING_API_TOKEN_FAILED_EXCEPTION
 
 
-        token_json = (
-            token_res.json()
+        token_json = token_res.json()
+
+
+        access_token = token_json.get(
+            "access_token"
         )
 
 
-        access_token = (
-            token_json.get(
-                "access_token"
-            )
-        )
-
-
-        expires_in = (
-            token_json.get(
-                "expires_in"
-            )
+        expires_in = token_json.get(
+            "expires_in"
         )
 
 
         if not access_token:
+
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -233,25 +227,28 @@ async def linkedin_callback(
 
 
         if profile_res.status_code != 200:
+
             print(
                 "LinkedIn profile error:",
                 profile_res.text,
+                flush=True,
             )
 
-            raise integrations.RETRIEVING_LINKEDIN_PROFILE_FAILED_EXCEPTION
+            raise (
+                integrations
+                .RETRIEVING_LINKEDIN_PROFILE_FAILED_EXCEPTION
+            )
 
 
-        profile_data = (
-            profile_res.json()
-        )
+        profile_data = profile_res.json()
 
 
     # --------------------------------------------------------
     # PROFILE INFORMATION
     # --------------------------------------------------------
 
-    account_id = (
-        profile_data.get("sub")
+    account_id = profile_data.get(
+        "sub"
     )
 
     account_name = (
@@ -259,12 +256,13 @@ async def linkedin_callback(
         or "LinkedIn Account"
     )
 
-    profile_picture = (
-        profile_data.get("picture")
+    profile_picture = profile_data.get(
+        "picture"
     )
 
 
     if not account_id:
+
         raise HTTPException(
             status_code=400,
             detail=(
@@ -279,6 +277,7 @@ async def linkedin_callback(
     # --------------------------------------------------------
 
     try:
+
         expires_seconds = int(
             expires_in or 0
         )
@@ -287,6 +286,7 @@ async def linkedin_callback(
         TypeError,
         ValueError,
     ):
+
         expires_seconds = 0
 
 
@@ -308,10 +308,12 @@ async def linkedin_callback(
         SocialAccount
     ).where(
         SocialAccount.user_id == user_id,
-        SocialAccount.platform ==
-        Platform.LINKEDIN,
-        SocialAccount.account_id ==
-        str(account_id),
+
+        SocialAccount.platform == Platform.LINKEDIN,
+
+        SocialAccount.account_id == str(
+            account_id
+        ),
     )
 
 
@@ -320,6 +322,10 @@ async def linkedin_callback(
         .scalar_one_or_none()
     )
 
+
+    # --------------------------------------------------------
+    # UPDATE / RECONNECT EXISTING ACCOUNT
+    # --------------------------------------------------------
 
     if existing_account:
 
@@ -348,17 +354,57 @@ async def linkedin_callback(
             "w_member_social",
         ]
 
+        db.commit()
+
+        db.refresh(
+            existing_account
+        )
+
+        # ----------------------------------------------------
+        # ACCOUNT RECONNECTED NOTIFICATION
+        # ----------------------------------------------------
+
+        try:
+
+            create_account_connected_notification(
+                user_id=user_id,
+                platform="linkedin",
+                account_name=account_name,
+            )
+
+        except Exception as notification_error:
+
+            print(
+                ">>> LINKEDIN RECONNECTION "
+                "NOTIFICATION FAILED:",
+                notification_error,
+                flush=True,
+            )
+
+
+    # --------------------------------------------------------
+    # CREATE NEW ACCOUNT
+    # --------------------------------------------------------
+
     else:
 
         new_account = SocialAccount(
             user_id=user_id,
+
             platform=Platform.LINKEDIN,
+
             account_name=account_name,
+
             account_id=str(account_id),
+
             access_token=access_token,
+
             token_expiry=expiry_date,
+
             profile_picture=profile_picture,
+
             is_connected=True,
+
             permissions=[
                 "openid",
                 "profile",
@@ -367,12 +413,37 @@ async def linkedin_callback(
             ],
         )
 
+
         db.add(
             new_account
         )
 
+        db.commit()
 
-    db.commit()
+        db.refresh(
+            new_account
+        )
+
+        # ----------------------------------------------------
+        # ACCOUNT CONNECTED NOTIFICATION
+        # ----------------------------------------------------
+
+        try:
+
+            create_account_connected_notification(
+                user_id=user_id,
+                platform="linkedin",
+                account_name=account_name,
+            )
+
+        except Exception as notification_error:
+
+            print(
+                ">>> LINKEDIN CONNECTION "
+                "NOTIFICATION FAILED:",
+                notification_error,
+                flush=True,
+            )
 
 
     # --------------------------------------------------------
@@ -414,10 +485,10 @@ def disconnect_linkedin(
         SocialAccount
     ).where(
         SocialAccount.user_id == user_id,
-        SocialAccount.account_id ==
-        account_id,
-        SocialAccount.platform ==
-        Platform.LINKEDIN,
+
+        SocialAccount.account_id == account_id,
+
+        SocialAccount.platform == Platform.LINKEDIN,
     )
 
 
@@ -428,7 +499,11 @@ def disconnect_linkedin(
 
 
     if not account:
-        raise integrations.LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
+
+        raise (
+            integrations
+            .LINKEDIN_ACCOUNT_NOT_FOUND_EXCEPTION
+        )
 
 
     db.delete(

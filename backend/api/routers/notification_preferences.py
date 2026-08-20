@@ -1,9 +1,6 @@
-
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.auth.auth import get_current_user
-from api.database.session import SessionLocal
-from api.models.user import User
 from api.schemas.notification import (
     NotificationSettingsResponse,
     NotificationSettingsUpdate,
@@ -18,72 +15,43 @@ from api.services.notification import (
 )
 
 
+# =========================================================
+# ROUTER
+# =========================================================
+
 router = APIRouter(
     prefix="/notification-preferences",
     tags=["Notification Preferences"],
 )
 
 
+# =========================================================
+# GET CURRENT USER ID
+# =========================================================
+
 def get_current_user_id(current_user):
     """
-    Resolve the authenticated user's database ID
-    from the username stored in the JWT token.
+    Get the authenticated user's database ID
+    directly from the JWT payload.
+
+    get_current_user() returns:
+
+    {
+        "id": user_id,
+        "username": username,
+        "role": role,
+    }
     """
 
-    db = SessionLocal()
+    user_id = current_user.get("id")
 
-    try:
-        username = current_user.get("username")
-
-        if not username:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Username missing from authentication token",
-            )
-
-        user = (
-            db.query(User)
-            .filter(
-                User.username == username
-            )
-            .first()
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authenticated user ID is not available.",
         )
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-            )
-
-        print(
-            "=================================================",
-            flush=True,
-        )
-        print(
-            ">>> NOTIFICATION PREFERENCE CURRENT USER",
-            flush=True,
-        )
-        print(
-            f">>> USERNAME: {user.username}",
-            flush=True,
-        )
-        print(
-            f">>> USER ID: {user.id}",
-            flush=True,
-        )
-        print(
-            f">>> USER ROLE: {user.role}",
-            flush=True,
-        )
-        print(
-            "=================================================",
-            flush=True,
-        )
-
-        return user.id
-
-    finally:
-        db.close()
+    return int(user_id)
 
 
 # =========================================================
@@ -98,7 +66,8 @@ def get_user_notification_preferences(
     current_user=Depends(get_current_user),
 ):
     """
-    Return the authenticated user's complete notification settings.
+    Return the authenticated user's complete
+    notification settings.
     """
 
     user_id = get_current_user_id(
@@ -164,7 +133,8 @@ def get_user_email_preferences(
     current_user=Depends(get_current_user),
 ):
     """
-    Return only the authenticated user's email notification settings.
+    Return only the authenticated user's
+    email notification settings.
     """
 
     user_id = get_current_user_id(
@@ -199,6 +169,7 @@ def update_user_email_preferences(
     Update email notification preferences.
 
     Supported fields:
+
     - email_notifications_enabled
     - email_frequency
     - promotional_emails_enabled

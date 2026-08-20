@@ -21,11 +21,23 @@ import { CalendarPage } from './pages/CalendarPage';
 import { CampaignsPage } from './pages/CampaignsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { NotificationHistoryPage } from './pages/NotificationHistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MyClientsPage } from './pages/MyClientsPage';
 import { MyMarketingTeamPage } from './pages/MyMarketingTeamPage';
 import { ClientWorkspacePage } from './pages/ClientWorkspacePage';
 import { DraftsPage } from './pages/DraftsPage';
+import { TeamActivityPage } from './pages/TeamActivityPage';
+
+/* =========================================================
+   ADMIN PAGES
+========================================================= */
+
+import { UsersPage } from './pages/UsersPage';
+import { BusinessAccountsPage } from './pages/BusinessAccountsPage';
+import { MarketingTeamsPage } from './pages/MarketingTeamsPage';
+import { ContentCreatorsPage } from './pages/ContentCreatorsPage';
+import { ReportsPage } from './pages/ReportsPage';
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -62,9 +74,7 @@ function App() {
           path="/app"
           element={<ProtectedRoute />}
         >
-          <Route
-            element={<DashboardLayout />}
-          >
+          <Route element={<DashboardLayout />}>
 
             {/* =================================================
                 /app → /app/dashboard
@@ -93,8 +103,116 @@ function App() {
 
 
             {/* =================================================
+                ADMINISTRATOR - USERS
+            ================================================= */}
+
+            <Route
+              path="users"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<UsersPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                ADMINISTRATOR - BUSINESS ACCOUNTS
+            ================================================= */}
+
+            <Route
+              path="business-accounts"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<BusinessAccountsPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                ADMINISTRATOR - MARKETING TEAMS
+            ================================================= */}
+
+            <Route
+              path="marketing-teams"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<MarketingTeamsPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                ADMINISTRATOR - CONTENT CREATORS
+            ================================================= */}
+
+            <Route
+              path="content-creators"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<ContentCreatorsPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                REPORTS
+                Administrator + Marketing Team + Business User
+            ================================================= */}
+
+            <Route
+              path="reports"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                    'marketing_team',
+                    'business_user',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<ReportsPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
                 MY POSTS
-                All four roles can access My Posts
+                All four roles
             ================================================= */}
 
             <Route
@@ -119,6 +237,7 @@ function App() {
 
             {/* =================================================
                 PUBLISHING HUB
+                Marketing Team + Content Creator + Business User
             ================================================= */}
 
             <Route
@@ -225,7 +344,7 @@ function App() {
 
             {/* =================================================
                 CREATE POST
-                Content Creator only
+                Content Creator + Marketing Team
             ================================================= */}
 
             <Route
@@ -234,6 +353,7 @@ function App() {
                 <ProtectedRoute
                   allowedRoles={[
                     'content_creator',
+                    'marketing_team',
                   ]}
                 />
               }
@@ -247,6 +367,7 @@ function App() {
 
             {/* =================================================
                 DRAFTS
+                Content Creator + Marketing Team
             ================================================= */}
 
             <Route
@@ -269,6 +390,7 @@ function App() {
 
             {/* =================================================
                 CALENDAR
+                Marketing Team + Content Creator + Business User
             ================================================= */}
 
             <Route
@@ -292,6 +414,7 @@ function App() {
 
             {/* =================================================
                 CAMPAIGNS
+                All four roles
             ================================================= */}
 
             <Route
@@ -301,6 +424,7 @@ function App() {
                   allowedRoles={[
                     'administrator',
                     'marketing_team',
+                    'content_creator',
                     'business_user',
                   ]}
                 />
@@ -315,6 +439,7 @@ function App() {
 
             {/* =================================================
                 ANALYTICS
+                Administrator + Marketing Team + Business User
             ================================================= */}
 
             <Route
@@ -322,8 +447,10 @@ function App() {
               element={
                 <ProtectedRoute
                   allowedRoles={[
+                    'administrator',
                     'marketing_team',
                     'business_user',
+                     'content_creator',
                   ]}
                 />
               }
@@ -342,8 +469,72 @@ function App() {
 
             <Route
               path="notifications"
-              element={<NotificationsPage />}
-            />
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<NotificationsPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                NOTIFICATION HISTORY
+                All four roles
+            ================================================= */}
+
+            <Route
+              path="notification-history"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<NotificationHistoryPage />}
+              />
+            </Route>
+
+
+            {/* =================================================
+                TEAM ACTIVITY
+                All four roles
+            ================================================= */}
+
+            <Route
+              path="team-activity"
+              element={
+                <ProtectedRoute
+                  allowedRoles={[
+                    'administrator',
+                    'marketing_team',
+                    'content_creator',
+                    'business_user',
+                  ]}
+                />
+              }
+            >
+              <Route
+                index
+                element={<TeamActivityPage />}
+              />
+            </Route>
 
 
             {/* =================================================

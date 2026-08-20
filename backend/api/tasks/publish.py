@@ -10,15 +10,16 @@ from urllib.parse import quote
 import httpx
 from celery_app import celery_app
 
+from api.roles.notification import NotificationType
+from api.services.notification import (
+    create_post_activity_notifications,
+)
+
 from api.core.config import settings
 from api.database.session import SessionLocal
 from api.models.post import Post
 from api.roles.post import Status
 from api.roles.post_social_account import PublishStatus
-from api.roles.notification import NotificationType
-from api.services.notification import (
-    create_post_activity_notifications,
-)
 
 from api.integrations.facebook import (
     publish_post as publish_to_facebook,
@@ -1247,7 +1248,7 @@ def _publish_to_linkedin(
 
 
 # ============================================================
-# NOTIFICATION
+# NOTIFICATION - PUBLISH RESULT
 # ============================================================
 
 def _create_publish_result_notification(
@@ -1619,6 +1620,70 @@ def check_scheduled_posts():
     finally:
 
         db.close()
+
+
+# ============================================================
+# MODULE 7 - POST PUBLISHED NOTIFICATION
+# ============================================================
+
+def _create_publish_notification(
+    post,
+):
+    """
+    Create a Post Published notification.
+
+    Notification failures must never break the
+    already-successful publishing operation.
+
+    Publishing has already been committed to the database
+    before this function is called.
+    """
+
+    try:
+
+        create_post_activity_notifications(
+            post=post,
+            title="Post Published",
+            description=(
+                f"Post {post.id} "
+                "has been successfully published."
+            ),
+            notification_type=(
+                NotificationType.SUCCESS
+            ),
+            related_post_id=post.id,
+            related_campaign_id=post.campaign_id,
+        )
+
+        print(
+            f">>> PUBLISHED NOTIFICATION CREATED: "
+            f"post_id={post.id}",
+            flush=True,
+        )
+
+    except Exception as notification_error:
+
+        print(
+            ">>> PUBLISHED NOTIFICATION FAILED",
+            flush=True,
+        )
+
+        print(
+            f">>> POST ID: {post.id}",
+            flush=True,
+        )
+
+        print(
+            f">>> NOTIFICATION ERROR: "
+            f"{notification_error}",
+            flush=True,
+        )
+
+        # IMPORTANT:
+        #
+        # Publishing has already succeeded.
+        # Notification failure must NOT cause Celery
+        # to retry the publishing task.
 
 
 # ============================================================
@@ -2363,7 +2428,28 @@ def publish_post_task(
             )
         )
 
+        # ========================================================
+        # FINAL DATABASE COMMIT
+        # ========================================================
+
         db.commit()
+
+        # ========================================================
+        # MODULE 7 - POST PUBLISHED NOTIFICATION
+        #
+        # IMPORTANT:
+        # The database transaction is already committed before
+        # notification creation.
+        #
+        # Therefore notification failure cannot roll back or
+        # retry an already-successful Facebook/Instagram post.
+        # ========================================================
+
+        if post.status == Status.PUBLISHED:
+
+            _create_publish_notification(
+                post
+            )
 
         # ========================================================
         # FINAL LOGGING
@@ -2399,7 +2485,10 @@ def publish_post_task(
             )
 
         # ========================================================
-        # ONE FINAL NOTIFICATION
+        # EXISTING FINAL PUBLISH RESULT NOTIFICATION
+        #
+        # This existing functionality is preserved.
+        # It also safely catches its own notification errors.
         # ========================================================
 
         _create_publish_result_notification(

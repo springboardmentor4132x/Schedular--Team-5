@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 
 from api.database.session import SessionLocal
@@ -7,7 +6,209 @@ from api.models.campaign import Campaign
 from api.models.post import Post
 from api.models.user import User
 from api.roles.user import Role
+from api.services.notification import create_notification
+from api.services.team_activity import create_team_activity
 
+
+# =========================================================
+# INTERNAL NOTIFICATION HELPERS
+# =========================================================
+
+def _create_campaign_notification(
+    user_id: int,
+    title: str,
+    description: str,
+    notification_type: str = "info",
+    campaign_id: int | None = None,
+    post_id: int | None = None,
+):
+    """
+    Create a campaign-related notification.
+
+    Notification failures are logged but do not break
+    the main campaign operation.
+    """
+
+    try:
+        notification = create_notification(
+            user_id=user_id,
+            title=title,
+            description=description,
+            notification_type=notification_type,
+            category="campaign",
+            delivery_channel="in_app",
+            related_campaign_id=campaign_id,
+            related_post_id=post_id,
+        )
+
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN NOTIFICATION HOOK EXECUTED",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> POST ID: {post_id}",
+            flush=True,
+        )
+        print(
+            f">>> TITLE: {title}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        return notification
+
+    except Exception as exc:
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN NOTIFICATION FAILED",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> POST ID: {post_id}",
+            flush=True,
+        )
+        print(
+            f">>> ERROR: {exc}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        return None
+
+
+# =========================================================
+# INTERNAL TEAM ACTIVITY HELPER
+# =========================================================
+
+def _create_campaign_team_activity(
+    user_id: int,
+    activity_type: str,
+    title: str,
+    description: str,
+    campaign_id: int | None = None,
+    post_id: int | None = None,
+):
+    """
+    Create a Team Activity entry.
+
+    Team activity failures must never break the
+    main campaign operation.
+    """
+
+    try:
+        activity = create_team_activity(
+            user_id=user_id,
+            activity_type=activity_type,
+            title=title,
+            description=description,
+            related_campaign_id=campaign_id,
+            related_post_id=post_id,
+        )
+
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN TEAM ACTIVITY HOOK EXECUTED",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> TYPE: {activity_type}",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> POST ID: {post_id}",
+            flush=True,
+        )
+        print(
+            f">>> TITLE: {title}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        return activity
+
+    except Exception as exc:
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN TEAM ACTIVITY FAILED",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> TYPE: {activity_type}",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> POST ID: {post_id}",
+            flush=True,
+        )
+        print(
+            f">>> ERROR: {exc}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        return None
+
+
+# =========================================================
+# GET ASSIGNED CLIENT
+# =========================================================
 
 def _get_assigned_client(
     db,
@@ -24,7 +225,9 @@ def _get_assigned_client(
     )
 
     if not marketing_team:
-        raise ValueError("Marketing Team user not found")
+        raise ValueError(
+            "Marketing Team user not found"
+        )
 
     assignment = (
         db.query(BusinessAssignment)
@@ -50,10 +253,16 @@ def _get_assigned_client(
     )
 
     if not client:
-        raise ValueError("Client not found")
+        raise ValueError(
+            "Client not found"
+        )
 
     return client
 
+
+# =========================================================
+# GET CAMPAIGN FOR USER
+# =========================================================
 
 def _get_campaign_for_user(
     db,
@@ -74,11 +283,14 @@ def _get_campaign_for_user(
 
     user = (
         db.query(User)
-        .filter(User.id == user_id)
+        .filter(
+            User.id == user_id
+        )
         .first()
     )
 
     if user and user.role == Role.MARKETING_TEAM:
+
         campaign = (
             db.query(Campaign)
             .join(
@@ -102,6 +314,10 @@ def _get_campaign_for_user(
     return campaign
 
 
+# =========================================================
+# GET POST FOR USER
+# =========================================================
+
 def _get_post_for_user(
     db,
     user_id: int,
@@ -121,11 +337,14 @@ def _get_post_for_user(
 
     user = (
         db.query(User)
-        .filter(User.id == user_id)
+        .filter(
+            User.id == user_id
+        )
         .first()
     )
 
     if user and user.role == Role.MARKETING_TEAM:
+
         post = (
             db.query(Post)
             .join(
@@ -149,6 +368,10 @@ def _get_post_for_user(
     return post
 
 
+# =========================================================
+# CREATE CAMPAIGN
+# =========================================================
+
 def create_campaign(
     user_id: int,
     data,
@@ -156,6 +379,7 @@ def create_campaign(
     db = SessionLocal()
 
     try:
+
         existing_campaign = (
             db.query(Campaign)
             .filter(
@@ -194,11 +418,74 @@ def create_campaign(
         db.commit()
         db.refresh(campaign)
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN CREATED",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign.id}",
+            flush=True,
+        )
+        print(
+            f">>> TITLE: {campaign.title}",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        # -------------------------------------------------
+        # CAMPAIGN CREATED NOTIFICATION
+        # -------------------------------------------------
+
+        _create_campaign_notification(
+            user_id=user_id,
+            title="Campaign Created",
+            description=(
+                f"Campaign '{campaign.title}' "
+                "was created successfully."
+            ),
+            notification_type="success",
+            campaign_id=campaign.id,
+        )
+
+        # -------------------------------------------------
+        # CAMPAIGN CREATED TEAM ACTIVITY
+        # -------------------------------------------------
+
+        _create_campaign_team_activity(
+            user_id=user_id,
+            activity_type="campaign_created",
+            title="Campaign Created",
+            description=(
+                f"Campaign '{campaign.title}' "
+                "was created."
+            ),
+            campaign_id=campaign.id,
+        )
+
         return campaign
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
 
+
+# =========================================================
+# CREATE CLIENT CAMPAIGN
+# =========================================================
 
 def create_client_campaign(
     marketing_team_id: int,
@@ -208,7 +495,8 @@ def create_client_campaign(
     db = SessionLocal()
 
     try:
-        _get_assigned_client(
+
+        client = _get_assigned_client(
             db,
             marketing_team_id,
             client_id,
@@ -252,11 +540,93 @@ def create_client_campaign(
         db.commit()
         db.refresh(campaign)
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CLIENT CAMPAIGN CREATED",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign.id}",
+            flush=True,
+        )
+        print(
+            f">>> TITLE: {campaign.title}",
+            flush=True,
+        )
+        print(
+            f">>> CLIENT ID: {client_id}",
+            flush=True,
+        )
+        print(
+            f">>> MARKETING TEAM ID: {marketing_team_id}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        # -------------------------------------------------
+        # NOTIFY CLIENT
+        # -------------------------------------------------
+
+        _create_campaign_notification(
+            user_id=client_id,
+            title="Campaign Created",
+            description=(
+                f"Campaign '{campaign.title}' "
+                "was created successfully."
+            ),
+            notification_type="success",
+            campaign_id=campaign.id,
+        )
+
+        # -------------------------------------------------
+        # NOTIFY MARKETING TEAM
+        # -------------------------------------------------
+
+        _create_campaign_notification(
+            user_id=marketing_team_id,
+            title="Client Campaign Created",
+            description=(
+                f"Campaign '{campaign.title}' "
+                "was created for your assigned client."
+            ),
+            notification_type="info",
+            campaign_id=campaign.id,
+        )
+
+        # -------------------------------------------------
+        # TEAM ACTIVITY - CAMPAIGN ASSIGNMENT
+        # -------------------------------------------------
+
+        _create_campaign_team_activity(
+            user_id=marketing_team_id,
+            activity_type="campaign_assignment",
+            title="Campaign Assigned",
+            description=(
+                f"Campaign '{campaign.title}' "
+                f"was created for client '{client.username}'."
+            ),
+            campaign_id=campaign.id,
+        )
+
         return campaign
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
 
+
+# =========================================================
+# LIST CAMPAIGNS
+# =========================================================
 
 def list_campaigns(
     user_id: int,
@@ -279,6 +649,10 @@ def list_campaigns(
         db.close()
 
 
+# =========================================================
+# LIST CLIENT CAMPAIGNS
+# =========================================================
+
 def list_client_campaigns(
     marketing_team_id: int,
     client_id: int,
@@ -286,6 +660,7 @@ def list_client_campaigns(
     db = SessionLocal()
 
     try:
+
         _get_assigned_client(
             db,
             marketing_team_id,
@@ -307,6 +682,10 @@ def list_client_campaigns(
         db.close()
 
 
+# =========================================================
+# GET CAMPAIGN
+# =========================================================
+
 def get_campaign(
     user_id: int,
     campaign_id: int,
@@ -324,6 +703,10 @@ def get_campaign(
         db.close()
 
 
+# =========================================================
+# UPDATE CAMPAIGN
+# =========================================================
+
 def update_campaign(
     user_id: int,
     campaign_id: int,
@@ -332,11 +715,15 @@ def update_campaign(
     db = SessionLocal()
 
     try:
+
         campaign = _get_campaign_for_user(
             db,
             user_id,
             campaign_id,
         )
+
+        old_title = campaign.title
+        old_status = campaign.status
 
         update_data = data.model_dump(
             exclude_unset=True
@@ -362,6 +749,7 @@ def update_campaign(
             )
 
         if "title" in update_data:
+
             existing_campaign = (
                 db.query(Campaign)
                 .filter(
@@ -391,11 +779,150 @@ def update_campaign(
         db.commit()
         db.refresh(campaign)
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN UPDATED",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign.id}",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            f">>> OLD TITLE: {old_title}",
+            flush=True,
+        )
+        print(
+            f">>> NEW TITLE: {campaign.title}",
+            flush=True,
+        )
+        print(
+            f">>> OLD STATUS: {old_status}",
+            flush=True,
+        )
+        print(
+            f">>> NEW STATUS: {campaign.status}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        # -------------------------------------------------
+        # CAMPAIGN UPDATED NOTIFICATION
+        # -------------------------------------------------
+
+        _create_campaign_notification(
+            user_id=user_id,
+            title="Campaign Updated",
+            description=(
+                f"Campaign '{campaign.title}' "
+                "was updated successfully."
+            ),
+            notification_type="info",
+            campaign_id=campaign.id,
+        )
+
+        # -------------------------------------------------
+        # CAMPAIGN UPDATED TEAM ACTIVITY
+        # -------------------------------------------------
+
+        _create_campaign_team_activity(
+            user_id=user_id,
+            activity_type="campaign_updated",
+            title="Campaign Updated",
+            description=(
+                f"Campaign '{campaign.title}' "
+                "was updated."
+            ),
+            campaign_id=campaign.id,
+        )
+
+        # -------------------------------------------------
+        # CAMPAIGN STARTED
+        # -------------------------------------------------
+
+        if (
+            old_status != campaign.status
+            and str(campaign.status).lower()
+            in {"started", "active", "running"}
+        ):
+
+            _create_campaign_notification(
+                user_id=user_id,
+                title="Campaign Started",
+                description=(
+                    f"Campaign '{campaign.title}' "
+                    "has started."
+                ),
+                notification_type="success",
+                campaign_id=campaign.id,
+            )
+
+            _create_campaign_team_activity(
+                user_id=user_id,
+                activity_type="campaign_started",
+                title="Campaign Started",
+                description=(
+                    f"Campaign '{campaign.title}' "
+                    "has started."
+                ),
+                campaign_id=campaign.id,
+            )
+
+        # -------------------------------------------------
+        # CAMPAIGN COMPLETED
+        # -------------------------------------------------
+
+        if (
+            old_status != campaign.status
+            and str(campaign.status).lower()
+            in {"completed", "complete", "finished"}
+        ):
+
+            _create_campaign_notification(
+                user_id=user_id,
+                title="Campaign Completed",
+                description=(
+                    f"Campaign '{campaign.title}' "
+                    "has been completed."
+                ),
+                notification_type="success",
+                campaign_id=campaign.id,
+            )
+
+            _create_campaign_team_activity(
+                user_id=user_id,
+                activity_type="campaign_completed",
+                title="Campaign Completed",
+                description=(
+                    f"Campaign '{campaign.title}' "
+                    "has been completed."
+                ),
+                campaign_id=campaign.id,
+            )
+
         return campaign
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
 
+
+# =========================================================
+# DELETE CAMPAIGN
+# =========================================================
 
 def delete_campaign(
     user_id: int,
@@ -404,11 +931,14 @@ def delete_campaign(
     db = SessionLocal()
 
     try:
+
         campaign = _get_campaign_for_user(
             db,
             user_id,
             campaign_id,
         )
+
+        campaign_title = campaign.title
 
         for post in campaign.posts:
             post.campaign_id = None
@@ -416,15 +946,59 @@ def delete_campaign(
         db.delete(campaign)
         db.commit()
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> CAMPAIGN DELETED",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> TITLE: {campaign_title}",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        _create_campaign_notification(
+            user_id=user_id,
+            title="Campaign Deleted",
+            description=(
+                f"Campaign '{campaign_title}' "
+                f"(ID #{campaign_id}) was deleted successfully."
+            ),
+            notification_type="info",
+            campaign_id=None,
+        )
+
         return {
             "message": (
                 f"Campaign {campaign_id} deleted successfully"
             )
         }
 
+    except Exception:
+        db.rollback()
+        raise
+
     finally:
         db.close()
 
+
+# =========================================================
+# ASSIGN POST TO CAMPAIGN
+# =========================================================
 
 def assign_post_to_campaign(
     user_id: int,
@@ -434,6 +1008,7 @@ def assign_post_to_campaign(
     db = SessionLocal()
 
     try:
+
         campaign = _get_campaign_for_user(
             db,
             user_id,
@@ -474,11 +1049,76 @@ def assign_post_to_campaign(
         db.commit()
         db.refresh(post)
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> POST ASSIGNED TO CAMPAIGN",
+            flush=True,
+        )
+        print(
+            f">>> POST ID: {post_id}",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        # -------------------------------------------------
+        # POST ADDED TO CAMPAIGN NOTIFICATION
+        # -------------------------------------------------
+
+        _create_campaign_notification(
+            user_id=user_id,
+            title="Post Added to Campaign",
+            description=(
+                f"Post #{post_id} was added to "
+                f"campaign '{campaign.title}'."
+            ),
+            notification_type="success",
+            campaign_id=campaign_id,
+            post_id=post_id,
+        )
+
+        # -------------------------------------------------
+        # POST ADDED TO CAMPAIGN TEAM ACTIVITY
+        # -------------------------------------------------
+
+        _create_campaign_team_activity(
+            user_id=user_id,
+            activity_type="post_added_to_campaign",
+            title="Post Added to Campaign",
+            description=(
+                f"Post #{post_id} was added to "
+                f"campaign '{campaign.title}'."
+            ),
+            campaign_id=campaign_id,
+            post_id=post_id,
+        )
+
         return post
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
 
+
+# =========================================================
+# REMOVE POST FROM CAMPAIGN
+# =========================================================
 
 def remove_post_from_campaign(
     user_id: int,
@@ -488,6 +1128,7 @@ def remove_post_from_campaign(
     db = SessionLocal()
 
     try:
+
         campaign = _get_campaign_for_user(
             db,
             user_id,
@@ -505,16 +1146,83 @@ def remove_post_from_campaign(
                 f"Post {post_id} is not assigned to Campaign {campaign_id}"
             )
 
+        campaign_title = campaign.title
+
         post.campaign_id = None
 
         db.commit()
         db.refresh(post)
 
+        print(
+            "=================================================",
+            flush=True,
+        )
+        print(
+            ">>> POST REMOVED FROM CAMPAIGN",
+            flush=True,
+        )
+        print(
+            f">>> POST ID: {post_id}",
+            flush=True,
+        )
+        print(
+            f">>> CAMPAIGN ID: {campaign_id}",
+            flush=True,
+        )
+        print(
+            f">>> USER ID: {user_id}",
+            flush=True,
+        )
+        print(
+            "=================================================",
+            flush=True,
+        )
+
+        # -------------------------------------------------
+        # POST REMOVED FROM CAMPAIGN NOTIFICATION
+        # -------------------------------------------------
+
+        _create_campaign_notification(
+            user_id=user_id,
+            title="Post Removed from Campaign",
+            description=(
+                f"Post #{post_id} was removed from "
+                f"campaign '{campaign_title}'."
+            ),
+            notification_type="info",
+            campaign_id=campaign_id,
+            post_id=post_id,
+        )
+
+        # -------------------------------------------------
+        # POST REMOVED FROM CAMPAIGN TEAM ACTIVITY
+        # -------------------------------------------------
+
+        _create_campaign_team_activity(
+            user_id=user_id,
+            activity_type="post_removed_from_campaign",
+            title="Post Removed from Campaign",
+            description=(
+                f"Post #{post_id} was removed from "
+                f"campaign '{campaign_title}'."
+            ),
+            campaign_id=campaign_id,
+            post_id=post_id,
+        )
+
         return post
+
+    except Exception:
+        db.rollback()
+        raise
 
     finally:
         db.close()
 
+
+# =========================================================
+# GET CAMPAIGN POSTS
+# =========================================================
 
 def get_campaign_posts(
     user_id: int,
@@ -523,6 +1231,7 @@ def get_campaign_posts(
     db = SessionLocal()
 
     try:
+
         _get_campaign_for_user(
             db,
             user_id,
@@ -542,4 +1251,3 @@ def get_campaign_posts(
 
     finally:
         db.close()
-

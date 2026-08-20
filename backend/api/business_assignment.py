@@ -1,10 +1,13 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.database.session import SessionLocal
-from api.auth.auth import get_current_user
+from api.auth.auth import get_current_user, require_role
 from api.models.user import User
 from api.models.business_assignment import BusinessAssignment
+from api.roles.user import Role
+from api.services.team_activity import create_team_activity
 
 
 router = APIRouter(
@@ -24,13 +27,13 @@ def get_db():
 
 @router.get("/marketing-teams")
 def get_marketing_teams(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.BUSINESS_USER)),
     db: Session = Depends(get_db)
 ):
     marketing_teams = (
         db.query(User)
         .filter(
-            User.role == "marketing_team"
+            User.role == Role.MARKETING_TEAM
         )
         .all()
     )
@@ -47,13 +50,14 @@ def get_marketing_teams(
 
 @router.get("/my-assignment")
 def get_my_assignment(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.BUSINESS_USER)),
     db: Session = Depends(get_db)
 ):
     business_user = (
         db.query(User)
         .filter(
-            User.username == current_user["username"]
+            User.id == current_user["id"],
+            User.role == Role.BUSINESS_USER
         )
         .first()
     )
@@ -82,8 +86,8 @@ def get_my_assignment(
     marketing_team = (
         db.query(User)
         .filter(
-            User.id
-            == assignment.marketing_team_id
+            User.id == assignment.marketing_team_id,
+            User.role == Role.MARKETING_TEAM
         )
         .first()
     )
@@ -103,13 +107,14 @@ def get_my_assignment(
 @router.post("/assign/{marketing_team_id}")
 def assign_marketing_team(
     marketing_team_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.BUSINESS_USER)),
     db: Session = Depends(get_db)
 ):
     business_user = (
         db.query(User)
         .filter(
-            User.username == current_user["username"]
+            User.id == current_user["id"],
+            User.role == Role.BUSINESS_USER
         )
         .first()
     )
@@ -124,7 +129,7 @@ def assign_marketing_team(
         db.query(User)
         .filter(
             User.id == marketing_team_id,
-            User.role == "marketing_team"
+            User.role == Role.MARKETING_TEAM
         )
         .first()
     )
@@ -157,6 +162,30 @@ def assign_marketing_team(
     db.commit()
     db.refresh(assignment)
 
+    # =========================================================
+    # MODULE 7 - TEAM ACTIVITY
+    #
+    # Create a Team Activity for the assigned Marketing Team.
+    #
+    # The activity is created only after the assignment has
+    # successfully been committed to the database.
+    #
+    # Team Activity failures are isolated inside
+    # create_team_activity() and must not break the assignment.
+    # =========================================================
+
+    create_team_activity(
+        user_id=marketing_team.id,
+        activity_type="campaign_assignment",
+        title="Marketing Team Assigned",
+        description=(
+            f"Business User "
+            f"'{business_user.username}' "
+            f"assigned Marketing Team "
+            f"'{marketing_team.username}'."
+        ),
+    )
+
     return {
         "message": "Marketing Team assigned successfully",
         "business_user_id": business_user.id,
@@ -166,14 +195,14 @@ def assign_marketing_team(
 
 @router.get("/my-clients")
 def get_my_clients(
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.MARKETING_TEAM)),
     db: Session = Depends(get_db)
 ):
     marketing_team = (
         db.query(User)
         .filter(
-            User.username == current_user["username"],
-            User.role == "marketing_team"
+            User.id == current_user["id"],
+            User.role == Role.MARKETING_TEAM
         )
         .first()
     )
@@ -199,8 +228,8 @@ def get_my_clients(
         business_user = (
             db.query(User)
             .filter(
-                User.id
-                == assignment.business_user_id
+                User.id == assignment.business_user_id,
+                User.role == Role.BUSINESS_USER
             )
             .first()
         )
@@ -219,14 +248,14 @@ def get_my_clients(
 @router.get("/client/{client_id}")
 def get_client_details(
     client_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.MARKETING_TEAM)),
     db: Session = Depends(get_db)
 ):
     marketing_team = (
         db.query(User)
         .filter(
-            User.username == current_user["username"],
-            User.role == "marketing_team"
+            User.id == current_user["id"],
+            User.role == Role.MARKETING_TEAM
         )
         .first()
     )
@@ -258,7 +287,7 @@ def get_client_details(
         db.query(User)
         .filter(
             User.id == client_id,
-            User.role == "business_user"
+            User.role == Role.BUSINESS_USER
         )
         .first()
     )

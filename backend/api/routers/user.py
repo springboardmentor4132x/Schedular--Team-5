@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -173,6 +174,82 @@ def list_all_users(
 
 
 # ============================================================
+# GET ALL BUSINESS USERS
+# ============================================================
+
+@router.get(
+    "/business-users",
+    response_model=list[UserResponse]
+)
+def list_business_users(
+    current_user=Depends(
+        require_role("administrator")
+    )
+):
+    db = SessionLocal()
+
+    try:
+        business_users = db.query(User).filter(
+            User.role == "business_user"
+        ).all()
+
+        return business_users
+
+    finally:
+        db.close()
+
+
+# ============================================================
+# GET ALL MARKETING TEAM USERS
+# ============================================================
+
+@router.get(
+    "/marketing-users",
+    response_model=list[UserResponse]
+)
+def list_marketing_users(
+    current_user=Depends(
+        require_role("administrator")
+    )
+):
+    db = SessionLocal()
+
+    try:
+        marketing_users = db.query(User).filter(
+            User.role == "marketing_team"
+        ).all()
+
+        return marketing_users
+
+    finally:
+        db.close()
+
+
+# ============================================================
+# GET ALL CONTENT CREATOR USERS
+# ============================================================
+
+@router.get(
+    "/content-creators",
+    response_model=list[UserResponse]
+)
+def list_content_creators(
+    current_user=Depends(
+        require_role("administrator")
+    )
+):
+    db = SessionLocal()
+
+    try:
+        content_creators = db.query(User).filter(
+            User.role == "content_creator"
+        ).all()
+
+        return content_creators
+
+    finally:
+        db.close()
+# ============================================================
 # DELETE USER
 # ============================================================
 
@@ -257,3 +334,5 @@ def creator_route(
         "message": "Welcome Content Creator",
         "user": current_user
     }
+
+    
