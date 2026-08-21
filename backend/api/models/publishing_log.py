@@ -37,7 +37,6 @@ class PublishingLog(Base):
         default=func.now()
     )
 
-    # This properly links back to the Post model
     post: Mapped["Post"] = relationship(  #type: ignore
         "Post",
         back_populates="logs"

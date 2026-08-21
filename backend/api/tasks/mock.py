@@ -17,7 +17,6 @@ def schedule_twitter_post(
     self,
     schedule_id: int
 ) -> Dict:
-    """Mocks publishing a tweet and updates logs & notifications."""
     db = next(get_db())
     try:
         time.sleep(2)  
@@ -39,7 +38,6 @@ def schedule_twitter_post(
         )
         db.add(new_log)
 
-        # --- NEW NOTIFICATION BLOCK ---
         new_notification = Notification(
             user_id=schedule.user_id, 
             title="Post Published",
@@ -48,7 +46,6 @@ def schedule_twitter_post(
             related_post_id=schedule.post_id
         )
         db.add(new_notification)
-        # ------------------------------
 
         db.commit()
 
@@ -67,7 +64,6 @@ def schedule_pinterest_post(
     self,
     schedule_id: int
 ) -> Dict:
-    """Mocks publishing a pin and updates logs & notifications."""
     db = next(get_db())
     try:
         time.sleep(2) 
@@ -89,7 +85,6 @@ def schedule_pinterest_post(
         )
         db.add(new_log)
 
-        # --- NEW NOTIFICATION BLOCK ---
         new_notification = Notification(
             user_id=schedule.user_id, 
             title="Pin Published",
@@ -98,7 +93,6 @@ def schedule_pinterest_post(
             related_post_id=schedule.post_id
         )
         db.add(new_notification)
-        # ------------------------------
 
         db.commit()
 

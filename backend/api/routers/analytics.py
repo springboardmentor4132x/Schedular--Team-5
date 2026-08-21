@@ -277,7 +277,6 @@ async def get_youtube_demographics(
     account_id: str,
     db: Annotated[Session, Depends(get_db)]
 ) -> Dict:
-    """Fetches audience demographics (age and gender breakdown)."""
     
     account = db.query(SocialAccount).filter(SocialAccount.account_id == account_id).first()
     if not account:
@@ -405,20 +404,7 @@ async def get_linkedin_demographics(
     return {
         "platform": "LINKEDIN",
         "report_type": "AUDIENCE_DEMOGRAPHICS",
-        "data": []# {
-        #     "seniority": [
-        #         {"level": "Entry", "percentage": 45},
-        #         {"level": "Senior", "percentage": 30},
-        #         {"level": "Manager", "percentage": 15},
-        #         {"level": "Director+", "percentage": 10}
-        #     ],
-        #     "industry": [
-        #         {"name": "Information Technology", "percentage": 60},
-        #         {"name": "Financial Services", "percentage": 20},
-        #         {"name": "Marketing", "percentage": 15},
-        #         {"name": "Other", "percentage": 5}
-        #     ]
-        # }
+        "data": []
     }
 
 # ===================

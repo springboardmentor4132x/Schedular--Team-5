@@ -125,7 +125,7 @@ def publish_to_linkedin(self, schedule_id: int):
         schedule.executed_time = datetime.now(timezone.utc)
         post.status = PostStatus.PUBLISHED
         send_mock_email(
-            user_email="yashant.thakur2007@gmail.com", # In production, this would be post.user.email
+            user_email="yashant.thakur2007@gmail.com",
             subject="Your post is live!",
             message="Your scheduled post was successfully published."
         )
