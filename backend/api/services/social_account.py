@@ -7,6 +7,7 @@ from api.exceptions.social_account import (
     SocialAccountNotFoundException,
 )
 from api.integrations import facebook, instagram
+from api.services.notification import create_notification
 
 
 DEFAULT_PERMISSIONS = {
@@ -14,20 +15,14 @@ DEFAULT_PERMISSIONS = {
         "pages_show_list",
         "pages_manage_posts",
         "pages_read_engagement",
-        
     ],
     "instagram": [
         "instagram_basic",
         "instagram_content_publish",
         "instagram_manage_insights",
-
     ],
     "linkedin": [
         "w_member_social",
-    ],
-    "twitter": [
-        "tweet.read",
-        "tweet.write",
     ],
     "twitter": [
         "tweet.read",
@@ -126,6 +121,29 @@ def create_account(
         db.commit()
         db.refresh(new_account)
 
+        # =================================================
+        # MODULE 7 - ACCOUNT CONNECTED NOTIFICATION
+        # =================================================
+
+        try:
+            create_notification(
+                user_id=user_id,
+                title="Social Media Account Connected",
+                description=(
+                    f'Your {platform} account '
+                    f'"{account_name}" was connected successfully.'
+                ),
+                notification_type="success",
+                category="account_activity",
+                delivery_channel="in_app",
+            )
+        except Exception as notification_error:
+            print(
+                ">>> ACCOUNT CONNECTION NOTIFICATION FAILED:",
+                notification_error,
+                flush=True,
+            )
+
         return new_account
 
     finally:
@@ -182,6 +200,10 @@ def create_account_from_oauth(
             .first()
         )
 
+        # =================================================
+        # EXISTING ACCOUNT - RECONNECT / REFRESH
+        # =================================================
+
         if existing_account:
             existing_account.account_name = account_name
             existing_account.access_token = access_token
@@ -200,7 +222,34 @@ def create_account_from_oauth(
             db.commit()
             db.refresh(existing_account)
 
+            # =============================================
+            # MODULE 7 - ACCOUNT RECONNECTED NOTIFICATION
+            # =============================================
+
+            try:
+                create_notification(
+                    user_id=user_id,
+                    title="Social Media Account Connected",
+                    description=(
+                        f'Your {platform} account '
+                        f'"{account_name}" is connected successfully.'
+                    ),
+                    notification_type="success",
+                    category="account_activity",
+                    delivery_channel="in_app",
+                )
+            except Exception as notification_error:
+                print(
+                    ">>> ACCOUNT RECONNECTION NOTIFICATION FAILED:",
+                    notification_error,
+                    flush=True,
+                )
+
             return existing_account
+
+        # =================================================
+        # NEW OAUTH ACCOUNT
+        # =================================================
 
         new_account = SocialAccount(
             user_id=user_id,
@@ -219,6 +268,29 @@ def create_account_from_oauth(
         db.add(new_account)
         db.commit()
         db.refresh(new_account)
+
+        # =================================================
+        # MODULE 7 - OAUTH ACCOUNT CONNECTED NOTIFICATION
+        # =================================================
+
+        try:
+            create_notification(
+                user_id=user_id,
+                title="Social Media Account Connected",
+                description=(
+                    f'Your {platform} account '
+                    f'"{account_name}" was connected successfully.'
+                ),
+                notification_type="success",
+                category="account_activity",
+                delivery_channel="in_app",
+            )
+        except Exception as notification_error:
+            print(
+                ">>> OAUTH ACCOUNT NOTIFICATION FAILED:",
+                notification_error,
+                flush=True,
+            )
 
         return new_account
 
@@ -274,12 +346,44 @@ def delete_account(
                 account_id
             )
 
+        # Save account information before changing it
+        platform = (
+            account.platform.value
+            if hasattr(account.platform, "value")
+            else str(account.platform)
+        )
+
+        account_name = account.account_name
+
         account.is_connected = False
         account.updated_at = datetime.now(
             timezone.utc
         )
 
         db.commit()
+
+        # =================================================
+        # MODULE 7 - ACCOUNT DISCONNECTED NOTIFICATION
+        # =================================================
+
+        try:
+            create_notification(
+                user_id=user_id,
+                title="Social Media Account Disconnected",
+                description=(
+                    f'Your {platform} account '
+                    f'"{account_name}" was disconnected.'
+                ),
+                notification_type="warning",
+                category="account_activity",
+                delivery_channel="in_app",
+            )
+        except Exception as notification_error:
+            print(
+                ">>> ACCOUNT DISCONNECTION NOTIFICATION FAILED:",
+                notification_error,
+                flush=True,
+            )
 
         return {
             "message": (

@@ -18,6 +18,14 @@ from api.exceptions.auth import (
     InvalidCredentialsException,
 )
 
+# ============================================================
+# ADMINISTRATOR NOTIFICATIONS
+# ============================================================
+
+from api.services.admin_notification import (
+    create_admin_new_user_notification,
+)
+
 
 # ============================================================
 # GET USERS
@@ -39,6 +47,7 @@ def get_users():
 # ============================================================
 
 def get_profile(username: str):
+
     db = SessionLocal()
 
     try:
@@ -63,6 +72,11 @@ def get_profile(username: str):
     finally:
         db.close()
 
+
+# ============================================================
+# CREATE USER / REGISTRATION
+# ============================================================
+
 def add_user(user):
 
     db = SessionLocal()
@@ -77,6 +91,10 @@ def add_user(user):
         if existing:
             raise UserAlreadyExistsException()
 
+        # --------------------------------------------------------
+        # ONLY ONE ADMINISTRATOR IS ALLOWED
+        # --------------------------------------------------------
+
         if user.role.value == "administrator":
 
             administrator_exists = db.query(User).filter(
@@ -85,6 +103,10 @@ def add_user(user):
 
             if administrator_exists:
                 raise UserAlreadyExistsException()
+
+        # --------------------------------------------------------
+        # CREATE USER
+        # --------------------------------------------------------
 
         new_user = User(
             username=user.username,
@@ -99,6 +121,60 @@ def add_user(user):
         db.commit()
 
         db.refresh(new_user)
+
+        # --------------------------------------------------------
+        # ADMINISTRATOR NOTIFICATION
+        #
+        # The notification is created only AFTER the user has
+        # been successfully saved to the database.
+        # --------------------------------------------------------
+
+        try:
+
+            create_admin_new_user_notification(
+                user_id=new_user.id,
+                user_name=(
+                    new_user.full_name
+                    or new_user.username
+                ),
+                user_role=new_user.role.value,
+            )
+
+        except Exception as notification_error:
+
+            # ----------------------------------------------------
+            # Notification failure must NEVER prevent successful
+            # user registration.
+            # ----------------------------------------------------
+
+            print(
+                "=================================================",
+                flush=True,
+            )
+
+            print(
+                ">>> ADMIN NOTIFICATION FAILED",
+                flush=True,
+            )
+
+            print(
+                f">>> ERROR: {notification_error}",
+                flush=True,
+            )
+
+            print(
+                ">>> USER REGISTRATION WILL CONTINUE",
+                flush=True,
+            )
+
+            print(
+                "=================================================",
+                flush=True,
+            )
+
+        # --------------------------------------------------------
+        # RETURN SUCCESS RESPONSE
+        # --------------------------------------------------------
 
         return {
             "message": "User created successfully",
@@ -336,9 +412,47 @@ def delete_user(user_id: int):
         if not user:
             raise UserNotFoundException()
 
+        # --------------------------------------------------------
+        # Store user details BEFORE deleting the database record
+        # --------------------------------------------------------
+
+        deleted_username = user.username
+        deleted_role = user.role.value
+
+        # --------------------------------------------------------
+        # Delete user
+        # --------------------------------------------------------
+
         db.delete(user)
 
         db.commit()
+
+        # --------------------------------------------------------
+        # Notify Administrator
+        # --------------------------------------------------------
+
+        try:
+
+            from api.services.admin_notification import (
+                create_admin_user_account_notification,
+            )
+
+            create_admin_user_account_notification(
+                action="Deleted",
+                user_name=deleted_username,
+                user_id=user_id,
+            )
+
+        except Exception as notification_error:
+
+            # Notification failure must not affect
+            # the successful user deletion.
+
+            print(
+                ">>> ADMIN DELETE NOTIFICATION FAILED:",
+                notification_error,
+                flush=True,
+            )
 
         return {
             "message": f"User {user_id} deleted successfully"
