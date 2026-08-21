@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { Globe } from 'lucide-react';
 
@@ -54,6 +55,21 @@ export const getPlatformConfig = (platform: string) => {
     color: '#6B7280',
     bgColor: 'bg-gray-500'
   };
+=======
+import { Facebook, Instagram, Twitter, Linkedin, Youtube, Globe } from 'lucide-react';
+
+export const platformConfig = {
+  facebook: { name: 'Facebook', icon: Facebook, color: '#1877F2', bgColor: 'bg-[#1877F2]' },
+  instagram: { name: 'Instagram', icon: Instagram, color: '#E1306C', bgColor: 'bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF]' },
+  twitter: { name: 'Twitter', icon: Twitter, color: '#1DA1F2', bgColor: 'bg-[#1DA1F2]' },
+  linkedin: { name: 'LinkedIn', icon: Linkedin, color: '#0A66C2', bgColor: 'bg-[#0A66C2]' },
+  youtube: { name: 'YouTube', icon: Youtube, color: '#FF0000', bgColor: 'bg-[#FF0000]' },
+  pinterest: { name: 'Pinterest', icon: Globe, color: '#E60023', bgColor: 'bg-[#E60023]' },
+};
+
+export const getPlatformConfig = (platform: string) => {
+  return (platformConfig as any)[platform] || { name: platform, icon: Globe, color: '#6B7280', bgColor: 'bg-gray-500' };
+>>>>>>> origin/shravanik-latest-scheduler
 };
 
 export const formatNumber = (num: number): string => {
@@ -112,4 +128,8 @@ export const getInitials = (name: string): string => {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> origin/shravanik-latest-scheduler

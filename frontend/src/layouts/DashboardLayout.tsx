@@ -8,6 +8,7 @@ export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
+<<<<<<< HEAD
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <Sidebar
         open={sidebarOpen}
@@ -19,6 +20,13 @@ export function DashboardLayout() {
           onMenuClick={() => setSidebarOpen(true)}
         />
 
+=======
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <Navbar onMenuClick={() => setSidebarOpen(true)} />
+>>>>>>> origin/shravanik-latest-scheduler
         <main className="flex-1 p-4 lg:p-6 max-w-[1600px] w-full mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -31,4 +39,8 @@ export function DashboardLayout() {
       </div>
     </div>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/shravanik-latest-scheduler
