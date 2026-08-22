@@ -1,667 +1,648 @@
-import { useState } from "react";
+import { useEffect, useState } from 'react';
 import {
-  Users,
-  MessageSquare,
-  CheckCircle,
-  FileText,
+  Activity,
   Calendar,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Megaphone,
+  RefreshCw,
+  UserCheck,
   UserPlus,
-  Search,
-} from "lucide-react";
+  AlertCircle,
+} from 'lucide-react';
 
-type ActivityType =
-  | "comment"
-  | "approval"
-  | "post"
-  | "schedule"
-  | "member";
+import api from '../services/api';
 
-type Activity = {
+type TeamActivity = {
   id: number;
-  user: string;
-  action: string;
-  target: string;
-  campaign: string;
-  time: string;
-  type: ActivityType;
+  activity_type?: string;
+  type?: string;
+  action?: string;
+  title?: string;
+  description?: string;
+  message?: string;
+
+  user_id?: number;
+  user_name?: string;
+  username?: string;
+  actor_name?: string;
+
+  created_at?: string;
+  timestamp?: string;
+
+  campaign_id?: number;
+  campaign_name?: string;
+
+  [key: string]: any;
 };
 
-const initialActivities: Activity[] = [
-  {
-    id: 1,
-    user: "Alex Johnson",
-    action: "commented on",
-    target: "Summer Campaign Post",
-    campaign: "Summer Sale",
-    time: "10 minutes ago",
-    type: "comment",
-  },
-  {
-    id: 2,
-    user: "Sarah Wilson",
-    action: "approved",
-    target: "Instagram Campaign",
-    campaign: "Product Launch Q3",
-    time: "35 minutes ago",
-    type: "approval",
-  },
-  {
-    id: 3,
-    user: "Mike Brown",
-    action: "created",
-    target: "New Facebook Post",
-    campaign: "Content Marketing",
-    time: "1 hour ago",
-    type: "post",
-  },
-  {
-    id: 4,
-    user: "Emily Davis",
-    action: "scheduled",
-    target: "Product Launch Post",
-    campaign: "Product Launch Q3",
-    time: "2 hours ago",
-    type: "schedule",
-  },
-  {
-    id: 5,
-    user: "John Smith",
-    action: "joined the team",
-    target: "",
-    campaign: "No Campaign",
-    time: "3 hours ago",
-    type: "member",
-  },
-];
+function getActivityType(
+  activity: TeamActivity
+): string {
+  return (
+    activity.activity_type ||
+    activity.type ||
+    activity.action ||
+    ''
+  ).toLowerCase();
+}
 
-const filterStyle: React.CSSProperties = {
-  height: "40px",
-  border: "1px solid #dbeafe",
-  borderRadius: "9px",
-  background: "#f8fafc",
-  padding: "0 12px",
-  outline: "none",
-  color: "#475569",
-  fontSize: "12px",
-  cursor: "pointer",
-};
+function getActivityTitle(
+  activity: TeamActivity
+): string {
+  if (activity.title) {
+    return activity.title;
+  }
+
+  const type = getActivityType(activity);
+
+  switch (type) {
+    case 'campaign_created':
+      return 'Campaign Created';
+
+    case 'campaign_updated':
+      return 'Campaign Updated';
+
+    case 'campaign_started':
+      return 'Campaign Started';
+
+    case 'campaign_ended':
+      return 'Campaign Ended';
+
+    case 'marketing_team_assigned':
+      return 'Marketing Team Assigned';
+
+    default:
+      return type
+        ? type
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (letter) =>
+              letter.toUpperCase()
+            )
+        : 'Team Activity';
+  }
+}
+
+function getActivityDescription(
+  activity: TeamActivity
+): string {
+  if (activity.description) {
+    return activity.description;
+  }
+
+  if (activity.message) {
+    return activity.message;
+  }
+
+  const type = getActivityType(activity);
+
+  switch (type) {
+    case 'campaign_created':
+      return 'A new campaign was created.';
+
+    case 'campaign_updated':
+      return 'A campaign was updated.';
+
+    case 'campaign_started':
+      return 'A campaign was started.';
+
+    case 'campaign_ended':
+      return 'A campaign was ended.';
+
+    case 'marketing_team_assigned':
+      return 'A marketing team was assigned to a business user.';
+
+    default:
+      return 'A team activity was recorded.';
+  }
+}
+
+function getActivityIcon(
+  activity: TeamActivity
+) {
+  const type = getActivityType(activity);
+
+  if (
+    type.includes('campaign_created') ||
+    type.includes('created')
+  ) {
+    return Megaphone;
+  }
+
+  if (
+    type.includes('campaign_updated') ||
+    type.includes('updated')
+  ) {
+    return RefreshCw;
+  }
+
+  if (
+    type.includes('campaign_started') ||
+    type.includes('started')
+  ) {
+    return CheckCircle2;
+  }
+
+  if (
+    type.includes('campaign_ended') ||
+    type.includes('ended')
+  ) {
+    return Clock;
+  }
+
+  if (
+    type.includes('marketing_team_assigned') ||
+    type.includes('assigned')
+  ) {
+    return UserCheck;
+  }
+
+  return Activity;
+}
+
+function getActivityIconStyle(
+  activity: TeamActivity
+): string {
+  const type = getActivityType(activity);
+
+  if (type.includes('created')) {
+    return 'bg-blue-50 text-blue-600';
+  }
+
+  if (type.includes('updated')) {
+    return 'bg-indigo-50 text-indigo-600';
+  }
+
+  if (type.includes('started')) {
+    return 'bg-green-50 text-green-600';
+  }
+
+  if (type.includes('ended')) {
+    return 'bg-gray-100 text-gray-600';
+  }
+
+  if (type.includes('assigned')) {
+    return 'bg-purple-50 text-purple-600';
+  }
+
+  return 'bg-gray-100 text-gray-600';
+}
+
+function getActivityDate(
+  activity: TeamActivity
+): string | null {
+  return (
+    activity.created_at ||
+    activity.timestamp ||
+    null
+  );
+}
+
+function formatDate(
+  value: string | null
+): string {
+  if (!value) {
+    return 'Unknown time';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getActorName(
+  activity: TeamActivity
+): string {
+  return (
+    activity.actor_name ||
+    activity.user_name ||
+    activity.username ||
+    'Team member'
+  );
+}
+
+function normalizeActivities(
+  data: any
+): TeamActivity[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    data &&
+    Array.isArray(data.activities)
+  ) {
+    return data.activities;
+  }
+
+  if (
+    data &&
+    Array.isArray(data.items)
+  ) {
+    return data.items;
+  }
+
+  if (
+    data &&
+    Array.isArray(data.results)
+  ) {
+    return data.results;
+  }
+
+  return [];
+}
 
 export function TeamActivityPage() {
-  const [activities] = useState<Activity[]>(initialActivities);
+  const [activities, setActivities] =
+    useState<TeamActivity[]>([]);
 
-  const [search, setSearch] = useState("");
-  const [campaignFilter, setCampaignFilter] = useState("All");
-  const [userFilter, setUserFilter] = useState("All");
-  const [activityFilter, setActivityFilter] = useState("All");
+  const [loading, setLoading] =
+    useState(true);
 
-  const filteredActivities = activities.filter((activity) => {
-    const searchText =
-      `${activity.user} ${activity.action} ${activity.target} ${activity.campaign}`.toLowerCase();
+  const [refreshing, setRefreshing] =
+    useState(false);
 
-    const matchesSearch = searchText.includes(search.toLowerCase());
+  const [error, setError] =
+    useState<string | null>(null);
 
-    const matchesCampaign =
-      campaignFilter === "All" ||
-      activity.campaign === campaignFilter;
+  const fetchActivities = async (
+    showRefreshLoader = false
+  ) => {
+    try {
+      if (showRefreshLoader) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
 
-    const matchesUser =
-      userFilter === "All" ||
-      activity.user === userFilter;
+      setError(null);
 
-    const matchesActivity =
-      activityFilter === "All" ||
-      activity.type === activityFilter;
+      const response = await api.get(
+        '/team-activities',
+        {
+          params: {
+            limit: 50,
+            offset: 0,
+          },
+        }
+      );
 
-    return (
-      matchesSearch &&
-      matchesCampaign &&
-      matchesUser &&
-      matchesActivity
-    );
-  });
+      const normalized =
+        normalizeActivities(
+          response.data
+        );
 
-  const getIcon = (type: ActivityType) => {
-    switch (type) {
-      case "comment":
-        return <MessageSquare size={20} />;
+      setActivities(normalized);
+    } catch (err: any) {
+      console.error(
+        'Failed to fetch team activities:',
+        err
+      );
 
-      case "approval":
-        return <CheckCircle size={20} />;
+      const message =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        'Unable to load team activities. Please try again.';
 
-      case "post":
-        return <FileText size={20} />;
-
-      case "schedule":
-        return <Calendar size={20} />;
-
-      case "member":
-        return <UserPlus size={20} />;
-
-      default:
-        return <Users size={20} />;
+      setError(message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const getIconStyle = (type: ActivityType) => {
-    switch (type) {
-      case "comment":
-        return "bg-blue-50 text-blue-600";
-
-      case "approval":
-        return "bg-green-50 text-green-600";
-
-      case "post":
-        return "bg-indigo-50 text-indigo-600";
-
-      case "schedule":
-        return "bg-orange-50 text-orange-600";
-
-      case "member":
-        return "bg-slate-100 text-slate-600";
-
-      default:
-        return "bg-slate-100 text-slate-600";
-    }
-  };
-
-  const getActivityLabel = (type: ActivityType) => {
-    switch (type) {
-      case "comment":
-        return "Comment";
-
-      case "approval":
-        return "Approval";
-
-      case "post":
-        return "Post";
-
-      case "schedule":
-        return "Scheduling";
-
-      case "member":
-        return "Team Member";
-
-      default:
-        return "Activity";
-    }
-  };
+  useEffect(() => {
+    fetchActivities();
+  }, []);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        color: "#1e293b",
-        padding: "24px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-        }}
-      >
-        {/* =========================
-            HEADER
-        ========================= */}
+    <div className="min-h-full bg-gray-50">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "22px",
-          }}
-        >
-          <div
-            style={{
-              width: "46px",
-              height: "46px",
-              borderRadius: "12px",
-              background: "#2563eb",
-              color: "#ffffff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 12px rgba(37,99,235,0.18)",
-            }}
-          >
-            <Users size={24} />
-          </div>
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 
           <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: "28px",
-                fontWeight: 800,
-                color: "#0f172a",
-              }}
-            >
-              Team Activity
-            </h1>
+            <div className="flex items-center gap-3">
 
-            <p
-              style={{
-                margin: "5px 0 0",
-                color: "#64748b",
-                fontSize: "13px",
-              }}
-            >
-              View recent activity from your team members.
-            </p>
-          </div>
-        </div>
-
-        {/* =========================
-            SEARCH + FILTERS
-        ========================= */}
-
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "14px",
-            padding: "16px",
-            marginBottom: "16px",
-            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-          }}
-        >
-          {/* Search */}
-
-          <div
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: "520px",
-              marginBottom: "14px",
-            }}
-          >
-            <Search
-              size={18}
-              style={{
-                position: "absolute",
-                left: "12px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#94a3b8",
-              }}
-            />
-
-            <input
-              type="text"
-              placeholder="Search team activity..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: "100%",
-                height: "42px",
-                border: "1px solid #dbeafe",
-                borderRadius: "9px",
-                background: "#f8fafc",
-                padding: "0 14px 0 40px",
-                outline: "none",
-                color: "#1e293b",
-                fontSize: "13px",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {/* Filters */}
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "9px",
-            }}
-          >
-            {/* Campaign */}
-
-            <select
-              value={campaignFilter}
-              onChange={(e) => setCampaignFilter(e.target.value)}
-              style={filterStyle}
-            >
-              <option value="All">All Campaigns</option>
-
-              <option value="Summer Sale">
-                Summer Sale
-              </option>
-
-              <option value="Product Launch Q3">
-                Product Launch Q3
-              </option>
-
-              <option value="Content Marketing">
-                Content Marketing
-              </option>
-
-              <option value="No Campaign">
-                No Campaign
-              </option>
-            </select>
-
-            {/* Users */}
-
-            <select
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-              style={filterStyle}
-            >
-              <option value="All">All Users</option>
-
-              <option value="Alex Johnson">
-                Alex Johnson
-              </option>
-
-              <option value="Sarah Wilson">
-                Sarah Wilson
-              </option>
-
-              <option value="Mike Brown">
-                Mike Brown
-              </option>
-
-              <option value="Emily Davis">
-                Emily Davis
-              </option>
-
-              <option value="John Smith">
-                John Smith
-              </option>
-            </select>
-
-            {/* Activity Type */}
-
-            <select
-              value={activityFilter}
-              onChange={(e) => setActivityFilter(e.target.value)}
-              style={filterStyle}
-            >
-              <option value="All">All Activities</option>
-
-              <option value="comment">
-                Comments
-              </option>
-
-              <option value="approval">
-                Approvals
-              </option>
-
-              <option value="post">
-                Posts
-              </option>
-
-              <option value="schedule">
-                Scheduling
-              </option>
-
-              <option value="member">
-                Team Members
-              </option>
-            </select>
-          </div>
-        </div>
-
-        {/* =========================
-            ACTIVITY CARD
-        ========================= */}
-
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: "14px",
-            overflow: "hidden",
-            boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-          }}
-        >
-          {/* Card Header */}
-
-          <div
-            style={{
-              padding: "18px 20px",
-              borderBottom: "1px solid #e2e8f0",
-              background: "#ffffff",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "9px",
-              }}
-            >
-              <Users size={19} color="#2563eb" />
-
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: "17px",
-                  fontWeight: 800,
-                  color: "#1e293b",
-                }}
-              >
-                Recent Team Activity
-              </h2>
-            </div>
-
-            <p
-              style={{
-                margin: "5px 0 0 28px",
-                fontSize: "12px",
-                color: "#64748b",
-              }}
-            >
-              {filteredActivities.length} activit
-              {filteredActivities.length === 1
-                ? "y"
-                : "ies"}{" "}
-              found
-            </p>
-          </div>
-
-          {/* =========================
-              ACTIVITY LIST
-          ========================= */}
-
-          {filteredActivities.length > 0 ? (
-            <div>
-              {filteredActivities.map((activity, index) => (
-                <div
-                  key={activity.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "14px",
-                    padding: "18px 20px",
-                    borderBottom:
-                      index !==
-                      filteredActivities.length - 1
-                        ? "1px solid #edf2f7"
-                        : "none",
-                    background: "#ffffff",
-                    transition:
-                      "background 0.2s ease",
-                  }}
-                >
-                  {/* ICON */}
-
-                  <div
-                    className={getIconStyle(activity.type)}
-                    style={{
-                      width: "44px",
-                      height: "44px",
-                      flexShrink: 0,
-                      borderRadius: "12px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {getIcon(activity.type)}
-                  </div>
-
-                  {/* CONTENT */}
-
-                  <div
-                    style={{
-                      minWidth: 0,
-                      flex: 1,
-                    }}
-                  >
-                    {/* Main Activity */}
-
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent:
-                          "space-between",
-                        alignItems:
-                          "flex-start",
-                        gap: "12px",
-                      }}
-                    >
-                      <div>
-                        <h3
-                          style={{
-                            margin: 0,
-                            fontSize: "14px",
-                            fontWeight: 700,
-                            color: "#1e293b",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: 800,
-                            }}
-                          >
-                            {activity.user}
-                          </span>{" "}
-                          {activity.action}{" "}
-                          {activity.target && (
-                            <span
-                              style={{
-                                fontWeight: 800,
-                              }}
-                            >
-                              {activity.target}
-                            </span>
-                          )}
-                        </h3>
-
-                        {/* Activity Type */}
-
-                        <span
-                          style={{
-                            display: "inline-block",
-                            marginTop: "6px",
-                            padding: "4px 8px",
-                            borderRadius: "6px",
-                            background: "#eff6ff",
-                            color: "#2563eb",
-                            fontSize: "10px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {getActivityLabel(
-                            activity.type
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* METADATA */}
-
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems:
-                          "center",
-                        flexWrap: "wrap",
-                        gap: "7px",
-                        marginTop: "9px",
-                        fontSize: "11px",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      <span>
-                        {activity.time}
-                      </span>
-
-                      <span>•</span>
-
-                      <span>
-                        Campaign:{" "}
-                        {activity.campaign}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            /* =========================
-               EMPTY STATE
-            ========================= */
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "64px 24px",
-                textAlign: "center",
-              }}
-            >
-              <div
-                style={{
-                  width: "64px",
-                  height: "64px",
-                  borderRadius: "50%",
-                  background: "#f1f5f9",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: "14px",
-                }}
-              >
-                <Users
-                  size={30}
-                  color="#94a3b8"
-                />
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-indigo-600" />
               </div>
 
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "16px",
-                  fontWeight: 800,
-                  color: "#334155",
-                }}
-              >
-                No activity found
-              </h3>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Team Activity
+                </h1>
 
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                }}
+                <p className="text-sm text-gray-500 mt-0.5">
+                  See what is happening across your team.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              fetchActivities(true)
+            }
+            disabled={
+              loading || refreshing
+            }
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {refreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+
+            {refreshing
+              ? 'Refreshing...'
+              : 'Refresh'}
+          </button>
+
+        </div>
+
+
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
+        {error && (
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+
+            <div className="flex items-start gap-3">
+
+              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-800">
+                  Unable to load activities
+                </p>
+
+                <p className="text-sm text-red-700 mt-1">
+                  {error}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  fetchActivities()
+                }
+                className="text-sm font-medium text-red-700 hover:text-red-900"
               >
-                Try changing your search or
-                filters.
+                Retry
+              </button>
+
+            </div>
+
+          </div>
+        )}
+
+
+        {/* =================================================
+            LOADING
+        ================================================= */}
+
+        {loading && (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+
+            <div className="flex flex-col items-center justify-center py-16">
+
+              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+
+              <p className="mt-3 text-sm text-gray-500">
+                Loading team activity...
               </p>
+
+            </div>
+
+          </div>
+        )}
+
+
+        {/* =================================================
+            EMPTY STATE
+        ================================================= */}
+
+        {!loading &&
+          !error &&
+          activities.length === 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+
+              <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                  <Activity className="w-7 h-7 text-gray-400" />
+                </div>
+
+                <h2 className="text-base font-semibold text-gray-900">
+                  No team activity yet
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1 max-w-md">
+                  When campaigns are created, updated,
+                  or teams are assigned, the activity
+                  will appear here.
+                </p>
+
+              </div>
+
             </div>
           )}
-        </div>
+
+
+        {/* =================================================
+            ACTIVITY FEED
+        ================================================= */}
+
+        {!loading &&
+          activities.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+              <div className="px-5 py-4 border-b border-gray-200">
+
+                <div className="flex items-center justify-between">
+
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">
+                      Recent Activity
+                    </h2>
+
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Showing {activities.length}{' '}
+                      recent activities
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <Clock className="w-3.5 h-3.5" />
+                    Latest first
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <div className="divide-y divide-gray-100">
+
+                {activities.map(
+                  (
+                    activity,
+                    index
+                  ) => {
+                    const Icon =
+                      getActivityIcon(
+                        activity
+                      );
+
+                    const iconStyle =
+                      getActivityIconStyle(
+                        activity
+                      );
+
+                    const title =
+                      getActivityTitle(
+                        activity
+                      );
+
+                    const description =
+                      getActivityDescription(
+                        activity
+                      );
+
+                    const actor =
+                      getActorName(
+                        activity
+                      );
+
+                    const date =
+                      getActivityDate(
+                        activity
+                      );
+
+                    return (
+                      <div
+                        key={
+                          activity.id ??
+                          index
+                        }
+                        className="relative px-5 py-5 hover:bg-gray-50/70 transition-colors"
+                      >
+
+                        <div className="flex gap-4">
+
+                          {/* ICON */}
+
+                          <div className="relative flex-shrink-0">
+
+                            <div
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconStyle}`}
+                            >
+                              <Icon className="w-5 h-5" />
+                            </div>
+
+                            {index <
+                              activities.length -
+                                1 && (
+                              <div className="absolute left-1/2 top-10 bottom-[-21px] w-px bg-gray-200 -translate-x-1/2" />
+                            )}
+
+                          </div>
+
+
+                          {/* CONTENT */}
+
+                          <div className="min-w-0 flex-1">
+
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
+
+                              <div>
+
+                                <h3 className="text-sm font-semibold text-gray-900">
+                                  {title}
+                                </h3>
+
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {description}
+                                </p>
+
+                              </div>
+
+                              <span className="flex-shrink-0 text-xs text-gray-400 sm:ml-4">
+                                {formatDate(
+                                  date
+                                )}
+                              </span>
+
+                            </div>
+
+
+                            {/* ACTOR / CAMPAIGN */}
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+
+                              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+
+                                <UserPlus className="w-3.5 h-3.5" />
+
+                                <span>
+                                  {actor}
+                                </span>
+
+                              </div>
+
+                              {activity.campaign_name && (
+                                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+
+                                  <Megaphone className="w-3.5 h-3.5" />
+
+                                  <span>
+                                    {
+                                      activity.campaign_name
+                                    }
+                                  </span>
+
+                                </div>
+                              )}
+
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+                    );
+                  }
+                )}
+
+              </div>
+
+            </div>
+          )}
+
       </div>
     </div>
   );
 }
+
+export default TeamActivityPage;
