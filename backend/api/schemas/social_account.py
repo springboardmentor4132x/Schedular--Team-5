@@ -1,42 +1,23 @@
-from datetime import datetime
+from pydantic import BaseModel, field_validator
 
-from pydantic import BaseModel, ConfigDict, field_validator
-
-from api.roles.social_account import Platform
-
+SUPPORTED_PLATFORMS = ["instagram", "facebook", "linkedin", "twitter", "youtube", "pinterest"]
 
 class SocialAccountBase(BaseModel):
-    platform: Platform
+    platform: str
     account_name: str
 
-    @field_validator("account_name")
+    @field_validator("platform")
     @classmethod
-    def validate_account_name(cls, value: str):
-        value = value.strip()
-
-        if not value:
-            raise ValueError("account_name cannot be empty")
-
-        if len(value) > 100:
-            raise ValueError(
-                "account_name cannot exceed 100 characters"
-            )
-
-        return value
-
+    def validate_platform(cls, value):
+        if value.lower() not in SUPPORTED_PLATFORMS:
+            raise ValueError(f"platform must be one of {SUPPORTED_PLATFORMS}")
+        return value.lower()
 
 class SocialAccountCreate(SocialAccountBase):
     pass
 
-
 class SocialAccountResponse(SocialAccountBase):
     id: int
-    account_id: str
-    is_connected: bool
-    token_expiry: datetime | None = None
-    permissions: list[str] | None = None
-    created_at: datetime
-
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+    status: str
+    
+model_config = {"from_attributes": True}

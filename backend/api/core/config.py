@@ -1,3 +1,4 @@
+
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,25 +10,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     DEBUG: bool = False
     SECRET_KEY: str
-      
-    YOUTUBE_REDIRECT_URI: str
-    YOUTUBE_CLIENT_ID: str
-    YOUTUBE_CLIENT_SECRET: str
-
-    X_CONSUMER_KEY: str
-    X_CONSUMER_SECRET: str
-    X_CALLBACK_URL: str
-      
-    PINTEREST_CLIENT_ID: str
-    PINTEREST_CLIENT_SECRET: str
-    PINTEREST_REDIRECT_URI: str
-
-    LINKEDIN_CLIENT_ID: str
-    LINKEDIN_CLIENT_SECRET: str
-    LINKEDIN_REDIRECT_URI: str
-
-    REDIS_URL: str
 
     model_config = SettingsConfigDict(case_sensitive=True)
 
 settings = Settings()
+
+# print(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+# print(settings.ALGORITHM)
+# print(settings.DATABASE_URL)
+# print(settings.DEBUG)
+# print(settings.SECRET_KEY)
